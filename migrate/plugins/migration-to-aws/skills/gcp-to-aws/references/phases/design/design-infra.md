@@ -30,71 +30,80 @@ For each PRIMARY resource in the cluster:
 
 **Definitions:** See the top of `design-refs/fast-path.md` for **`deterministic` vs `inferred` vs `billing_inferred`** and the note that **index.md “Typical AWS target” ≠ deterministic**.
 
-### Pass 2: Rubric-Based Selection
+### Pass 2: Tool-Based Selection
 
 For resources not covered by fast-path:
 
-**0. BigQuery specialist gate (mandatory — before rubric):** If `gcp_type` **starts with** `google_bigquery_` (e.g. `google_bigquery_dataset`, `google_bigquery_table`, `google_bigquery_routine`, `google_bigquery_data_transfer_config`, `google_bigquery_job`, `google_bigquery_ml_*`):
+**0. BigQuery specialist gate (mandatory — before tools):** If `gcp_type` **starts with** `google_bigquery_`:
 
-1. **Do not** recommend a specific AWS analytics or warehouse service (Athena, Redshift, Glue, EMR, Lake Formation, or a prescribed “data lake on S3” architecture).
+1. **Do not** recommend a specific AWS analytics or warehouse service (Athena, Redshift, Glue, EMR, Lake Formation, or a prescribed "data lake on S3" architecture).
 2. Set `aws_service` to **`Deferred — specialist engagement`**, `human_expertise_required` to **`true`**, `confidence` to **`inferred`**, and `aws_config` to include `specialist_engagement` (text: engage **AWS account team** and/or **data analytics migration partner** before choosing any AWS target) and `no_automated_aws_target`: `true`. Set `rubric_applied` to `["BigQuery specialist gate — no automated AWS service target"]`.
-3. **Skip** rubric steps 1–6 and the Preferred AWS target check for this resource.
+3. **Skip** the normalize/recommend steps below for this resource.
 
-4. Determine service category (via `design-refs/index.md`):
-   - `google_compute_instance` → compute
-   - `google_cloudfunctions_function` → compute
-   - `google_sql_database_instance` → database
-   - `google_storage_bucket` → storage
-   - `google_compute_network` → networking
-   - etc.
+**1. Normalize the resource:**
 
-   **Catch-all for unknown types**: If resource type not found in `index.md`:
-   - Check resource name pattern (e.g., "scheduler" → orchestration, "log" → monitoring, "metric" → monitoring)
-   - If pattern match: use that category
-   - If no pattern match: **STOP**. Output: "Unknown GCP resource type: [type]. Not in fast-path.md or index.md. Cannot auto-map. Please file an issue with this resource type."
+Call the `normalize_resource` MCP tool:
 
-5. Load rubric from corresponding `design-refs/*.md` file (e.g., `compute.md`, `database.md`)
+```
+normalize_resource(source_type=<gcp_type>, raw_config=<resource config from inventory>)
+```
 
-6. Evaluate 6 criteria (1-sentence each):
-   - **Eliminators**: Feature incompatibility (hard blocker)
-   - **Operational Model**: Managed vs self-hosted fit
-   - **User Preference**: From `preferences.json` design_constraints
-   - **Feature Parity**: GCP feature → AWS feature availability
-   - **Cluster Context**: Affinity with other resources in this cluster
-   - **Simplicity**: Prefer fewer resources / less config
+This returns:
 
-7. Select best-fit AWS service. Confidence = `inferred`
+- `canonical_workload` — which recommend tool to call (`relational-db` → `recommend_database`, `container`/`function`/`vm`/`kubernetes` → `recommend_compute`)
+- `canonical_fields` — deterministically extracted fields ready for the tool
+- `requires_inference` — fields the LLM must infer before calling (e.g., `workload_pattern`)
 
-7b. **Cloud SQL → `recommend_database` tool (mandatory):** For `google_sql_database_instance` (PostgreSQL or MySQL), **do not** apply the 6-criteria rubric manually. Instead:
+If `normalize_resource` returns an error (unknown source type): check resource name patterns (scheduler → orchestration, log → monitoring). If no pattern match: **STOP** and output error.
 
-1. **Normalize** the resource to canonical inputs:
-   - `engine`: from `database_version` (`POSTGRES_*` → `postgres`, `MYSQL_*` → `mysql`)
-   - `availability`: from `preferences.json` → `design_constraints.availability.value` (Q6 answer)
-   - `size_class`: from `settings.tier` (`db-f1-micro` → `micro`, `db-g1-small` → `small`, `db-custom-*` → `medium`)
-   - `io_workload`: from `preferences.json` → `design_constraints.db_io_workload.value` (Q13, default `low`)
-   - `traffic`: from `preferences.json` → `design_constraints.database_traffic.value` (Q12, default `steady`)
-   - `data_size_gb`: from `preferences.json` → `design_constraints.db_size.value` bucket midpoint (or `null`)
+**2. Infer required signals (LLM judgment):**
 
-2. **Call** the `recommend_database` MCP tool with these inputs.
+For each field in `requires_inference`, examine the raw resource config and determine:
 
-3. **Handle the response:**
-   - If `needs_clarification` returned → STOP. Output the reason and return to Clarify for the missing answer.
-   - If `error` returned → STOP. Output the error message.
-   - If recommendation returned → write the result directly into the resource entry in `aws-design.json`:
-     - `aws_service` ← tool's `aws_service`
-     - `aws_config` ← tool's `aws_config`
-     - `confidence` ← `"inferred"`
-     - `human_expertise_required` ← `false`
-     - `rationale` ← summarize from `rubric_applied` array
-     - `rubric_applied` ← tool's `rubric_applied`
+- `workload_pattern`: `always-on` (min_instances > 0, long-running), `event-driven` (trigger-based, no min_instances), `batch` (scheduled, startup_script), `windows-only` (Windows OS image)
+- If undetermined, pass `null` — the recommend tool will produce a best-effort answer.
 
-**All database invariants are enforced by the tool:** Q6 is the sole family selector; Q12/Q13 never override; Aurora Serverless v2 only when spiky + Aurora family; instance classes validated per engine; absent availability returns clarification (never infers Aurora).
+Also read from `preferences.json`:
+
+- `kubernetes_pref`: `design_constraints.kubernetes.value`
+- `cost_sensitivity`: `design_constraints.cost_sensitivity.value`
+- `availability`: `design_constraints.availability.value` (for database)
+- `io_workload`: `design_constraints.db_io_workload.value` (for database)
+- `traffic`: `design_constraints.database_traffic.value` (for database)
+- `data_size_gb`: `design_constraints.db_size.value` midpoint (for database)
+
+**3. Call the appropriate recommend tool:**
+
+Route by `canonical_workload`:
+
+| `canonical_workload`                                      | Tool                                                    | Key inputs                                                                                                        |
+| --------------------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `relational-db`                                           | `recommend_database`                                    | engine, availability, size_class, io_workload, traffic, data_size_gb                                              |
+| `container`, `function`, `vm`, `kubernetes`, `app-engine` | `recommend_compute`                                     | service_type, timeout_seconds, vcpu, memory_gb, gpu, runtime, workload_pattern, kubernetes_pref, cost_sensitivity |
+| `nosql-document`                                          | _(v1: DynamoDB unless >100 txn items — apply manually)_ | —                                                                                                                 |
+
+Merge `canonical_fields` + inferred signals + preference values → call the tool.
+
+**4. Handle the response:**
+
+- If `needs_clarification` → **STOP**. Output the reason and return to Clarify.
+- If `error` → **STOP**. Output the error message.
+- If `tie_break_required: true` → review `alternatives`, select based on Cluster Context (affinity with other resources in this cluster) and Simplicity (fewer resources preferred). Add rationale for your choice.
+- Otherwise → write the result directly into `aws-design.json`:
+  - `aws_service` ← tool's `aws_service`
+  - `aws_config` ← tool's `aws_config`
+  - `confidence` ← `"inferred"`
+  - `human_expertise_required` ← tool's value (or `false`)
+  - `rationale` ← summarize from `rubric_applied` array
+  - `rubric_applied` ← tool's `rubric_applied`
+
+**All invariants are enforced by the tools:** Q6 sole family selector (database), eliminators (compute), App Runner forbidden, Fargate sizing validation, engine compatibility. The LLM's role is: normalize, infer signals, call tools, break ties, write output.
 
 **IaC extraction note:** Only `single-az` and `multi-az` can be auto-extracted from Terraform (`ZONAL` / `REGIONAL`). **`multi-az-ha` and `multi-region` are never inferred from IaC** — they require explicit user intent via Q6.
 
-1. **Set `human_expertise_required`**: If the BigQuery specialist gate applied, already `true`. Otherwise set `false` unless a rubric explicitly requires it. This field is REQUIRED on every resource in the output.
+**5. Set `human_expertise_required`**: If the BigQuery specialist gate applied, already `true`. If a recommend tool returned it as `true`, keep it. Otherwise `false`. This field is REQUIRED on every resource.
 
-1. **Preferred AWS target check**: **Skip** if `aws_service` is **`Deferred — specialist engagement`**. **Skip** for Cloud SQL (the `recommend_database` tool already enforces correct family/service). Otherwise verify the selected `aws_service` aligns with the Preferred AWS Target Services table in `design-refs/fast-path.md`. If a non-preferred service is selected (e.g., App Runner for containerized workloads), substitute the preferred alternative (e.g., Fargate). Add a note to the rationale: "Preferred target: [alternative] selected for stronger ecosystem integration."
+**6. Preferred AWS target check**: **Skip** if `aws_service` is **`Deferred — specialist engagement`**. **Skip** for resources handled by recommend tools (they already enforce preferred targets). For remaining resources (networking, storage, messaging mapped via manual rubric), verify against the Preferred AWS Target Services table in `design-refs/fast-path.md`.
 
 ## Step 3: Handle Secondary Resources
 

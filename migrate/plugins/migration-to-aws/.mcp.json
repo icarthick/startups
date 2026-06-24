@@ -25,7 +25,8 @@
     "migration-tools": {
       "command": "python3",
       "args": [
-        "-m", "migration_tools.server"
+        "-m",
+        "migration_tools.server"
       ],
       "env": {
         "FASTMCP_LOG_LEVEL": "ERROR",
