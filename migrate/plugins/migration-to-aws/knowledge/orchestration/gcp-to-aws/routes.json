@@ -1,0 +1,151 @@
+{
+  "skill": "gcp-to-aws",
+  "version": "1",
+  "phases": ["discover", "clarify", "design", "estimate", "generate", "feedback"],
+  "routes": {
+    "discover": {
+      "routes": [
+        {
+          "id": "iac",
+          "trigger": { "glob": ["**/*.tf", "**/*.tfvars", "**/.terraform.lock.hcl"] },
+          "file": "references/phases/discover/discover-iac.md",
+          "produces": ["gcp-resource-inventory.json", "gcp-resource-clusters.json"]
+        },
+        {
+          "id": "app-code",
+          "trigger": { "glob": ["**/*.py", "**/*.js", "**/*.ts", "**/*.go", "**/*.java", "**/*.scala", "**/*.kt", "**/*.rs", "**/requirements.txt", "**/package.json", "**/go.mod", "**/pom.xml", "**/build.gradle"] },
+          "file": "references/phases/discover/discover-app-code.md",
+          "produces": ["ai-workload-profile.json"]
+        },
+        {
+          "id": "billing",
+          "trigger": { "glob": ["**/*billing*.csv", "**/*billing*.json", "**/*cost*.csv", "**/*cost*.json", "**/*usage*.csv", "**/*usage*.json"] },
+          "excludes_if_active": ["iac"],
+          "file": "references/phases/discover/discover-billing.md",
+          "produces": ["billing-profile.json"]
+        },
+        {
+          "id": "preview",
+          "trigger": { "always": true },
+          "file": "references/phases/discover/discover-preview.md",
+          "produces": []
+        }
+      ]
+    },
+    "clarify": {
+      "requires_phase": "discover",
+      "routes": [
+        {
+          "id": "global",
+          "trigger": { "artifact_exists": ["gcp-resource-inventory.json"] },
+          "file": "references/phases/clarify/clarify-global.md",
+          "produces": ["preferences.json"]
+        },
+        {
+          "id": "compute",
+          "trigger": { "artifact_exists": ["gcp-resource-inventory.json"] },
+          "file": "references/phases/clarify/clarify-compute.md",
+          "produces": ["preferences.json"]
+        },
+        {
+          "id": "database",
+          "trigger": { "artifact_exists": ["gcp-resource-inventory.json"] },
+          "file": "references/phases/clarify/clarify-database.md",
+          "produces": ["preferences.json"]
+        },
+        {
+          "id": "ai",
+          "trigger": { "artifact_exists": ["ai-workload-profile.json"] },
+          "file": "references/phases/clarify/clarify-ai.md",
+          "produces": ["preferences.json"]
+        },
+        {
+          "id": "ai-only",
+          "trigger": { "artifact_exists": ["ai-workload-profile.json"], "artifact_absent": ["gcp-resource-inventory.json"] },
+          "file": "references/phases/clarify/clarify-ai-only.md",
+          "produces": ["preferences.json"]
+        }
+      ]
+    },
+    "design": {
+      "requires_phase": "clarify",
+      "routes": [
+        {
+          "id": "infra",
+          "trigger": { "artifact_exists": ["gcp-resource-inventory.json", "gcp-resource-clusters.json"] },
+          "file": "references/phases/design/design-infra.md",
+          "produces": ["aws-design.json"]
+        },
+        {
+          "id": "billing",
+          "trigger": { "artifact_exists": ["billing-profile.json"], "artifact_absent": ["gcp-resource-inventory.json"] },
+          "file": "references/phases/design/design-billing.md",
+          "produces": ["aws-design-billing.json"]
+        },
+        {
+          "id": "ai",
+          "trigger": { "artifact_exists": ["ai-workload-profile.json"] },
+          "file": "references/phases/design/design-ai.md",
+          "produces": ["aws-design-ai.json"]
+        }
+      ]
+    },
+    "estimate": {
+      "requires_phase": "design",
+      "routes": [
+        {
+          "id": "infra",
+          "trigger": { "artifact_exists": ["aws-design.json"] },
+          "file": "references/phases/estimate/estimate-infra.md",
+          "produces": ["aws-estimate.json"]
+        },
+        {
+          "id": "billing",
+          "trigger": { "artifact_exists": ["aws-design-billing.json"] },
+          "file": "references/phases/estimate/estimate-billing.md",
+          "produces": ["aws-estimate-billing.json"]
+        },
+        {
+          "id": "ai",
+          "trigger": { "artifact_exists": ["aws-design-ai.json"] },
+          "file": "references/phases/estimate/estimate-ai.md",
+          "produces": ["aws-estimate-ai.json"]
+        }
+      ]
+    },
+    "generate": {
+      "requires_phase": "estimate",
+      "routes": [
+        {
+          "id": "infra",
+          "trigger": { "artifact_exists": ["aws-design.json"] },
+          "file": "references/phases/generate/generate-infra.md",
+          "produces": ["terraform/", "migration-runbook.md"]
+        },
+        {
+          "id": "ai",
+          "trigger": { "artifact_exists": ["aws-design-ai.json"] },
+          "file": "references/phases/generate/generate-ai.md",
+          "produces": ["ai-terraform/", "ai-migration-runbook.md"]
+        },
+        {
+          "id": "billing",
+          "trigger": { "artifact_exists": ["aws-design-billing.json"] },
+          "file": "references/phases/generate/generate-billing.md",
+          "produces": ["billing-report.md"]
+        }
+      ]
+    },
+    "feedback": {
+      "requires_phase": "generate",
+      "routes": [
+        {
+          "id": "default",
+          "trigger": { "always": true },
+          "file": "references/phases/feedback/feedback.md",
+          "produces": []
+        }
+      ]
+    }
+  }
+}
