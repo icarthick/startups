@@ -175,13 +175,26 @@ def normalize_resource(
         if field not in canonical_fields and field not in requires_inference:
             requires_inference.append(field)
 
+    # Map canonical_workload to the next tool to call
+    workload_to_tool = {
+        "relational-db": "recommend_database",
+        "container": "recommend_compute",
+        "function": "recommend_compute",
+        "vm": "recommend_compute",
+        "kubernetes": "recommend_compute",
+        "app-engine": "recommend_compute",
+        "nosql-document": None,  # No tool yet — manual rubric fallback
+    }
+    next_tool = workload_to_tool.get(canonical_workload)
+
     result = {
         "canonical_workload": canonical_workload,
+        "next_tool": next_tool,
         "canonical_fields": canonical_fields,
         "unmapped_fields": unmapped_fields,
         "requires_inference": requires_inference,
     }
 
-    logger.info("<<< normalize_resource returning: workload=%s, fields=%s, requires_inference=%s",
-                canonical_workload, list(canonical_fields.keys()), requires_inference)
+    logger.info("<<< normalize_resource returning: workload=%s, next_tool=%s, fields=%s, requires_inference=%s",
+                canonical_workload, next_tool, list(canonical_fields.keys()), requires_inference)
     return result

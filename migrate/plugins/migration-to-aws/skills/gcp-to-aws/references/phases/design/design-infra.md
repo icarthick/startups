@@ -78,17 +78,11 @@ Also read from `preferences.json`:
 - `traffic`: `design_constraints.database_traffic.value` (for database)
 - `data_size_gb`: `design_constraints.db_size.value` midpoint (for database)
 
-**3. Call the appropriate recommend tool:**
+**3. Call the recommend tool indicated by `next_tool`:**
 
-Route by `canonical_workload`:
+The `normalize_resource` response includes `next_tool` (e.g., `"recommend_database"` or `"recommend_compute"`). Call that tool with `canonical_fields` + inferred signals + preference values merged as inputs.
 
-| `canonical_workload`                                      | Tool                                                    | Key inputs                                                                                                        |
-| --------------------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `relational-db`                                           | `recommend_database`                                    | engine, availability, size_class, io_workload, traffic, data_size_gb                                              |
-| `container`, `function`, `vm`, `kubernetes`, `app-engine` | `recommend_compute`                                     | service_type, timeout_seconds, vcpu, memory_gb, gpu, runtime, workload_pattern, kubernetes_pref, cost_sensitivity |
-| `nosql-document`                                          | _(v1: DynamoDB unless >100 txn items — apply manually)_ | —                                                                                                                 |
-
-Merge `canonical_fields` + inferred signals + preference values → call the tool.
+If `next_tool` is `null`: no recommend tool exists for this workload type yet. Apply the manual rubric from `design-refs/<category>.md` as fallback.
 
 **4. Handle the response:**
 
@@ -103,13 +97,9 @@ Merge `canonical_fields` + inferred signals + preference values → call the too
   - `rationale` ← summarize from `rubric_applied` array
   - `rubric_applied` ← tool's `rubric_applied`
 
-**All invariants are enforced by the tools:** Q6 sole family selector (database), eliminators (compute), App Runner forbidden, Fargate sizing validation, engine compatibility. The LLM's role is: normalize, infer signals, call tools, break ties, write output.
+**IaC extraction note:** Only `single-az` and `multi-az` can be auto-extracted from Terraform (`ZONAL` / `REGIONAL`). **`multi-az-ha` and `multi-region` are never inferred from IaC** — they require explicit user intent via Q6. If `availability` is absent in preferences, pass `null` to the tool — it will return `needs_clarification`.
 
-**IaC extraction note:** Only `single-az` and `multi-az` can be auto-extracted from Terraform (`ZONAL` / `REGIONAL`). **`multi-az-ha` and `multi-region` are never inferred from IaC** — they require explicit user intent via Q6.
-
-**5. Set `human_expertise_required`**: If the BigQuery specialist gate applied, already `true`. If a recommend tool returned it as `true`, keep it. Otherwise `false`. This field is REQUIRED on every resource.
-
-**6. Preferred AWS target check**: **Skip** if `aws_service` is **`Deferred — specialist engagement`**. **Skip** for resources handled by recommend tools (they already enforce preferred targets). For remaining resources (networking, storage, messaging mapped via manual rubric), verify against the Preferred AWS Target Services table in `design-refs/fast-path.md`.
+**5.** Write `human_expertise_required` from the tool response (or `true` if Pass 1 returned deferred/skip). For resources still using manual rubric (networking, storage, messaging — no recommend tool yet), verify the selected `aws_service` against the Preferred AWS Target Services table in `design-refs/fast-path.md`.
 
 ## Step 3: Handle Secondary Resources
 
