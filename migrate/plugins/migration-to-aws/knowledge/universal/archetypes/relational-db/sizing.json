@@ -1,0 +1,56 @@
+{
+  "archetype": "relational-db",
+  "description": "Sizing rules per engine × family, plus migration tooling selection.",
+  "engine_configuration": {
+    "postgres": {
+      "aws_service_suffix": "PostgreSQL",
+      "terraform_engine": "postgres",
+      "families": {
+        "RDS": {
+          "instance_classes": { "micro": "db.t4g.micro", "small": "db.t4g.small", "medium": "db.t4g.medium", "large": "db.r6g.large", "xlarge": "db.r6g.xlarge" },
+          "supports_serverless_v2": false
+        },
+        "Aurora": {
+          "instance_classes": { "micro": "db.t4g.micro", "small": "db.t4g.small", "medium": "db.r6g.medium", "large": "db.r6g.large", "xlarge": "db.r6g.xlarge" },
+          "supports_serverless_v2": true,
+          "serverless_v2_acu": { "micro": { "min": 0.5, "max": 2 }, "small": { "min": 0.5, "max": 4 }, "medium": { "min": 1, "max": 16 }, "large": { "min": 2, "max": 64 }, "xlarge": { "min": 4, "max": 128 } }
+        }
+      }
+    },
+    "mysql": {
+      "aws_service_suffix": "MySQL",
+      "terraform_engine": "mysql",
+      "families": {
+        "RDS": {
+          "instance_classes": { "micro": "db.t4g.micro", "small": "db.t4g.small", "medium": "db.t4g.medium", "large": "db.r6g.large", "xlarge": "db.r6g.xlarge" },
+          "supports_serverless_v2": false
+        },
+        "Aurora": {
+          "instance_classes": { "micro": "db.t4g.micro", "small": "db.t4g.small", "medium": "db.r6g.medium", "large": "db.r6g.large", "xlarge": "db.r6g.xlarge" },
+          "supports_serverless_v2": true,
+          "serverless_v2_acu": { "micro": { "min": 0.5, "max": 2 }, "small": { "min": 0.5, "max": 4 }, "medium": { "min": 1, "max": 16 }, "large": { "min": 2, "max": 64 }, "xlarge": { "min": 4, "max": 128 } }
+        }
+      }
+    },
+    "sqlserver": {
+      "aws_service_suffix": "SQL Server",
+      "terraform_engine": "sqlserver-se",
+      "families": {
+        "RDS": {
+          "instance_classes": { "micro": "db.t3.micro", "small": "db.t3.small", "medium": "db.t3.medium", "large": "db.r5.large", "xlarge": "db.r5.xlarge" },
+          "supports_serverless_v2": false,
+          "notes": "No Graviton/ARM. No read replicas."
+        }
+      }
+    }
+  },
+  "migration_tooling": {
+    "selector": "data_size_gb",
+    "map": {
+      "<10": { "tool": "pg_dump", "mysql_tool": "mysqldump" },
+      "10-500": { "tool": "pgcopydb", "mysql_tool": "mydumper" },
+      ">500": { "tool": "AWS DMS", "mysql_tool": "AWS DMS" },
+      "unknown": { "tool": "pgcopydb", "mysql_tool": "mydumper" }
+    }
+  }
+}

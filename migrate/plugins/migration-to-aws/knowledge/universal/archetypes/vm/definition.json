@@ -1,0 +1,7 @@
+{
+  "archetype": "vm",
+  "description": "Full operating system workloads requiring direct OS access, specialized hardware (GPU), custom kernels, or Windows. Always-on compute that cannot be containerized or runs legacy software.",
+  "candidates": ["EC2", "Fargate"],
+  "source_examples": ["Compute Engine", "Azure VMs", "bare-metal workloads"],
+  "default": "EC2"
+}

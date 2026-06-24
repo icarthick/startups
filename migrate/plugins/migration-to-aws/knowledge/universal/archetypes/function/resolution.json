@@ -1,0 +1,7 @@
+{
+  "archetype": "function",
+  "priority_order": [
+    { "id": "always-on-switch", "type": "adjustment", "when": { "field": "workload_pattern", "op": "==", "value": "always-on" }, "if_current": "Lambda", "switch_to": "Fargate", "reason": "Always-on workloads need Fargate, not Lambda" }
+  ],
+  "default": "Lambda"
+}

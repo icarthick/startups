@@ -1,0 +1,39 @@
+{
+  "archetype": "relational-db",
+  "description": "Resolution rules for selecting RDS vs Aurora. Availability (Q6) is the sole family selector.",
+  "availability_matrix": {
+    "selector": "availability",
+    "map": {
+      "single-az": { "select": "RDS", "multi_az": false },
+      "multi-az": { "select": "RDS", "multi_az": true },
+      "multi-az-ha": { "select": "Aurora", "multi_az": true },
+      "multi-region": { "select": "Aurora", "topology": "global-database" }
+    },
+    "absent_behavior": "needs_clarification"
+  },
+  "traffic_scaling": {
+    "selector": "traffic",
+    "by_family": {
+      "RDS": {
+        "steady": { "add_replica": false, "sizing_hint": "standard" },
+        "read-heavy": { "add_replica": true, "replica_type": "read-replica", "sizing_hint": "standard" },
+        "write-heavy": { "add_replica": false, "sizing_hint": "scale-up" },
+        "spiky": { "add_replica": false, "sizing_hint": "burstable" }
+      },
+      "Aurora": {
+        "steady": { "add_replica": false, "sizing_hint": "standard" },
+        "read-heavy": { "add_replica": true, "replica_type": "aurora-reader", "sizing_hint": "standard" },
+        "write-heavy": { "add_replica": false, "sizing_hint": "scale-up", "notes": "If multi-region, consider Aurora DSQL" },
+        "spiky": { "add_replica": false, "serverless_v2": true, "sizing_hint": "serverless" }
+      }
+    }
+  },
+  "storage_rules": {
+    "selector": "io_workload",
+    "by_family": {
+      "RDS": { "low": "gp3", "medium": "gp3", "high": "io2" },
+      "Aurora": { "low": "standard", "medium": "standard", "high": "io-optimized" }
+    }
+  },
+  "default": "RDS"
+}

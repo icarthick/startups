@@ -1,0 +1,8 @@
+{
+  "archetype": "vm",
+  "entries": [
+    { "id": "fargate-gpu", "excludes": "Fargate", "fallback": "EC2", "when": { "field": "gpu", "op": "==", "value": true }, "reason": "Fargate does not support GPU" },
+    { "id": "fargate-vcpu", "excludes": "Fargate", "fallback": "EC2", "when": { "field": "vcpu", "op": ">", "value": 16 }, "reason": "Fargate max 16 vCPU" },
+    { "id": "fargate-memory", "excludes": "Fargate", "fallback": "EC2", "when": { "field": "memory_gb", "op": ">", "value": 120 }, "reason": "Fargate max 120 GB" }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "archetype": "function",
+  "description": "Short-lived, event-triggered execution units. Triggered by events (HTTP, queue, schedule, file upload) and expected to complete within minutes. Stateless, scales to zero, billed per invocation.",
+  "candidates": ["Lambda", "Fargate"],
+  "source_examples": ["Cloud Functions", "Azure Functions", "Heroku scheduled jobs (short)"],
+  "default": "Lambda"
+}

@@ -1,0 +1,43 @@
+{
+  "archetype": "container",
+  "description": "Rules for selecting the winning AWS service from the remaining candidates. Applied in priority order — first match wins.",
+  "priority_order": [
+    {
+      "id": "forced-windows",
+      "type": "force",
+      "when": { "field": "workload_pattern", "op": "==", "value": "windows-only" },
+      "select": "EC2",
+      "reason": "Lambda and Fargate have limited/no Windows support"
+    },
+    {
+      "id": "kubernetes-preference",
+      "type": "preference",
+      "field": "kubernetes_pref",
+      "map": {
+        "eks-managed": "EKS",
+        "eks-or-ecs": "EKS",
+        "ecs-fargate": "Fargate",
+        "absent": null
+      },
+      "reason": "Explicit K8s preference from Clarify"
+    },
+    {
+      "id": "always-on-not-lambda",
+      "type": "adjustment",
+      "when": { "field": "workload_pattern", "op": "==", "value": "always-on" },
+      "if_current": "Lambda",
+      "switch_to": "Fargate",
+      "reason": "Lambda cold starts unacceptable for always-on services"
+    },
+    {
+      "id": "cost-sensitivity-alternative",
+      "type": "alternative",
+      "when": { "field": "cost_sensitivity", "op": "==", "value": "high" },
+      "if_current": "EC2",
+      "suggest": "Fargate",
+      "tie_break": true,
+      "reason": "Lower operational cost (no instance management)"
+    }
+  ],
+  "default": "Fargate"
+}

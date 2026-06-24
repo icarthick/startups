@@ -1,0 +1,7 @@
+{
+  "archetype": "container",
+  "description": "Long-running or request-driven workloads packaged as containers. Includes HTTP APIs, background workers, web apps, and orchestrated container deployments. The workload runs continuously or responds to requests — it is not purely event-triggered and short-lived.",
+  "candidates": ["Fargate", "Lambda", "EC2", "EKS"],
+  "source_examples": ["Cloud Run", "GKE", "App Engine", "Heroku dynos", "Azure Container Apps"],
+  "default": "Fargate"
+}

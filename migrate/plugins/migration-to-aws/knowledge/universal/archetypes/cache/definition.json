@@ -1,0 +1,7 @@
+{
+  "archetype": "cache",
+  "description": "In-memory data stores for caching, session management, real-time leaderboards. Sub-millisecond latency.",
+  "candidates": ["ElastiCache Redis", "ElastiCache Memcached"],
+  "source_examples": ["Memorystore Redis", "Heroku Redis", "Azure Cache for Redis"],
+  "default": "ElastiCache Redis"
+}

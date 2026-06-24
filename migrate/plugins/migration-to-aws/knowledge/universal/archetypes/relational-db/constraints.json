@@ -1,0 +1,11 @@
+{
+  "archetype": "relational-db",
+  "description": "Engine × family incompatibilities that eliminate candidates.",
+  "entries": [
+    { "id": "aurora-no-sqlserver", "excludes": "Aurora", "when": { "field": "engine", "op": "==", "value": "sqlserver" }, "reason": "Aurora does not support SQL Server" },
+    { "id": "aurora-no-mariadb", "excludes": "Aurora", "when": { "field": "engine", "op": "==", "value": "mariadb" }, "reason": "Aurora does not support MariaDB" },
+    { "id": "aurora-no-oracle", "excludes": "Aurora", "when": { "field": "engine", "op": "==", "value": "oracle" }, "reason": "Aurora does not support Oracle" },
+    { "id": "oracle-needs-confirmation", "excludes": "_all", "when": { "field": "engine", "op": "==", "value": "oracle" }, "reason": "Oracle requires user confirmation — escape path to Aurora PostgreSQL via AWS SCT", "needs_clarification": "engine_choice" },
+    { "id": "mariadb-needs-confirmation", "excludes": "_all", "when": { "field": "engine", "op": "==", "value": "mariadb" }, "reason": "MariaDB requires user confirmation — may prefer MySQL", "needs_clarification": "engine_choice" }
+  ]
+}

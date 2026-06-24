@@ -1,0 +1,7 @@
+{
+  "archetype": "relational-db",
+  "description": "SQL databases: PostgreSQL, MySQL, SQL Server, MariaDB, Oracle. Structured data with ACID transactions, relational schema, SQL query interface.",
+  "candidates": ["RDS", "Aurora"],
+  "source_examples": ["Cloud SQL", "Heroku Postgres", "Azure Database for PostgreSQL/MySQL", "AlloyDB"],
+  "default": "RDS"
+}

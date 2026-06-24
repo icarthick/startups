@@ -1,0 +1,7 @@
+{
+  "archetype": "nosql-document",
+  "description": "Document or key-value stores with flexible schema. Optimized for high-throughput reads/writes on individual items. No relational joins.",
+  "candidates": ["DynamoDB"],
+  "source_examples": ["Firestore", "MongoDB Atlas"],
+  "default": "DynamoDB"
+}

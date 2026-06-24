@@ -1,0 +1,7 @@
+{
+  "archetype": "distributed-relational",
+  "description": "Globally distributed SQL databases requiring strong consistency across regions. Multi-region writes with linearizability guarantees.",
+  "candidates": ["Aurora DSQL", "Aurora PostgreSQL Global Database", "DynamoDB Global Tables"],
+  "source_examples": ["Cloud Spanner", "CockroachDB"],
+  "default": "Aurora DSQL"
+}
