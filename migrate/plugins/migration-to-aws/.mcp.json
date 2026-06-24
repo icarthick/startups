@@ -36,7 +36,8 @@
       "type": "stdio",
       "autoApprove": [
         "recommend_database",
-        "recommend_compute"
+        "recommend_compute",
+        "normalize_resource"
       ]
     }
   }

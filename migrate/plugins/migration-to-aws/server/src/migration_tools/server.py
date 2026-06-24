@@ -12,6 +12,7 @@ from fastmcp import FastMCP
 from migration_tools.knowledge import load_knowledge
 from migration_tools.tools.recommend_database import recommend_database_target
 from migration_tools.tools.recommend_compute import recommend_compute_target
+from migration_tools.tools.normalize import normalize_resource as _normalize_resource
 
 # Resolve knowledge directory — prefer env var (set by .mcp.json), fallback to relative for dev
 import os
@@ -113,6 +114,28 @@ def recommend_compute(
         workload_pattern=workload_pattern,
         kubernetes_pref=kubernetes_pref,
         cost_sensitivity=cost_sensitivity,
+        knowledge=_knowledge,
+    )
+
+
+@mcp.tool()
+def normalize_resource(
+    source_type: str,
+    raw_config: dict,
+) -> dict:
+    """Normalize a source resource to canonical model fields.
+
+    Translates source-native field names and values into the canonical model
+    that recommend_* tools consume. Returns extracted fields plus a list of
+    fields that require LLM inference.
+
+    Args:
+        source_type: Terraform resource type (e.g., google_sql_database_instance, heroku_addon:heroku-postgresql).
+        raw_config: Raw resource configuration dict from the discovery inventory.
+    """
+    return _normalize_resource(
+        source_type=source_type,
+        raw_config=raw_config,
         knowledge=_knowledge,
     )
 
