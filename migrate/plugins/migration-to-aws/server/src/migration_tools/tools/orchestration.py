@@ -244,3 +244,101 @@ def phase_router(
         "routes": final_routes,
         "skipped_routes": skipped_routes,
     }
+
+
+def phase_advance(
+    migration_dir: str,
+    project_dir: str,
+    routes_config: dict,
+) -> dict:
+    """Validate the gate for the current phase and advance to the next.
+
+    Checks that all active routes' `produces` artifacts exist. If gate passes,
+    marks current phase completed and next phase in_progress.
+
+    Args:
+        migration_dir: Path to the migration run directory.
+        project_dir: Path to the project root.
+        routes_config: The routes.json content.
+
+    Returns:
+        {"gate_passed": true, "previous_phase": str, "advanced_to": str}
+        or {"gate_passed": false, "current_phase": str, "missing_artifacts": [...]}
+        or {"error": str}
+    """
+    migration_path = Path(migration_dir) if Path(migration_dir).is_absolute() else Path(project_dir) / migration_dir
+    project_path = Path(project_dir)
+
+    # Read current status
+    status_file = migration_path / ".phase-status.json"
+    if not status_file.exists():
+        return {"error": f"No .phase-status.json in {migration_dir}"}
+
+    try:
+        status = json.loads(status_file.read_text())
+    except json.JSONDecodeError:
+        return {"error": "Invalid JSON in .phase-status.json"}
+
+    current_phase = status.get("current_phase")
+    phases_list = routes_config.get("phases", PHASE_ORDER)
+
+    if current_phase not in phases_list:
+        return {"error": f"Unknown current_phase: '{current_phase}'"}
+
+    # Determine active routes (same logic as phase_router)
+    phase_config = routes_config.get("routes", {}).get(current_phase, {})
+    active_routes = []
+    active_ids = set()
+
+    for route in phase_config.get("routes", []):
+        trigger = route.get("trigger", {})
+        if _evaluate_trigger(trigger, project_path, migration_path):
+            active_routes.append(route)
+            active_ids.add(route["id"])
+
+    # Apply excludes_if_active
+    final_routes = []
+    for route in active_routes:
+        excludes = route.get("excludes_if_active", [])
+        if not any(ex_id in active_ids for ex_id in excludes):
+            final_routes.append(route)
+
+    # Check gate: all produces from active routes must exist
+    missing = []
+    for route in final_routes:
+        for artifact in route.get("produces", []):
+            artifact_path = migration_path / artifact
+            if not artifact_path.exists():
+                missing.append(artifact)
+
+    if missing:
+        return {
+            "gate_passed": False,
+            "current_phase": current_phase,
+            "missing_artifacts": missing,
+            "message": f"Phase '{current_phase}' gate failed. Missing: {missing}",
+        }
+
+    # Gate passed — advance
+    current_idx = phases_list.index(current_phase)
+    status["phases"][current_phase] = "completed"
+
+    if current_idx + 1 < len(phases_list):
+        next_phase = phases_list[current_idx + 1]
+        status["phases"][next_phase] = "in_progress"
+        status["current_phase"] = next_phase
+    else:
+        status["current_phase"] = "complete"
+        next_phase = "complete"
+
+    status["last_updated"] = datetime.now().isoformat()
+    status_file.write_text(json.dumps(status, indent=2) + "\n")
+
+    logger.info("phase_advance: %s → %s (gate passed)", current_phase, next_phase)
+
+    return {
+        "gate_passed": True,
+        "previous_phase": current_phase,
+        "advanced_to": next_phase,
+        "artifacts_verified": [a for r in final_routes for a in r.get("produces", []) if a],
+    }

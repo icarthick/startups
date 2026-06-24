@@ -293,3 +293,99 @@ def test_router_returns_file_paths(tmp_path, routes_config):
     iac_route = next(r for r in result["routes"] if r["id"] == "iac")
     assert iac_route["file"] == "discover-iac.md"
     assert iac_route["produces"] == ["inventory.json"]
+
+
+# --- phase_advance ---
+
+from migration_tools.tools.orchestration import phase_advance
+
+
+def test_advance_gate_passes(tmp_path, routes_config):
+    """All required artifacts exist → advance to next phase."""
+    run_dir = _write_status(tmp_path, "discover")
+    (tmp_path / "main.tf").touch()  # so iac route is active
+    (run_dir / "inventory.json").touch()  # iac produces this
+
+    result = phase_advance(
+        migration_dir=str(run_dir), project_dir=str(tmp_path), routes_config=routes_config
+    )
+    assert result["gate_passed"] is True
+    assert result["previous_phase"] == "discover"
+    assert result["advanced_to"] == "clarify"
+
+    # Verify status file was updated
+    status = json.loads((run_dir / ".phase-status.json").read_text())
+    assert status["current_phase"] == "clarify"
+    assert status["phases"]["discover"] == "completed"
+    assert status["phases"]["clarify"] == "in_progress"
+
+
+def test_advance_gate_fails_missing_artifact(tmp_path, routes_config):
+    """Required artifact missing → gate fails, no advancement."""
+    run_dir = _write_status(tmp_path, "discover")
+    (tmp_path / "main.tf").touch()  # iac route active, but inventory.json not produced
+
+    result = phase_advance(
+        migration_dir=str(run_dir), project_dir=str(tmp_path), routes_config=routes_config
+    )
+    assert result["gate_passed"] is False
+    assert "inventory.json" in result["missing_artifacts"]
+
+    # Status unchanged
+    status = json.loads((run_dir / ".phase-status.json").read_text())
+    assert status["current_phase"] == "discover"
+
+
+def test_advance_skipped_routes_not_checked(tmp_path, routes_config):
+    """Billing route excluded → its produces not checked."""
+    run_dir = _write_status(tmp_path, "discover")
+    (tmp_path / "main.tf").touch()  # iac active → billing excluded
+    (tmp_path / "costs-billing.csv").touch()  # billing trigger matches but excluded
+    (run_dir / "inventory.json").touch()  # iac's artifact present
+
+    result = phase_advance(
+        migration_dir=str(run_dir), project_dir=str(tmp_path), routes_config=routes_config
+    )
+    # billing.json is NOT required because billing route was excluded
+    assert result["gate_passed"] is True
+
+
+def test_advance_no_produces_always_passes(tmp_path, routes_config):
+    """Routes with empty produces [] don't block the gate."""
+    run_dir = _write_status(tmp_path, "discover")
+    # No files → only "preview" route active (produces: [])
+
+    result = phase_advance(
+        migration_dir=str(run_dir), project_dir=str(tmp_path), routes_config=routes_config
+    )
+    assert result["gate_passed"] is True
+    assert result["advanced_to"] == "clarify"
+
+
+def test_advance_last_phase(tmp_path, routes_config):
+    """Advancing from the last defined phase → complete."""
+    # Add a feedback phase to the test config
+    routes_config["routes"]["feedback"] = {
+        "routes": [{"id": "default", "trigger": {"always": True}, "file": "feedback.md", "produces": []}]
+    }
+    routes_config["phases"] = ["discover", "clarify", "design", "feedback"]
+    run_dir = _write_status(tmp_path, "feedback", phases_override={
+        "discover": "completed", "clarify": "completed", "design": "completed", "feedback": "in_progress",
+    })
+
+    result = phase_advance(
+        migration_dir=str(run_dir), project_dir=str(tmp_path), routes_config=routes_config
+    )
+    assert result["gate_passed"] is True
+    assert result["advanced_to"] == "complete"
+
+
+def test_advance_missing_status_file(tmp_path, routes_config):
+    """No status file → error."""
+    run_dir = tmp_path / ".migration" / "0624-1430"
+    run_dir.mkdir(parents=True)
+
+    result = phase_advance(
+        migration_dir=str(run_dir), project_dir=str(tmp_path), routes_config=routes_config
+    )
+    assert "error" in result
