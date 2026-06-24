@@ -44,11 +44,7 @@ For each PRIMARY resource in the cluster:
 
 For resources not covered by fast-path:
 
-**0. BigQuery specialist gate (mandatory — before tools):** If `gcp_type` **starts with** `google_bigquery_`:
-
-1. **Do not** recommend a specific AWS analytics or warehouse service (Athena, Redshift, Glue, EMR, Lake Formation, or a prescribed "data lake on S3" architecture).
-2. Set `aws_service` to **`Deferred — specialist engagement`**, `human_expertise_required` to **`true`**, `confidence` to **`inferred`**, and `aws_config` to include `specialist_engagement` (text: engage **AWS account team** and/or **data analytics migration partner** before choosing any AWS target) and `no_automated_aws_target`: `true`. Set `rubric_applied` to `["BigQuery specialist gate — no automated AWS service target"]`.
-3. **Skip** the normalize/recommend steps below for this resource.
+**Note:** BigQuery specialist gate, skip mappings (auth/monitoring/logging), and direct mappings are all handled by `lookup_direct_mapping` in Pass 1. If a resource reaches Pass 2, it has already passed those checks. No inline gate logic needed here.
 
 **1. Normalize the resource:**
 

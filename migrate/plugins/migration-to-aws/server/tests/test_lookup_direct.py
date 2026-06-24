@@ -20,6 +20,7 @@ def knowledge():
 def test_gcs_hit(knowledge):
     result = lookup_direct_mapping("google_storage_bucket", knowledge=knowledge)
     assert result["hit"] is True
+    assert result["type"] == "direct"
     assert result["aws_service"] == "S3"
     assert result["confidence"] == "deterministic"
 
@@ -96,3 +97,52 @@ def test_compute_instance_miss(knowledge):
 def test_unknown_type_miss(knowledge):
     result = lookup_direct_mapping("google_unknown_thing", knowledge=knowledge)
     assert result["hit"] is False
+
+
+# --- Specialist gate (deferred) ---
+
+def test_bigquery_dataset_deferred(knowledge):
+    """google_bigquery_dataset → deferred specialist engagement."""
+    result = lookup_direct_mapping("google_bigquery_dataset", knowledge=knowledge)
+    assert result["hit"] is True
+    assert result["type"] == "deferred"
+    assert result["aws_service"] == "Deferred — specialist engagement"
+    assert result["human_expertise_required"] is True
+
+
+def test_bigquery_table_deferred(knowledge):
+    """google_bigquery_table → deferred."""
+    result = lookup_direct_mapping("google_bigquery_table", knowledge=knowledge)
+    assert result["hit"] is True
+    assert result["type"] == "deferred"
+
+
+def test_bigquery_ml_deferred(knowledge):
+    """google_bigquery_ml_model → deferred (prefix match)."""
+    result = lookup_direct_mapping("google_bigquery_ml_model", knowledge=knowledge)
+    assert result["hit"] is True
+    assert result["type"] == "deferred"
+
+
+# --- Skip mappings ---
+
+def test_identity_platform_skip(knowledge):
+    """google_identity_platform_* → skip (auth provider, keep existing)."""
+    result = lookup_direct_mapping("google_identity_platform_config", knowledge=knowledge)
+    assert result["hit"] is True
+    assert result["type"] == "skip"
+    assert "auth" in result["reason"].lower()
+
+
+def test_monitoring_skip(knowledge):
+    """google_monitoring_alert → skip (wildcard match)."""
+    result = lookup_direct_mapping("google_monitoring_alert_policy", knowledge=knowledge)
+    assert result["hit"] is True
+    assert result["type"] == "skip"
+
+
+def test_logging_skip(knowledge):
+    """google_logging_metric → skip."""
+    result = lookup_direct_mapping("google_logging_metric", knowledge=knowledge)
+    assert result["hit"] is True
+    assert result["type"] == "skip"
