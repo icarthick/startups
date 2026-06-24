@@ -11,10 +11,10 @@
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["source_type", "canonical_workload", "field_map"],
+        "required": ["source_type", "archetype", "field_map"],
         "properties": {
           "source_type": { "type": "string" },
-          "canonical_workload": { "type": "string" },
+          "archetype": { "type": "string" },
           "field_map": {
             "type": "object",
             "additionalProperties": {

@@ -68,7 +68,7 @@ def normalize_resource(
         knowledge: Pre-loaded knowledge store.
 
     Returns:
-        canonical_workload, canonical_fields, unmapped_fields, requires_inference.
+        archetype, canonical_fields, unmapped_fields, requires_inference.
     """
     logger.info(">>> normalize_resource called: source_type=%s", source_type)
     logger.debug("  raw_config keys: %s", list(raw_config.keys()) if raw_config else [])
@@ -88,20 +88,20 @@ def normalize_resource(
     if norm_entry is None:
         logger.warning("  No normalization entry found for source_type=%s", source_type)
         return {
-            "canonical_workload": None,
+            "archetype": None,
             "canonical_fields": {},
             "unmapped_fields": list(raw_config.keys()) if raw_config else [],
             "requires_inference": [],
             "error": f"No normalization entry for source_type '{source_type}'"
         }
 
-    canonical_workload = norm_entry["canonical_workload"]
+    archetype = norm_entry["archetype"]
     field_map = norm_entry.get("field_map", {})
     canonical_fields = {}
     requires_inference = []
 
-    logger.info("  Found entry: canonical_workload=%s, field_map keys=%s",
-                canonical_workload, list(field_map.keys()))
+    logger.info("  Found entry: archetype=%s, field_map keys=%s",
+                archetype, list(field_map.keys()))
 
     for canonical_name, mapping in field_map.items():
         if isinstance(mapping, str):
@@ -162,7 +162,7 @@ def normalize_resource(
 
     unmapped_fields = [k for k in (raw_config or {}).keys() if k not in referenced_paths]
 
-    # Add known inference-required fields based on canonical_workload
+    # Add known inference-required fields based on archetype
     workload_inference_fields = {
         "container": ["workload_pattern"],
         "function": ["workload_pattern"],
@@ -171,11 +171,11 @@ def normalize_resource(
         "relational-db": [],
         "nosql-document": [],
     }
-    for field in workload_inference_fields.get(canonical_workload, []):
+    for field in workload_inference_fields.get(archetype, []):
         if field not in canonical_fields and field not in requires_inference:
             requires_inference.append(field)
 
-    # Map canonical_workload to the next tool to call
+    # Map archetype to the next tool to call
     workload_to_tool = {
         "relational-db": "recommend_database",
         "container": "recommend_compute",
@@ -185,10 +185,10 @@ def normalize_resource(
         "app-engine": "recommend_compute",
         "nosql-document": None,  # No tool yet — manual rubric fallback
     }
-    next_tool = workload_to_tool.get(canonical_workload)
+    next_tool = workload_to_tool.get(archetype)
 
     result = {
-        "canonical_workload": canonical_workload,
+        "archetype": archetype,
         "next_tool": next_tool,
         "canonical_fields": canonical_fields,
         "unmapped_fields": unmapped_fields,
@@ -196,5 +196,5 @@ def normalize_resource(
     }
 
     logger.info("<<< normalize_resource returning: workload=%s, next_tool=%s, fields=%s, requires_inference=%s",
-                canonical_workload, next_tool, list(canonical_fields.keys()), requires_inference)
+                archetype, next_tool, list(canonical_fields.keys()), requires_inference)
     return result

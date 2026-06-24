@@ -27,7 +27,7 @@ def test_cloud_sql_postgres(knowledge):
         },
         knowledge=knowledge,
     )
-    assert result["canonical_workload"] == "relational-db"
+    assert result["archetype"] == "relational-db"
     assert result["canonical_fields"]["engine"] == "postgres"
     assert result["canonical_fields"]["availability"] == "multi-az"
     assert result["canonical_fields"]["size_class"] == "micro"
@@ -92,7 +92,7 @@ def test_cloud_run(knowledge):
         },
         knowledge=knowledge,
     )
-    assert result["canonical_workload"] == "container"
+    assert result["archetype"] == "container"
     assert result["canonical_fields"]["service_type"] == "container"
     assert result["canonical_fields"]["timeout_seconds"] == 300
     assert "workload_pattern" in result["requires_inference"]
@@ -107,7 +107,7 @@ def test_compute_engine_e2_medium(knowledge):
         raw_config={"machine_type": "e2-medium"},
         knowledge=knowledge,
     )
-    assert result["canonical_workload"] == "vm"
+    assert result["archetype"] == "vm"
     assert result["canonical_fields"]["service_type"] == "vm"
     assert result["canonical_fields"]["vcpu"] == 2
     assert result["canonical_fields"]["memory_gb"] == 4
@@ -133,7 +133,7 @@ def test_gke(knowledge):
         raw_config={"name": "my-cluster"},
         knowledge=knowledge,
     )
-    assert result["canonical_workload"] == "kubernetes"
+    assert result["archetype"] == "kubernetes"
     assert result["canonical_fields"]["service_type"] == "kubernetes"
 
 
@@ -146,7 +146,7 @@ def test_firestore(knowledge):
         raw_config={"name": "my-db", "type": "FIRESTORE_NATIVE"},
         knowledge=knowledge,
     )
-    assert result["canonical_workload"] == "nosql-document"
+    assert result["archetype"] == "nosql-document"
 
 
 # --- Unknown source type ---
@@ -158,5 +158,5 @@ def test_unknown_source_type(knowledge):
         raw_config={"foo": "bar"},
         knowledge=knowledge,
     )
-    assert result["canonical_workload"] is None
+    assert result["archetype"] is None
     assert "error" in result

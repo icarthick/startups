@@ -7,7 +7,7 @@
   "entries": [
     {
       "source_type": "google_sql_database_instance",
-      "canonical_workload": "relational-db",
+      "archetype": "relational-db",
       "field_map": {
         "engine": {
           "from": "database_version",
@@ -26,7 +26,7 @@
     },
     {
       "source_type": "google_cloud_run_service",
-      "canonical_workload": "container",
+      "archetype": "container",
       "field_map": {
         "service_type": "container",
         "timeout_seconds": { "from": "template.spec.timeout_seconds", "transform": {} },
@@ -36,7 +36,7 @@
     },
     {
       "source_type": "google_cloud_run_v2_service",
-      "canonical_workload": "container",
+      "archetype": "container",
       "field_map": {
         "service_type": "container",
         "timeout_seconds": { "from": "template.timeout", "transform": {} },
@@ -47,7 +47,7 @@
     },
     {
       "source_type": "google_cloudfunctions_function",
-      "canonical_workload": "function",
+      "archetype": "function",
       "field_map": {
         "service_type": "function",
         "timeout_seconds": { "from": "timeout", "transform": {} },
@@ -61,7 +61,7 @@
     },
     {
       "source_type": "google_cloudfunctions2_function",
-      "canonical_workload": "function",
+      "archetype": "function",
       "field_map": {
         "service_type": "function",
         "timeout_seconds": { "from": "build_config.service_config.timeout_seconds", "transform": {} },
@@ -73,7 +73,7 @@
     },
     {
       "source_type": "google_app_engine_application",
-      "canonical_workload": "app-engine",
+      "archetype": "app-engine",
       "field_map": {
         "service_type": "app-engine"
       },
@@ -81,7 +81,7 @@
     },
     {
       "source_type": "google_compute_instance",
-      "canonical_workload": "vm",
+      "archetype": "vm",
       "field_map": {
         "service_type": "vm",
         "vcpu": {
@@ -109,7 +109,7 @@
     },
     {
       "source_type": "google_container_cluster",
-      "canonical_workload": "kubernetes",
+      "archetype": "kubernetes",
       "field_map": {
         "service_type": "kubernetes"
       },
@@ -117,7 +117,7 @@
     },
     {
       "source_type": "google_firestore_database",
-      "canonical_workload": "nosql-document",
+      "archetype": "nosql-document",
       "field_map": {
         "service_type": "nosql-document"
       }
