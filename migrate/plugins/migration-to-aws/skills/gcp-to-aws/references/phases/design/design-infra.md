@@ -60,7 +60,9 @@ This returns:
 - `canonical_fields` — deterministically extracted fields ready for the tool
 - `requires_inference` — fields the LLM must infer before calling (e.g., `workload_pattern`)
 
-If `normalize_resource` returns an error (unknown source type): check resource name patterns (scheduler → orchestration, log → monitoring). If no pattern match: **STOP** and output error.
+If `normalize_resource` returns an error (unknown source type) or `next_tool` is null (no recommend tool for this archetype):
+
+> Use your knowledge of AWS services to select the best fit. Consider feature compatibility with the source, affinity with other resources in this cluster, and prefer simpler architectures. Set `confidence: "inferred"` and add a warning: "Resource mapped without tool validation — review recommended."
 
 **2. Infer required signals (LLM judgment):**
 

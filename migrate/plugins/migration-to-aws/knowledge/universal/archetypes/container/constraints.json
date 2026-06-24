@@ -2,11 +2,46 @@
   "archetype": "container",
   "description": "Hard limits that eliminate AWS candidates from consideration for container workloads.",
   "entries": [
-    { "id": "lambda-15min", "excludes": "Lambda", "fallback": "Fargate", "when": { "field": "timeout_seconds", "op": ">", "value": 900 }, "reason": "Lambda max execution time is 15 minutes (900s)" },
-    { "id": "fargate-vcpu-limit", "excludes": "Fargate", "fallback": "EC2", "when": { "field": "vcpu", "op": ">", "value": 16 }, "reason": "Fargate max 16 vCPU per task" },
-    { "id": "fargate-memory-limit", "excludes": "Fargate", "fallback": "EC2", "when": { "field": "memory_gb", "op": ">", "value": 120 }, "reason": "Fargate max 120 GB memory per task" },
-    { "id": "fargate-gpu", "excludes": "Fargate", "fallback": "EC2", "when": { "field": "gpu", "op": "==", "value": true }, "reason": "Fargate does not support GPU workloads" },
-    { "id": "lambda-python27", "excludes": "Lambda", "fallback": "Fargate", "when": { "field": "runtime", "op": "contains", "value": "python2" }, "reason": "Lambda does not support Python 2.7" },
-    { "id": "apprunner-closed", "excludes": "App Runner", "when": "always", "reason": "App Runner closed to new customers April 30, 2026" }
+    {
+      "id": "lambda-15min",
+      "excludes": "Lambda",
+      "fallback": "Fargate",
+      "when": { "field": "timeout_seconds", "op": ">", "value": 900 },
+      "reason": "Lambda max execution time is 15 minutes (900s)"
+    },
+    {
+      "id": "fargate-vcpu-limit",
+      "excludes": "Fargate",
+      "fallback": "EC2",
+      "when": { "field": "vcpu", "op": ">", "value": 16 },
+      "reason": "Fargate max 16 vCPU per task"
+    },
+    {
+      "id": "fargate-memory-limit",
+      "excludes": "Fargate",
+      "fallback": "EC2",
+      "when": { "field": "memory_gb", "op": ">", "value": 120 },
+      "reason": "Fargate max 120 GB memory per task"
+    },
+    {
+      "id": "fargate-gpu",
+      "excludes": "Fargate",
+      "fallback": "EC2",
+      "when": { "field": "gpu", "op": "==", "value": true },
+      "reason": "Fargate does not support GPU workloads"
+    },
+    {
+      "id": "lambda-python27",
+      "excludes": "Lambda",
+      "fallback": "Fargate",
+      "when": { "field": "runtime", "op": "contains", "value": "python2" },
+      "reason": "Lambda does not support Python 2.7"
+    },
+    {
+      "id": "apprunner-closed",
+      "excludes": "App Runner",
+      "when": "always",
+      "reason": "App Runner closed to new customers April 30, 2026"
+    }
   ]
 }

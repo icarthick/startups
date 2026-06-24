@@ -23,7 +23,11 @@
       "Aurora": {
         "steady": { "add_replica": false, "sizing_hint": "standard" },
         "read-heavy": { "add_replica": true, "replica_type": "aurora-reader", "sizing_hint": "standard" },
-        "write-heavy": { "add_replica": false, "sizing_hint": "scale-up", "notes": "If multi-region, consider Aurora DSQL" },
+        "write-heavy": {
+          "add_replica": false,
+          "sizing_hint": "scale-up",
+          "notes": "If multi-region, consider Aurora DSQL"
+        },
         "spiky": { "add_replica": false, "serverless_v2": true, "sizing_hint": "serverless" }
       }
     }

@@ -226,41 +226,131 @@ def recommend_compute_target(
     logger.info("  input: service_type=%s, timeout=%s, vcpu=%s, memory_gb=%s, gpu=%s, runtime=%s, workload_pattern=%s, k8s_pref=%s, cost_sensitivity=%s",
                 service_type, timeout_seconds, vcpu, memory_gb, gpu, runtime, workload_pattern, kubernetes_pref, cost_sensitivity)
 
-    config = knowledge["universal/compute/service-configuration"]
-    eliminators = knowledge["universal/eliminators"]["entries"]
+    # ── Load archetype knowledge ─────────────────────────────────────────────
+    archetype = service_type
+    valid_types = {"container", "function", "vm"}
+    if archetype not in valid_types:
+        return {"error": f"Unknown service_type: '{archetype}'. Valid: {list(valid_types)}"}
+
+    arch_base = f"universal/archetypes/{archetype}"
+    definition = knowledge.get(f"{arch_base}/definition", {})
+    constraints_entries = knowledge.get(f"{arch_base}/constraints", {}).get("entries", [])
+    resolution = knowledge.get(f"{arch_base}/resolution", {})
+    sizing_data = knowledge.get(f"{arch_base}/sizing", {})
+
     rubric_applied = []
+    default_target = definition.get("default", "Fargate")
 
-    # Validate service_type
-    if service_type not in config["default_targets"]:
-        return {"error": f"Unknown service_type: '{service_type}'. Valid: {list(config['default_targets'].keys())}"}
-
-    # ── 1. ELIMINATE ──────────────────────────────────────────────────────────
-    excluded, elim_applied = _eliminate(timeout_seconds, vcpu, memory_gb, gpu, runtime, eliminators)
+    # ── 1. ELIMINATE → CONSTRAIN ─────────────────────────────────────────────
+    excluded, elim_applied = _eliminate(timeout_seconds, vcpu, memory_gb, gpu, runtime, constraints_entries)
     rubric_applied.extend(elim_applied)
-    logger.info("  ELIMINATE: excluded=%s", excluded)
+    logger.info("  CONSTRAIN: excluded=%s", excluded)
 
-    # ── 2. DEFAULT ────────────────────────────────────────────────────────────
-    target, default_reason = _default_target(service_type, config)
-    rubric_applied.append(default_reason)
-    logger.info("  DEFAULT: %s", target)
+    # ── 2. DEFAULT → DISCOVER + initial target ────────────────────────────────
+    target = default_target
+    rubric_applied.append(f"archetype={archetype} → default {target}")
+    logger.info("  DISCOVER+DEFAULT: %s", target)
 
-    # ── 3. PREFER ─────────────────────────────────────────────────────────────
-    target, pref_applied, alternatives, tie_break_required = _apply_preferences(
-        target, workload_pattern, cost_sensitivity, kubernetes_pref, excluded, config
-    )
-    rubric_applied.extend(pref_applied)
-    logger.info("  PREFER: target=%s, alternatives=%s", target, [a["aws_service"] for a in alternatives])
+    # ── 3. PREFER → RESOLVE ───────────────────────────────────────────────────
+    # Build resolution config from archetype resolution.json priority_order
+    k8s_map = {}
+    workload_adj = {}
+    cost_adj = {}
+    for rule in resolution.get("priority_order", []):
+        if rule.get("id") == "kubernetes-preference" and rule.get("map"):
+            k8s_map = rule["map"]
+        elif rule.get("type") == "adjustment":
+            pattern = rule.get("when", {}).get("value")
+            if pattern:
+                workload_adj[pattern] = rule
+        elif rule.get("type") == "force":
+            pattern = rule.get("when", {}).get("value")
+            if pattern:
+                workload_adj[pattern] = rule
+        elif rule.get("type") == "alternative":
+            sense = rule.get("when", {}).get("value")
+            if sense:
+                cost_adj[sense] = rule
 
-    # ── 4. VALIDATE ───────────────────────────────────────────────────────────
-    target, validate_reason = _validate_target(target, excluded, eliminators)
-    if validate_reason:
-        rubric_applied.append(validate_reason)
-    logger.info("  VALIDATE: target=%s (fallback applied: %s)", target, validate_reason is not None)
+    # Apply kubernetes preference
+    if kubernetes_pref and kubernetes_pref in k8s_map:
+        k8s_target = k8s_map[kubernetes_pref]
+        if k8s_target and k8s_target not in excluded:
+            target = k8s_target
+            rubric_applied.append(f"kubernetes_pref={kubernetes_pref} → {target}")
+            logger.info("  RESOLVE (k8s pref): %s", target)
 
-    # ── 5. SIZE ───────────────────────────────────────────────────────────────
-    aws_config, size_reason = _size(target, vcpu, memory_gb, timeout_seconds, config)
-    rubric_applied.append(size_reason)
-    logger.info("  SIZE: %s", size_reason)
+    # Apply workload pattern
+    if workload_pattern and workload_pattern in workload_adj:
+        rule = workload_adj[workload_pattern]
+        if rule.get("type") == "force" and rule.get("select"):
+            target = rule["select"]
+            rubric_applied.append(f"workload_pattern={workload_pattern} → force {target}")
+        elif rule.get("if_current") == target and rule.get("switch_to"):
+            old = target
+            target = rule["switch_to"]
+            rubric_applied.append(f"workload_pattern={workload_pattern}: {old} → {target}")
+
+    # Apply cost sensitivity
+    alternatives = []
+    tie_break_required = False
+    if cost_sensitivity and cost_sensitivity in cost_adj:
+        rule = cost_adj[cost_sensitivity]
+        if rule.get("if_current") == target and rule.get("suggest"):
+            alt = rule["suggest"]
+            if alt not in excluded:
+                alternatives.append({"aws_service": alt, "reason": rule.get("reason", "")})
+                tie_break_required = rule.get("tie_break", False)
+
+    logger.info("  RESOLVE: target=%s, alternatives=%s", target, [a["aws_service"] for a in alternatives])
+
+    # ── 4. VERIFY ─────────────────────────────────────────────────────────────
+    if target in excluded:
+        # Find fallback
+        for entry in constraints_entries:
+            if entry.get("excludes") == target and entry.get("fallback"):
+                fallback = entry["fallback"]
+                if fallback not in excluded:
+                    rubric_applied.append(f"{target} excluded → fallback {fallback}")
+                    target = fallback
+                    break
+    logger.info("  VERIFY: target=%s", target)
+
+    # ── 5. CONFIGURE ──────────────────────────────────────────────────────────
+    aws_config = {"region": "us-east-1"}
+
+    if target == "Fargate":
+        combos = sizing_data.get("fargate", {}).get("valid_combos", [])
+        snapped = _snap_to_fargate(vcpu, memory_gb, combos)
+        if snapped is None:
+            target = "EC2"
+            rubric_applied.append("Fargate sizing exceeded limits → EC2")
+            entries = sizing_data.get("ec2", {}).get("instance_mapping", [])
+            aws_config["instance_type"] = _find_ec2_instance(vcpu, memory_gb, entries)
+        else:
+            aws_config["cpu"] = snapped["cpu"]
+            aws_config["memory_gb"] = snapped["memory_gb"]
+            rubric_applied.append(f"Fargate: {snapped['cpu']} vCPU / {snapped['memory_gb']} GB")
+
+    elif target == "EC2":
+        entries = sizing_data.get("ec2", {}).get("instance_mapping", [])
+        instance_type = _find_ec2_instance(vcpu, memory_gb, entries)
+        aws_config["instance_type"] = instance_type
+        rubric_applied.append(f"EC2: {instance_type}")
+
+    elif target == "Lambda":
+        lambda_cfg = sizing_data.get("lambda", {})
+        memory_mb = min(max(int(memory_gb * 1024), lambda_cfg.get("memory_min_mb", 128)), lambda_cfg.get("memory_max_mb", 10240))
+        aws_config["memory_mb"] = memory_mb
+        aws_config["timeout_seconds"] = min(timeout_seconds or 60, lambda_cfg.get("timeout_max_seconds", 900))
+        rubric_applied.append(f"Lambda: {memory_mb}MB, {aws_config['timeout_seconds']}s")
+
+    elif target == "EKS":
+        aws_config["managed_node_group"] = True
+        aws_config["notes"] = "Node pool sizing deferred to Generate phase"
+        rubric_applied.append("EKS: sizing deferred to Generate")
+
+    logger.info("  CONFIGURE: %s → %s", target, aws_config)
 
     # ── Assemble result ───────────────────────────────────────────────────────
     result = {

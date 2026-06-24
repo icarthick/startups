@@ -1,7 +1,19 @@
 {
   "archetype": "function",
   "entries": [
-    { "id": "lambda-15min", "excludes": "Lambda", "fallback": "Fargate", "when": { "field": "timeout_seconds", "op": ">", "value": 900 }, "reason": "Lambda max 15 minutes" },
-    { "id": "lambda-python27", "excludes": "Lambda", "fallback": "Fargate", "when": { "field": "runtime", "op": "contains", "value": "python2" }, "reason": "Lambda does not support Python 2.7" }
+    {
+      "id": "lambda-15min",
+      "excludes": "Lambda",
+      "fallback": "Fargate",
+      "when": { "field": "timeout_seconds", "op": ">", "value": 900 },
+      "reason": "Lambda max 15 minutes"
+    },
+    {
+      "id": "lambda-python27",
+      "excludes": "Lambda",
+      "fallback": "Fargate",
+      "when": { "field": "runtime", "op": "contains", "value": "python2" },
+      "reason": "Lambda does not support Python 2.7"
+    }
   ]
 }

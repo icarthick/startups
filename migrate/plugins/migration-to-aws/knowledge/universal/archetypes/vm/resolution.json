@@ -1,8 +1,22 @@
 {
   "archetype": "vm",
   "priority_order": [
-    { "id": "forced-windows", "type": "force", "when": { "field": "workload_pattern", "op": "==", "value": "windows-only" }, "select": "EC2", "reason": "Windows requires EC2" },
-    { "id": "cost-sensitivity", "type": "alternative", "when": { "field": "cost_sensitivity", "op": "==", "value": "high" }, "if_current": "EC2", "suggest": "Fargate", "tie_break": true, "reason": "Fargate has lower ops cost if containerizable" }
+    {
+      "id": "forced-windows",
+      "type": "force",
+      "when": { "field": "workload_pattern", "op": "==", "value": "windows-only" },
+      "select": "EC2",
+      "reason": "Windows requires EC2"
+    },
+    {
+      "id": "cost-sensitivity",
+      "type": "alternative",
+      "when": { "field": "cost_sensitivity", "op": "==", "value": "high" },
+      "if_current": "EC2",
+      "suggest": "Fargate",
+      "tie_break": true,
+      "reason": "Fargate has lower ops cost if containerizable"
+    }
   ],
   "default": "EC2"
 }

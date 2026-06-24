@@ -7,13 +7,31 @@
       "terraform_engine": "postgres",
       "families": {
         "RDS": {
-          "instance_classes": { "micro": "db.t4g.micro", "small": "db.t4g.small", "medium": "db.t4g.medium", "large": "db.r6g.large", "xlarge": "db.r6g.xlarge" },
+          "instance_classes": {
+            "micro": "db.t4g.micro",
+            "small": "db.t4g.small",
+            "medium": "db.t4g.medium",
+            "large": "db.r6g.large",
+            "xlarge": "db.r6g.xlarge"
+          },
           "supports_serverless_v2": false
         },
         "Aurora": {
-          "instance_classes": { "micro": "db.t4g.micro", "small": "db.t4g.small", "medium": "db.r6g.medium", "large": "db.r6g.large", "xlarge": "db.r6g.xlarge" },
+          "instance_classes": {
+            "micro": "db.t4g.micro",
+            "small": "db.t4g.small",
+            "medium": "db.r6g.medium",
+            "large": "db.r6g.large",
+            "xlarge": "db.r6g.xlarge"
+          },
           "supports_serverless_v2": true,
-          "serverless_v2_acu": { "micro": { "min": 0.5, "max": 2 }, "small": { "min": 0.5, "max": 4 }, "medium": { "min": 1, "max": 16 }, "large": { "min": 2, "max": 64 }, "xlarge": { "min": 4, "max": 128 } }
+          "serverless_v2_acu": {
+            "micro": { "min": 0.5, "max": 2 },
+            "small": { "min": 0.5, "max": 4 },
+            "medium": { "min": 1, "max": 16 },
+            "large": { "min": 2, "max": 64 },
+            "xlarge": { "min": 4, "max": 128 }
+          }
         }
       }
     },
@@ -22,13 +40,31 @@
       "terraform_engine": "mysql",
       "families": {
         "RDS": {
-          "instance_classes": { "micro": "db.t4g.micro", "small": "db.t4g.small", "medium": "db.t4g.medium", "large": "db.r6g.large", "xlarge": "db.r6g.xlarge" },
+          "instance_classes": {
+            "micro": "db.t4g.micro",
+            "small": "db.t4g.small",
+            "medium": "db.t4g.medium",
+            "large": "db.r6g.large",
+            "xlarge": "db.r6g.xlarge"
+          },
           "supports_serverless_v2": false
         },
         "Aurora": {
-          "instance_classes": { "micro": "db.t4g.micro", "small": "db.t4g.small", "medium": "db.r6g.medium", "large": "db.r6g.large", "xlarge": "db.r6g.xlarge" },
+          "instance_classes": {
+            "micro": "db.t4g.micro",
+            "small": "db.t4g.small",
+            "medium": "db.r6g.medium",
+            "large": "db.r6g.large",
+            "xlarge": "db.r6g.xlarge"
+          },
           "supports_serverless_v2": true,
-          "serverless_v2_acu": { "micro": { "min": 0.5, "max": 2 }, "small": { "min": 0.5, "max": 4 }, "medium": { "min": 1, "max": 16 }, "large": { "min": 2, "max": 64 }, "xlarge": { "min": 4, "max": 128 } }
+          "serverless_v2_acu": {
+            "micro": { "min": 0.5, "max": 2 },
+            "small": { "min": 0.5, "max": 4 },
+            "medium": { "min": 1, "max": 16 },
+            "large": { "min": 2, "max": 64 },
+            "xlarge": { "min": 4, "max": 128 }
+          }
         }
       }
     },
@@ -37,9 +73,47 @@
       "terraform_engine": "sqlserver-se",
       "families": {
         "RDS": {
-          "instance_classes": { "micro": "db.t3.micro", "small": "db.t3.small", "medium": "db.t3.medium", "large": "db.r5.large", "xlarge": "db.r5.xlarge" },
+          "instance_classes": {
+            "micro": "db.t3.micro",
+            "small": "db.t3.small",
+            "medium": "db.t3.medium",
+            "large": "db.r5.large",
+            "xlarge": "db.r5.xlarge"
+          },
           "supports_serverless_v2": false,
           "notes": "No Graviton/ARM. No read replicas."
+        }
+      }
+    },
+    "oracle": {
+      "aws_service_suffix": "Oracle",
+      "terraform_engine": "oracle-ee",
+      "needs_user_confirmation": true,
+      "confirmation_reason": "Many migrations want to escape Oracle licensing → Aurora PostgreSQL. Requires schema conversion (AWS SCT).",
+      "escape_path": { "target_engine": "postgres", "target_family": "Aurora", "tool": "AWS SCT" },
+      "families": {
+        "RDS": {
+          "instance_classes": { "medium": "db.r5.large", "large": "db.r5.xlarge", "xlarge": "db.r5.2xlarge" },
+          "supports_serverless_v2": false
+        }
+      }
+    },
+    "mariadb": {
+      "aws_service_suffix": "MariaDB",
+      "terraform_engine": "mariadb",
+      "needs_user_confirmation": true,
+      "confirmation_reason": "MariaDB and MySQL have diverged (10.6+). User may prefer MySQL for ecosystem.",
+      "alternative_engine": "mysql",
+      "families": {
+        "RDS": {
+          "instance_classes": {
+            "micro": "db.t4g.micro",
+            "small": "db.t4g.small",
+            "medium": "db.t4g.medium",
+            "large": "db.r6g.large",
+            "xlarge": "db.r6g.xlarge"
+          },
+          "supports_serverless_v2": false
         }
       }
     }
