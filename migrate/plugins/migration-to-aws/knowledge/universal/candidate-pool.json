@@ -1,0 +1,45 @@
+{
+  "kind": "candidate-pool",
+  "scope": "universal",
+  "version": "1",
+  "description": "For each archetype, the complete set of AWS services that could potentially serve the workload. CONSTRAIN narrows this pool by removing impossible options; RESOLVE picks the winner from what remains.",
+  "last_verified": "2026-06-24",
+  "entries": {
+    "container": {
+      "candidates": ["Fargate", "Lambda", "EC2", "EKS"],
+      "notes": "Fargate is the default for containerized workloads. Lambda if event-driven + short. EC2 if GPU/high-resource. EKS if K8s required."
+    },
+    "function": {
+      "candidates": ["Lambda", "Fargate"],
+      "notes": "Lambda is the default for functions. Fargate if timeout >15min or unsupported runtime."
+    },
+    "vm": {
+      "candidates": ["EC2", "Fargate"],
+      "notes": "EC2 is the default for VMs. Fargate if containerizable + cost-sensitive."
+    },
+    "kubernetes": {
+      "candidates": ["EKS", "Fargate"],
+      "notes": "EKS if K8s preference explicit. Fargate if no K8s preference (simpler managed containers)."
+    },
+    "app-engine": {
+      "candidates": ["Fargate", "Lambda"],
+      "notes": "Fargate is the default. Lambda if purely event-driven handlers."
+    },
+    "relational-db": {
+      "candidates": ["RDS", "Aurora"],
+      "notes": "RDS for single-az/multi-az. Aurora for multi-az-ha/multi-region. Family selected by availability (Q6)."
+    },
+    "nosql-document": {
+      "candidates": ["DynamoDB"],
+      "notes": "DynamoDB is the sole target unless >100 txn items (eliminator → RDS fallback)."
+    },
+    "cache": {
+      "candidates": ["ElastiCache Redis", "ElastiCache Memcached"],
+      "notes": "Redis is the default (direct-mapped). Memcached only if explicitly simple key-value with no persistence."
+    },
+    "distributed-relational": {
+      "candidates": ["Aurora DSQL", "Aurora PostgreSQL", "DynamoDB Global Tables"],
+      "notes": "Aurora DSQL for global strong consistency. Aurora for single-region. DynamoDB if key-value dominant."
+    }
+  }
+}
