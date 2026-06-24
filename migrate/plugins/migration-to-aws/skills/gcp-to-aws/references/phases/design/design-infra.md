@@ -18,17 +18,27 @@ Sort clusters by `creation_order_depth` (lowest first, representing foundational
 
 For each cluster, process `primary_resources` first, then `secondary_resources` (as classified during discover phase — see `gcp-resource-clusters.json`).
 
-### Pass 1: Fast-Path Lookup (Direct Mappings table only)
+### Pass 1: Direct Mapping Lookup
 
 For each PRIMARY resource in the cluster:
 
-1. Extract GCP type (e.g., `google_sql_database_instance`)
-2. Look up in `design-refs/fast-path.md` → **Direct Mappings** table (not the Preferred Target table — that applies later in Pass 2).
-3. If found and conditions match: assign AWS service with confidence = **`deterministic`**. Set `human_expertise_required: false` (no Direct Mapping row requires it).
-4. If `gcp_type` is `google_sql_database_instance` with PostgreSQL or MySQL engine: **always proceed to Pass 2** (Cloud SQL is not in Direct Mappings — see `fast-path.md`). Confidence = **`inferred`** after rubric.
-5. If not found: proceed to Pass 2 (confidence will be **`inferred`** after rubric, or **`billing_inferred`** on the billing-only path).
+1. Call the `lookup_direct_mapping` MCP tool:
 
-**Definitions:** See the top of `design-refs/fast-path.md` for **`deterministic` vs `inferred` vs `billing_inferred`** and the note that **index.md “Typical AWS target” ≠ deterministic**.
+   ```
+   lookup_direct_mapping(source_type=<gcp_type>, condition_context=<optional>)
+   ```
+
+   For `google_sql_database_instance`, extract the engine from `database_version` and pass as `condition_context`: `{"engine": "postgres"}`, `{"engine": "mysql"}`, or `{"engine": "sqlserver"}`.
+
+2. If `hit: true` → write the result into `aws-design.json`:
+   - `aws_service` ← tool's `aws_service`
+   - `confidence` ← `"deterministic"`
+   - `human_expertise_required` ← `false`
+   - Done for this resource. Do not proceed to Pass 2.
+
+3. If `hit: false` → proceed to Pass 2 (tool-based selection).
+
+**Definitions:** `deterministic` = direct mapping hit (unconditional). `inferred` = decided by recommend tools via normalize→recommend flow. `billing_inferred` = billing-only path.
 
 ### Pass 2: Tool-Based Selection
 

@@ -51,7 +51,10 @@
       "field_map": {
         "service_type": "function",
         "timeout_seconds": { "from": "timeout", "transform": {} },
-        "memory_gb": { "from": "available_memory_mb", "transform": { "128": 0.125, "256": 0.25, "512": 0.5, "1024": 1, "2048": 2, "4096": 4, "8192": 8 } },
+        "memory_gb": {
+          "from": "available_memory_mb",
+          "transform": { "128": 0.125, "256": 0.25, "512": 0.5, "1024": 1, "2048": 2, "4096": 4, "8192": 8 }
+        },
         "runtime": { "from": "runtime", "transform": {} }
       },
       "notes": "Gen 1 Cloud Functions. Memory in MB → converted to GB for canonical model."
@@ -81,8 +84,26 @@
       "canonical_workload": "vm",
       "field_map": {
         "service_type": "vm",
-        "vcpu": { "from": "machine_type", "transform": { "n2-standard-2": 2, "n2-standard-4": 4, "n2-standard-8": 8, "e2-medium": 2, "e2-standard-4": 4 } },
-        "memory_gb": { "from": "machine_type", "transform": { "n2-standard-2": 8, "n2-standard-4": 16, "n2-standard-8": 32, "e2-medium": 4, "e2-standard-4": 16 } },
+        "vcpu": {
+          "from": "machine_type",
+          "transform": {
+            "n2-standard-2": 2,
+            "n2-standard-4": 4,
+            "n2-standard-8": 8,
+            "e2-medium": 2,
+            "e2-standard-4": 4
+          }
+        },
+        "memory_gb": {
+          "from": "machine_type",
+          "transform": {
+            "n2-standard-2": 8,
+            "n2-standard-4": 16,
+            "n2-standard-8": 32,
+            "e2-medium": 4,
+            "e2-standard-4": 16
+          }
+        },
         "gpu": { "from": "guest_accelerator", "transform": { "present": true, "absent": false } }
       }
     },
