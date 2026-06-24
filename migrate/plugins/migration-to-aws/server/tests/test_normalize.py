@@ -94,7 +94,7 @@ def test_cloud_run(knowledge):
     )
     assert result["canonical_workload"] == "container"
     assert result["canonical_fields"]["service_type"] == "container"
-    assert result["canonical_fields"]["timeout"] == 300
+    assert result["canonical_fields"]["timeout_seconds"] == 300
     assert "workload_pattern" in result["requires_inference"]
 
 
@@ -110,7 +110,7 @@ def test_compute_engine_e2_medium(knowledge):
     assert result["canonical_workload"] == "vm"
     assert result["canonical_fields"]["service_type"] == "vm"
     assert result["canonical_fields"]["vcpu"] == 2
-    assert result["canonical_fields"]["memory"] == 4
+    assert result["canonical_fields"]["memory_gb"] == 4
     assert "workload_pattern" in result["requires_inference"]
 
 

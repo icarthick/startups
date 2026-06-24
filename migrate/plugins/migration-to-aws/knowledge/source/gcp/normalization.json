@@ -29,18 +29,60 @@
       "canonical_workload": "container",
       "field_map": {
         "service_type": "container",
-        "timeout": { "from": "template.spec.timeout_seconds", "transform": {} },
-        "memory": { "from": "template.spec.containers[0].resources.limits.memory", "transform": {} },
+        "timeout_seconds": { "from": "template.spec.timeout_seconds", "transform": {} },
+        "memory_gb": { "from": "template.spec.containers[0].resources.limits.memory", "transform": {} },
         "vcpu": { "from": "template.spec.containers[0].resources.limits.cpu", "transform": {} }
       }
+    },
+    {
+      "source_type": "google_cloud_run_v2_service",
+      "canonical_workload": "container",
+      "field_map": {
+        "service_type": "container",
+        "timeout_seconds": { "from": "template.timeout", "transform": {} },
+        "memory_gb": { "from": "template.containers[0].resources.limits.memory", "transform": {} },
+        "vcpu": { "from": "template.containers[0].resources.limits.cpu", "transform": {} }
+      },
+      "notes": "v2 API uses slightly different config paths than v1"
+    },
+    {
+      "source_type": "google_cloudfunctions_function",
+      "canonical_workload": "function",
+      "field_map": {
+        "service_type": "function",
+        "timeout_seconds": { "from": "timeout", "transform": {} },
+        "memory_gb": { "from": "available_memory_mb", "transform": { "128": 0.125, "256": 0.25, "512": 0.5, "1024": 1, "2048": 2, "4096": 4, "8192": 8 } },
+        "runtime": { "from": "runtime", "transform": {} }
+      },
+      "notes": "Gen 1 Cloud Functions. Memory in MB → converted to GB for canonical model."
+    },
+    {
+      "source_type": "google_cloudfunctions2_function",
+      "canonical_workload": "function",
+      "field_map": {
+        "service_type": "function",
+        "timeout_seconds": { "from": "build_config.service_config.timeout_seconds", "transform": {} },
+        "memory_gb": { "from": "build_config.service_config.available_memory", "transform": {} },
+        "runtime": { "from": "build_config.runtime", "transform": {} },
+        "vcpu": { "from": "build_config.service_config.available_cpu", "transform": {} }
+      },
+      "notes": "Gen 2 Cloud Functions (built on Cloud Run). Paths differ from Gen 1."
+    },
+    {
+      "source_type": "google_app_engine_application",
+      "canonical_workload": "app-engine",
+      "field_map": {
+        "service_type": "app-engine"
+      },
+      "notes": "App Engine has minimal Terraform config. Workload pattern inference needed from app.yaml or project context."
     },
     {
       "source_type": "google_compute_instance",
       "canonical_workload": "vm",
       "field_map": {
         "service_type": "vm",
-        "vcpu": { "from": "machine_type", "transform": { "n2-standard-2": 2, "n2-standard-4": 4, "e2-medium": 2 } },
-        "memory": { "from": "machine_type", "transform": { "n2-standard-2": 8, "n2-standard-4": 16, "e2-medium": 4 } },
+        "vcpu": { "from": "machine_type", "transform": { "n2-standard-2": 2, "n2-standard-4": 4, "n2-standard-8": 8, "e2-medium": 2, "e2-standard-4": 4 } },
+        "memory_gb": { "from": "machine_type", "transform": { "n2-standard-2": 8, "n2-standard-4": 16, "n2-standard-8": 32, "e2-medium": 4, "e2-standard-4": 16 } },
         "gpu": { "from": "guest_accelerator", "transform": { "present": true, "absent": false } }
       }
     },
