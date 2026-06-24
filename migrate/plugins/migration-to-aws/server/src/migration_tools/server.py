@@ -12,7 +12,7 @@ from migration_tools.knowledge import load_knowledge
 from migration_tools.tools.recommend_database import recommend_database_target
 
 # Resolve knowledge directory (relative to server source)
-KNOWLEDGE_DIR = Path(__file__).resolve().parents[4] / "knowledge"
+KNOWLEDGE_DIR = Path(__file__).resolve().parents[3] / "knowledge"
 
 # Load knowledge store at startup
 _knowledge = load_knowledge(KNOWLEDGE_DIR)

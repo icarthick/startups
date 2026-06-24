@@ -23,8 +23,12 @@
       ]
     },
     "migration-tools": {
-      "command": "./run-migration-tools.sh",
-      "args": [],
+      "command": "uvx",
+      "args": [
+        "--from",
+        "/Users/carthick/dev/github/startups/migrate/plugins/migration-to-aws/server",
+        "serve"
+      ],
       "env": {
         "FASTMCP_LOG_LEVEL": "ERROR"
       },
