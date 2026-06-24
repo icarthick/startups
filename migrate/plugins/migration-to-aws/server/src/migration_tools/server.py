@@ -4,6 +4,7 @@ Exposes migration tools via FastMCP. Loads the knowledge store at startup.
 Run via: uvx migration-tools serve  (or: python -m migration_tools.server)
 """
 
+import logging
 from pathlib import Path
 
 from fastmcp import FastMCP
@@ -14,8 +15,21 @@ from migration_tools.tools.recommend_database import recommend_database_target
 # Resolve knowledge directory (relative to server source)
 KNOWLEDGE_DIR = Path(__file__).resolve().parents[3] / "knowledge"
 
+# Configure logging — writes to a file next to the server for easy inspection
+LOG_FILE = Path(__file__).resolve().parents[3] / "server" / "migration-tools.log"
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[
+        logging.FileHandler(LOG_FILE, mode="a"),
+    ],
+)
+logger = logging.getLogger("migration_tools.server")
+
 # Load knowledge store at startup
+logger.info("Loading knowledge store from: %s", KNOWLEDGE_DIR)
 _knowledge = load_knowledge(KNOWLEDGE_DIR)
+logger.info("Knowledge store loaded: %d files", len(_knowledge))
 
 # Create MCP server
 mcp = FastMCP("migration-tools", instructions="Deterministic migration recommendation tools backed by structured knowledge.")
