@@ -138,3 +138,158 @@ def test_init_multiple_runs(tmp_path):
     # Just verify it doesn't crash
     result2 = migration_init(project_dir=str(tmp_path))
     assert result2["status"] == "initialized"
+
+
+# --- phase_router ---
+
+from migration_tools.tools.orchestration import phase_router
+
+
+@pytest.fixture
+def routes_config():
+    """Minimal routes config for testing."""
+    return {
+        "skill": "test-skill",
+        "phases": ["discover", "clarify", "design"],
+        "routes": {
+            "discover": {
+                "routes": [
+                    {"id": "iac", "trigger": {"glob": ["**/*.tf"]}, "file": "discover-iac.md", "produces": ["inventory.json"]},
+                    {"id": "billing", "trigger": {"glob": ["**/*billing*.csv"]}, "excludes_if_active": ["iac"], "file": "discover-billing.md", "produces": ["billing.json"]},
+                    {"id": "preview", "trigger": {"always": True}, "file": "discover-preview.md", "produces": []},
+                ]
+            },
+            "clarify": {
+                "requires_phase": "discover",
+                "routes": [
+                    {"id": "global", "trigger": {"artifact_exists": ["inventory.json"]}, "file": "clarify-global.md", "produces": ["preferences.json"]},
+                    {"id": "ai-only", "trigger": {"artifact_exists": ["ai-profile.json"], "artifact_absent": ["inventory.json"]}, "file": "clarify-ai-only.md", "produces": ["preferences.json"]},
+                ]
+            },
+            "design": {
+                "requires_phase": "clarify",
+                "routes": [
+                    {"id": "infra", "trigger": {"artifact_exists": ["inventory.json"]}, "file": "design-infra.md", "produces": ["aws-design.json"]},
+                ]
+            },
+        },
+    }
+
+
+def _write_status(tmp_path, phase, phases_override=None):
+    """Helper to write a .phase-status.json."""
+    run_dir = tmp_path / ".migration" / "0624-1430"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    phases = phases_override or {
+        "discover": "completed" if phase != "discover" else "in_progress",
+        "clarify": "completed" if phase in ("design",) else ("in_progress" if phase == "clarify" else "pending"),
+        "design": "in_progress" if phase == "design" else "pending",
+    }
+    status = {"migration_id": "0624-1430", "current_phase": phase, "phases": phases}
+    (run_dir / ".phase-status.json").write_text(json.dumps(status))
+    return run_dir
+
+
+def test_router_discover_with_terraform(tmp_path, routes_config):
+    """Terraform files present → iac route active, billing excluded."""
+    run_dir = _write_status(tmp_path, "discover")
+    (tmp_path / "main.tf").touch()
+
+    result = phase_router(
+        migration_dir=str(run_dir), project_dir=str(tmp_path), routes_config=routes_config
+    )
+    assert result["current_phase"] == "discover"
+    route_ids = [r["id"] for r in result["routes"]]
+    assert "iac" in route_ids
+    assert "preview" in route_ids
+    assert "billing" not in route_ids  # excluded because iac is active
+
+    skipped_ids = [r["id"] for r in result["skipped_routes"]]
+    assert "billing" in skipped_ids
+
+
+def test_router_discover_billing_only(tmp_path, routes_config):
+    """No Terraform, billing file present → billing route active."""
+    run_dir = _write_status(tmp_path, "discover")
+    (tmp_path / "costs-billing.csv").touch()
+
+    result = phase_router(
+        migration_dir=str(run_dir), project_dir=str(tmp_path), routes_config=routes_config
+    )
+    route_ids = [r["id"] for r in result["routes"]]
+    assert "billing" in route_ids
+    assert "iac" not in route_ids
+
+
+def test_router_discover_no_files(tmp_path, routes_config):
+    """No source files → only preview (always) is active."""
+    run_dir = _write_status(tmp_path, "discover")
+
+    result = phase_router(
+        migration_dir=str(run_dir), project_dir=str(tmp_path), routes_config=routes_config
+    )
+    route_ids = [r["id"] for r in result["routes"]]
+    assert route_ids == ["preview"]
+
+
+def test_router_clarify_with_inventory(tmp_path, routes_config):
+    """Clarify phase + inventory exists → global route active."""
+    run_dir = _write_status(tmp_path, "clarify")
+    (run_dir / "inventory.json").touch()
+
+    result = phase_router(
+        migration_dir=str(run_dir), project_dir=str(tmp_path), routes_config=routes_config
+    )
+    route_ids = [r["id"] for r in result["routes"]]
+    assert "global" in route_ids
+    assert "ai-only" not in route_ids
+
+
+def test_router_clarify_ai_only(tmp_path, routes_config):
+    """Clarify phase + ai-profile but no inventory → ai-only route."""
+    run_dir = _write_status(tmp_path, "clarify")
+    (run_dir / "ai-profile.json").touch()
+
+    result = phase_router(
+        migration_dir=str(run_dir), project_dir=str(tmp_path), routes_config=routes_config
+    )
+    route_ids = [r["id"] for r in result["routes"]]
+    assert "ai-only" in route_ids
+    assert "global" not in route_ids
+
+
+def test_router_requires_phase_not_met(tmp_path, routes_config):
+    """Design phase but clarify not completed → error."""
+    run_dir = _write_status(tmp_path, "design", phases_override={
+        "discover": "completed", "clarify": "in_progress", "design": "in_progress",
+    })
+
+    result = phase_router(
+        migration_dir=str(run_dir), project_dir=str(tmp_path), routes_config=routes_config
+    )
+    assert "error" in result
+    assert "clarify" in result["error"]
+
+
+def test_router_missing_status_file(tmp_path, routes_config):
+    """No .phase-status.json → error."""
+    run_dir = tmp_path / ".migration" / "0624-1430"
+    run_dir.mkdir(parents=True)
+
+    result = phase_router(
+        migration_dir=str(run_dir), project_dir=str(tmp_path), routes_config=routes_config
+    )
+    assert "error" in result
+
+
+def test_router_returns_file_paths(tmp_path, routes_config):
+    """Routes include the file path to load."""
+    run_dir = _write_status(tmp_path, "discover")
+    (tmp_path / "main.tf").touch()
+
+    result = phase_router(
+        migration_dir=str(run_dir), project_dir=str(tmp_path), routes_config=routes_config
+    )
+    iac_route = next(r for r in result["routes"] if r["id"] == "iac")
+    assert iac_route["file"] == "discover-iac.md"
+    assert iac_route["produces"] == ["inventory.json"]
