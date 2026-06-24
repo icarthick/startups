@@ -44,7 +44,7 @@ For each PRIMARY resource in the cluster:
 
 For resources not covered by fast-path:
 
-**Note:** BigQuery specialist gate, skip mappings (auth/monitoring/logging), and direct mappings are all handled by `lookup_direct_mapping` in Pass 1. If a resource reaches Pass 2, it has already passed those checks. No inline gate logic needed here.
+**Note:** Any resource reaching Pass 2 has already been checked by `lookup_direct_mapping` in Pass 1 (deferred, skip, and direct cases are resolved there). Proceed directly to normalization.
 
 **1. Normalize the resource:**
 
@@ -115,9 +115,8 @@ Merge `canonical_fields` + inferred signals + preference values → call the too
 
 For each SECONDARY resource:
 
-1. Use `design-refs/index.md` for category
-2. Apply fast-path (most secondaries have deterministic mappings)
-3. If rubric needed: apply the **BigQuery specialist gate** (Pass 2 step 0) first when `gcp_type` starts with `google_bigquery_`; otherwise apply the same 6-criteria approach as Pass 2
+1. Call `lookup_direct_mapping` (handles direct, skip, and deferred — same as primary resources)
+2. If miss: call `normalize_resource` → `recommend_compute`/`recommend_database` (same Pass 2 flow as primary resources)
 
 ## Step 3.5: Validate AWS Architecture (using awsknowledge)
 
