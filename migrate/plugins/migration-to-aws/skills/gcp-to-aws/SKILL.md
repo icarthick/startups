@@ -75,118 +75,42 @@ If none of the above are found, stop and ask user to provide at least one source
 
 ---
 
-## State Machine
+## Execution
 
-This is the execution controller. After completing each phase, consult this table to determine the next action.
+Migration orchestration is handled by MCP tools. The agent follows this loop:
 
-| Current State | Condition                                                             | Next Action                                                                            |
-| ------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `discover`    | `phases.discover != "completed"`                                      | Load `references/phases/discover/discover.md`                                          |
-| `clarify`     | `phases.discover == "completed"` AND `phases.clarify != "completed"`  | Load `references/phases/clarify/clarify.md`                                            |
-| `design`      | `phases.clarify == "completed"` AND `phases.design != "completed"`    | Load `references/phases/design/design.md`                                              |
-| `estimate`    | `phases.design == "completed"` AND `phases.estimate != "completed"`   | Load `references/phases/estimate/estimate.md`                                          |
-| `generate`    | `phases.estimate == "completed"` AND `phases.generate != "completed"` | Load `references/phases/generate/generate.md`                                          |
-| `complete`    | `phases.generate == "completed"` AND `phases.feedback == "pending"`   | Set `phases.feedback` to `"completed"` (user had two chances), then migration complete |
-| `complete`    | `phases.generate == "completed"` AND `phases.feedback == "completed"` | Migration planning complete                                                            |
+### Starting a migration
 
-**How to determine current state (deterministic):**
+1. Call `migration_status(project_dir)`.
+   - If existing runs found → present to user with phase status. Ask: Resume, Fresh, or Cancel.
+   - If no runs → proceed to init.
+2. Call `migration_init(project_dir)` if starting fresh.
+3. Set `$MIGRATION_DIR` to the run directory returned.
 
-1. Read `$MIGRATION_DIR/.phase-status.json`
-2. If `current_phase` exists, use it (must match one of: discover, clarify, design, estimate, generate, complete)
-3. Otherwise use ordered phase evaluation: `discover` → `clarify` → `design` → `estimate` → `generate`
-4. Pick the **first** phase in that order where `phases.<phase> != "completed"`; if none, state is `complete`
+### Phase execution loop
 
-**Phase gate checks**: If prior phase incomplete, do not advance (e.g., cannot enter estimate without completed design).
+4. Call `phase_router(migration_dir, project_dir, skill="gcp-to-aws")`.
+   - If error → stop and report (e.g., prerequisite phase not completed).
+   - Otherwise → load and execute each file in `routes[]` (in order).
+5. Execute ALL steps in each loaded file. **Do not skip, optimize, or deviate.**
+6. Call `phase_advance(migration_dir, project_dir, skill="gcp-to-aws")`.
+   - If `gate_passed: true` → announce completion, check feedback checkpoint (see below).
+   - If `gate_passed: false` → report missing artifacts. Do not advance.
+7. Ask user: "Continue to [next phase]?"
+   - If yes → repeat from step 4.
+   - If no → stop. User can resume later.
 
-**Clarify is mandatory:** Do not load `references/phases/design/design.md`, `references/phases/estimate/estimate.md`, or `references/phases/generate/generate.md` unless `$MIGRATION_DIR/.phase-status.json` exists and `phases.clarify` is exactly `"completed"`. A `preferences.json` file alone is **not** sufficient proof that Clarify ran. If the user asks to skip Clarify or jump straight to Design, cost estimate, or artifact generation, refuse briefly, then load `references/phases/clarify/clarify.md` and run Phase 2. There is no exception for "quick" or "obvious" migrations.
+### Feedback checkpoints
 
-**Feedback checkpoints**: Feedback is not a sequential phase — it is offered at two interleaved checkpoints (after Discover and after Estimate). See the **Feedback Checkpoints** section below for details.
+- **After Discover** (if feedback not yet collected): Ask user if they want to send feedback now or wait until after Estimate.
+- **After Estimate** (if feedback still pending): Ask user one more time. If declined, mark feedback completed.
+- **After Generate**: If feedback still pending, mark it completed (user had two chances).
 
-### Handoff Gate Orchestration (Fail Closed)
+### Critical constraints
 
-Load `references/shared/handoff-gates.md` when executing any phase completion step.
-
-1. **Single `$MIGRATION_DIR`**: Use one run directory for the entire migration. Do not mix artifacts across `.migration/*/` sessions.
-2. **Re-read from disk**: Before each phase (and before each handoff gate), Read required artifacts from `$MIGRATION_DIR/`. Do not rely on chat memory.
-3. **Advance only on `HANDOFF_OK`**: A phase is complete only when its orchestrator emits `HANDOFF_OK | phase=<name> | artifacts=...`. Do not load the next phase without it.
-4. **On `GATE_FAIL`**: Output the failure line(s) to the user in plain language. **Do NOT modify artifacts** to pass the gate. **Do NOT continue** to the next phase. Tell the user which phase to re-run.
-5. **Re-entry**: Re-running an earlier phase after downstream phases completed requires explicit user confirmation; downstream phases must be reset to `"pending"`. See `handoff-gates.md` re-entry table.
-
-Generate phase additionally loads `references/shared/validate-artifacts.md` before writing `migration-report.html`.
-
----
-
-## State Validation
-
-When reading `$MIGRATION_DIR/.phase-status.json`, validate before proceeding:
-
-1. **Multiple sessions**: If multiple directories exist under `.migration/`, list them with their phase status and ask: [A] Resume latest, [B] Start fresh, [C] Cancel.
-2. **Invalid JSON**: If `.phase-status.json` fails to parse, STOP. Output: "State file corrupted (invalid JSON). Delete the file and restart the current phase."
-3. **Unrecognized phase**: If `phases` object contains a phase not in {discover, clarify, design, estimate, generate, feedback}, STOP. Output: "Unrecognized phase: [value]. Valid phases: discover, clarify, design, estimate, generate, feedback."
-4. **Unrecognized status**: If any `phases.*` value is not in {pending, in_progress, completed}, STOP. Output: "Unrecognized status: [value]. Valid values: pending, in_progress, completed."
-5. **Invalid `current_phase`** (if present): If `current_phase` is not in {discover, clarify, design, estimate, generate, complete}, STOP. Output: "Unrecognized current_phase: [value]. Valid values: discover, clarify, design, estimate, generate, complete."
-6. **Out-of-order completion**: For ordered phases [discover, clarify, design, estimate, generate], if any later phase is `"completed"` while an earlier phase is not `"completed"`, STOP. Output: "Inconsistent phase ordering detected. Reconcile `.phase-status.json` before resuming."
-7. **Multiple active phases**: Across core phases {discover, clarify, design, estimate, generate}, at most one phase may be `"in_progress"`. If >1, STOP. Output: "Multiple phases are in_progress. Keep only one active phase before resuming."
-
----
-
-## State Management
-
-Migration state lives in `$MIGRATION_DIR` (`.migration/[MMDD-HHMM]/`), created by Phase 1 and persisted across invocations.
-
-**.phase-status.json schema:**
-
-```json
-{
-  "migration_id": "0226-1430",
-  "last_updated": "2026-02-26T15:35:22Z",
-  "current_phase": "design",
-  "phases": {
-    "discover": "completed",
-    "clarify": "completed",
-    "design": "in_progress",
-    "estimate": "pending",
-    "generate": "pending",
-    "feedback": "pending"
-  }
-}
-```
-
-**Status values:** `"pending"` → `"in_progress"` → `"completed"`. Never goes backward.
-For core phases (discover, clarify, design, estimate, generate), at most one phase may be `"in_progress"` at any time.
-`current_phase` is optional but recommended; when present it is authoritative.
-
-The `.migration/` directory is automatically protected by a `.gitignore` file created in Phase 1.
-
-### Phase Status Update Protocol
-
-Use **read-merge-write** updates for `.phase-status.json`:
-
-1. Read the current file before every update.
-2. Change only the phase keys being advanced and `last_updated`.
-3. Keep prior completed phases unchanged.
-4. Set `current_phase` to the next deterministic phase (or `complete` after generate).
-5. Write the full file in the same turn as your final phase work message.
-
-Example — after completing the Clarify phase, write `$MIGRATION_DIR/.phase-status.json` with:
-
-```json
-{
-  "migration_id": "MMDD-HHMM",
-  "last_updated": "2026-02-26T15:35:22Z",
-  "current_phase": "design",
-  "phases": {
-    "discover": "completed",
-    "clarify": "completed",
-    "design": "pending",
-    "estimate": "pending",
-    "generate": "pending",
-    "feedback": "pending"
-  }
-}
-```
-
-Replace `MMDD-HHMM` with the actual migration ID, generate the `last_updated` ISO 8601 UTC timestamp yourself, and set each phase to its correct status at that point.
+- The agent must strictly follow each reference file's workflow. If unable to complete a step, stop and report the exact step that failed.
+- `phase_advance` enforces fail-closed gates — all required artifacts must exist before advancing.
+- Clarify is mandatory. `phase_router` will return an error if Design/Estimate/Generate are attempted before Clarify is completed.
 
 ---
 
@@ -303,52 +227,12 @@ gcp-to-aws/
 - **Cost currency**: USD
 - **Timeline assumption**: 2-16 weeks depending on migration complexity — small (2-6 weeks), medium (6-12 weeks), large (12-18 weeks). See `references/shared/migration-complexity.md` for tier definitions.
 
-## Workflow Execution
+## Workflow Notes
 
-When invoked, the agent **MUST follow this exact sequence**:
-
-1. **Load phase status**: Read `.phase-status.json` from `.migration/*/`.
-   - If missing: Initialize for Phase 1 (Discover)
-   - If exists: Determine current phase using deterministic rules in **State Machine**
-
-2. **Determine phase to execute**:
-   - If `current_phase` exists: execute that phase.
-   - Otherwise execute the first non-completed phase in ordered list: discover → clarify → design → estimate → generate.
-   - If all ordered phases are completed: migration is complete (with feedback finalization rule).
-
-3. **Read phase reference**: Load the full reference file for the target phase.
-
-4. **Execute ALL steps in order**: Follow every numbered step in the reference file. **Do not skip, optimize, or deviate.**
-
-5. **Validate outputs**: Confirm all required output files exist with correct schema before proceeding. Phase orchestrators run **Completion Handoff Gate** checks per `shared/handoff-gates.md`.
-
-6. **Handoff gate**: Emit `HANDOFF_OK` or `GATE_FAIL` per `shared/handoff-gates.md`. On `GATE_FAIL`, stop — do not update phase status or load the next phase.
-
-7. **Update phase status**: Only after `HANDOFF_OK`. Use the Phase Status Update Protocol (read-merge-write) in the same turn as the phase's final output message.
-
-8. **Feedback checkpoint**: After a phase completes, check if feedback is due (see rules below). This runs **before** advancing to the next phase.
-
-   - **After Discover** (if `phases.feedback` is `"pending"`): Output to user:
-     "Would you like to share quick feedback (5 optional questions + anonymized usage data) to help improve this tool? Your data never includes resource names, file paths, or account IDs.
-     [A] Send feedback now
-     [B] Wait until after the Estimate phase"
-     - If user picks **A** → Load `references/phases/feedback/feedback.md`, execute it, then continue to Clarify.
-     - If user picks **B** → Continue to Clarify (feedback stays `"pending"`).
-
-   - **After Estimate** (if `phases.feedback` is `"pending"`): Output to user:
-     "Would you like to share quick feedback now? (5 optional questions + anonymized usage data)
-     [A] Yes, share feedback
-     [B] No thanks, continue to Generate"
-     - If user picks **A** → Load `references/phases/feedback/feedback.md`, execute it, then continue to Generate.
-     - If user picks **B** → Use the Phase Status Update Protocol to set `phases.feedback` to `"completed"`. Continue to Generate.
-
-   - **After Generate**: No feedback offer. If `phases.feedback` is still `"pending"`, use the Phase Status Update Protocol to set it to `"completed"` (user had two chances and chose to defer/skip).
-
-9. **Display summary**: Show user what was accomplished, highlight next phase, or confirm migration completion.
-
-**Critical constraint**: Agent must strictly adhere to the reference file's workflow. If unable to complete a step, stop and report the exact step that failed.
-
-User can invoke the skill again to resume from `current_phase` (or deterministic ordered evaluation when `current_phase` is absent).
+- User can invoke the skill again to resume — `migration_status` will show the current phase.
+- `phase_router` returns the exact files to load. Do not manually determine which sub-files to read.
+- `phase_advance` handles all status file updates atomically. Do not manually write `.phase-status.json`.
+- If `phase_router` returns multiple routes, execute them in the order listed.
 
 ## Scope Notes
 
