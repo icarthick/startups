@@ -1,0 +1,18 @@
+{
+  "kind": "deferred-mappings",
+  "scope": "universal",
+  "version": "1",
+  "description": "Resources that require specialist/human engagement and must NOT receive an automated AWS target recommendation. The tool returns a deferred result immediately — no normalize or recommend tools should be called.",
+  "last_verified": "2026-06-24",
+  "entries": [
+    {
+      "prefix": "google_bigquery_",
+      "aws_service": "Deferred — specialist engagement",
+      "human_expertise_required": true,
+      "confidence": "inferred",
+      "reason": "Engage AWS account team and/or data analytics migration partner before choosing any AWS target. BigQuery encompasses warehousing, analytics, ML, and ETL — too complex for automated mapping.",
+      "rubric_applied": ["BigQuery specialist gate — no automated AWS service target"],
+      "notes": "Applies to all google_bigquery_* resource types: dataset, table, routine, data_transfer_config, job, ml_model, etc."
+    }
+  ]
+}

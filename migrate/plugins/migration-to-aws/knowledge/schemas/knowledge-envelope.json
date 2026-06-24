@@ -15,7 +15,9 @@
         "decision-matrix",
         "eliminators",
         "sizing",
-        "vocabulary"
+        "vocabulary",
+        "engine-configuration",
+        "deferred-mappings"
       ]
     },
     "scope": {

@@ -33,21 +33,23 @@ def lookup_direct_mapping(
     logger.info(">>> lookup_direct_mapping called: source_type=%s, condition_context=%s",
                 source_type, condition_context)
 
-    # --- Check specialist gates (prefix-based) ---
-    specialist_prefixes = {
-        "google_bigquery_": {
-            "aws_service": "Deferred — specialist engagement",
-            "human_expertise_required": True,
-            "confidence": "inferred",
-            "reason": "Engage AWS account team and/or data analytics migration partner before choosing any AWS target.",
-            "rubric_applied": ["BigQuery specialist gate — no automated AWS service target"],
-        }
-    }
-
-    for prefix, gate_result in specialist_prefixes.items():
-        if source_type.startswith(prefix):
-            logger.info("  HIT (deferred): %s matches specialist gate prefix '%s'", source_type, prefix)
-            return {"hit": True, "type": "deferred", **gate_result}
+    # --- Check deferred mappings (specialist gates, from knowledge file) ---
+    for key, data in knowledge.items():
+        if data.get("kind") != "deferred-mappings":
+            continue
+        for entry in data.get("entries", []):
+            prefix = entry.get("prefix", "")
+            if source_type.startswith(prefix):
+                logger.info("  HIT (deferred): %s matches prefix '%s'", source_type, prefix)
+                return {
+                    "hit": True,
+                    "type": "deferred",
+                    "aws_service": entry["aws_service"],
+                    "human_expertise_required": entry.get("human_expertise_required", True),
+                    "confidence": entry.get("confidence", "inferred"),
+                    "reason": entry.get("reason", ""),
+                    "rubric_applied": entry.get("rubric_applied", []),
+                }
 
     # --- Check skip mappings ---
     for key, data in knowledge.items():
