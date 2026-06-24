@@ -23,12 +23,8 @@
       ]
     },
     "migration-tools": {
-      "command": "uvx",
-      "args": [
-        "--from",
-        "./server",
-        "serve"
-      ],
+      "command": "./run-migration-tools.sh",
+      "args": [],
       "env": {
         "FASTMCP_LOG_LEVEL": "ERROR"
       },
