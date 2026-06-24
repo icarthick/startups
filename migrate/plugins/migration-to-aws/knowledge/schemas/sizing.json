@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sizing.json",
+  "title": "Sizing Schema",
+  "description": "Validates universal sizing knowledge files (size_class → AWS instance).",
+  "allOf": [{ "$ref": "knowledge-envelope.json" }],
+  "properties": {
+    "kind": { "const": "sizing" },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["size_class", "aws_instance_class"],
+        "properties": {
+          "size_class": { "type": "string" },
+          "aws_instance_class": { "type": "string" },
+          "vcpu": { "type": "number" },
+          "memory_gb": { "type": "number" },
+          "storage_type": { "type": "string" },
+          "notes": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}

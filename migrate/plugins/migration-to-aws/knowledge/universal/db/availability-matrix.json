@@ -1,0 +1,17 @@
+{
+  "kind": "decision-matrix",
+  "scope": "universal",
+  "version": "1",
+  "description": "Maps the canonical 'availability' field to the RDS/Aurora family selection. Q6 is the sole selector — Q12/Q13 tune configuration within the chosen family but never override it. Engine-agnostic.",
+  "last_verified": "2026-06-14",
+  "source_url": "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.MultiAZ.html",
+  "selector": "availability",
+  "matrix": {
+    "single-az": { "family": "RDS", "multi_az": false },
+    "multi-az": { "family": "RDS", "multi_az": true },
+    "multi-az-ha": { "family": "Aurora", "multi_az": true },
+    "multi-region": { "family": "Aurora", "topology": "global-database" }
+  },
+  "absent_behavior": "needs_clarification",
+  "entries": []
+}

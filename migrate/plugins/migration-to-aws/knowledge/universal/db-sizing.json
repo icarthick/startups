@@ -1,0 +1,25 @@
+{
+  "kind": "sizing",
+  "scope": "universal",
+  "version": "1",
+  "description": "Maps canonical size_class + database family to AWS instance classes. When serverless_v2 is true, aws_instance_class is null and ACU range is used instead. Tool always calls this file — the result shape tells it which sizing model applies.",
+  "last_verified": "2026-06-14",
+  "source_url": "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.DBInstanceClass.html",
+  "entries": [
+    { "size_class": "micro", "family": "RDS", "aws_instance_class": "db.t4g.micro", "vcpu": 2, "memory_gb": 1, "notes": "Dev-tier default (burstable)" },
+    { "size_class": "micro", "family": "Aurora", "aws_instance_class": "db.t4g.micro", "vcpu": 2, "memory_gb": 1, "notes": "Dev-tier (burstable)" },
+    { "size_class": "micro", "family": "Aurora", "serverless_v2": true, "aws_instance_class": null, "min_acu": 0.5, "max_acu": 2, "notes": "Serverless v2 — scales to near-zero" },
+    { "size_class": "small", "family": "RDS", "aws_instance_class": "db.t4g.small", "vcpu": 2, "memory_gb": 2, "notes": "Dev/staging" },
+    { "size_class": "small", "family": "Aurora", "aws_instance_class": "db.t4g.small", "vcpu": 2, "memory_gb": 2, "notes": "Dev/staging" },
+    { "size_class": "small", "family": "Aurora", "serverless_v2": true, "aws_instance_class": null, "min_acu": 0.5, "max_acu": 4, "notes": "Serverless v2" },
+    { "size_class": "medium", "family": "RDS", "aws_instance_class": "db.t4g.medium", "vcpu": 2, "memory_gb": 4, "notes": "Small production" },
+    { "size_class": "medium", "family": "Aurora", "aws_instance_class": "db.r6g.medium", "vcpu": 2, "memory_gb": 8, "notes": "Aurora prefers memory-optimized for production" },
+    { "size_class": "medium", "family": "Aurora", "serverless_v2": true, "aws_instance_class": null, "min_acu": 1, "max_acu": 16, "notes": "Serverless v2" },
+    { "size_class": "large", "family": "RDS", "aws_instance_class": "db.r6g.large", "vcpu": 2, "memory_gb": 16, "notes": "Production workload" },
+    { "size_class": "large", "family": "Aurora", "aws_instance_class": "db.r6g.large", "vcpu": 2, "memory_gb": 16, "notes": "Production workload" },
+    { "size_class": "large", "family": "Aurora", "serverless_v2": true, "aws_instance_class": null, "min_acu": 2, "max_acu": 64, "notes": "Serverless v2" },
+    { "size_class": "xlarge", "family": "RDS", "aws_instance_class": "db.r6g.xlarge", "vcpu": 4, "memory_gb": 32, "notes": "High-memory production" },
+    { "size_class": "xlarge", "family": "Aurora", "aws_instance_class": "db.r6g.xlarge", "vcpu": 4, "memory_gb": 32, "notes": "High-memory production" },
+    { "size_class": "xlarge", "family": "Aurora", "serverless_v2": true, "aws_instance_class": null, "min_acu": 4, "max_acu": 128, "notes": "Serverless v2" }
+  ]
+}

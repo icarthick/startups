@@ -1,0 +1,101 @@
+{
+  "kind": "direct-mappings",
+  "scope": "source:gcp",
+  "version": "1",
+  "description": "GCP Terraform resource types with unconditional 1:1 AWS mappings. Pass 1 fast-path — no rubric evaluation needed.",
+  "last_verified": "2026-06-14",
+  "source_url": "https://github.com/awslabs/startups/blob/main/migrate/plugins/migration-to-aws/skills/gcp-to-aws/references/design-refs/fast-path.md",
+  "entries": [
+    {
+      "source_type": "google_storage_bucket",
+      "condition": "always",
+      "aws_service": "S3",
+      "confidence": "deterministic",
+      "notes": "1:1 mapping; preserve ACL/versioning/lifecycle rules"
+    },
+    {
+      "source_type": "google_cloud_run_service",
+      "condition": "always",
+      "aws_service": "Fargate",
+      "confidence": "deterministic",
+      "notes": "Preferred container runtime target"
+    },
+    {
+      "source_type": "google_cloud_run_v2_service",
+      "condition": "always",
+      "aws_service": "Fargate",
+      "confidence": "deterministic",
+      "notes": "v2 API variant of Cloud Run"
+    },
+    {
+      "source_type": "google_cloudfunctions_function",
+      "condition": "always",
+      "aws_service": "Lambda",
+      "confidence": "deterministic",
+      "notes": "Gen 1 function mapping"
+    },
+    {
+      "source_type": "google_cloudfunctions2_function",
+      "condition": "always",
+      "aws_service": "Lambda",
+      "confidence": "deterministic",
+      "notes": "Gen 2 function mapping"
+    },
+    {
+      "source_type": "google_sql_database_instance",
+      "condition": { "engine": "sqlserver" },
+      "aws_service": "RDS SQL Server",
+      "confidence": "deterministic",
+      "notes": "Always provisioned (no serverless). Postgres/MySQL use rubric path."
+    },
+    {
+      "source_type": "google_compute_network",
+      "condition": "always",
+      "aws_service": "VPC",
+      "confidence": "deterministic",
+      "notes": "1:1; preserve CIDR ranges"
+    },
+    {
+      "source_type": "google_compute_firewall",
+      "condition": "always",
+      "aws_service": "Security Group",
+      "confidence": "deterministic",
+      "notes": "1:1 rule mapping; adjust CIDR if needed"
+    },
+    {
+      "source_type": "google_dns_managed_zone",
+      "condition": "always",
+      "aws_service": "Route 53 Hosted Zone",
+      "confidence": "deterministic",
+      "notes": "Preserve zone name and records"
+    },
+    {
+      "source_type": "google_service_account",
+      "condition": "always",
+      "aws_service": "IAM Role",
+      "confidence": "deterministic",
+      "notes": "Map permissions directly; adjust service principals"
+    },
+    {
+      "source_type": "google_secret_manager_secret",
+      "condition": "always",
+      "aws_service": "Secrets Manager",
+      "confidence": "deterministic",
+      "notes": "Create secret metadata and IAM-scoped access"
+    },
+    {
+      "source_type": "google_secret_manager_secret_version",
+      "condition": "always",
+      "aws_service": "Secrets Manager",
+      "confidence": "deterministic",
+      "notes": "Carry current value or explicit migration TODO"
+    },
+    {
+      "source_type": "google_redis_instance",
+      "condition": "always",
+      "aws_service": "ElastiCache Redis",
+      "confidence": "deterministic",
+      "notes": "1:1 mapping; preserve cluster mode and node type"
+    }
+  ]
+}

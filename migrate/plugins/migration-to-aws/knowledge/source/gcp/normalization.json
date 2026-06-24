@@ -1,0 +1,54 @@
+{
+  "kind": "normalization",
+  "scope": "source:gcp",
+  "version": "1",
+  "description": "Maps GCP Terraform resource types to canonical workload models consumed by decide tools.",
+  "last_verified": "2026-06-14",
+  "entries": [
+    {
+      "source_type": "google_sql_database_instance",
+      "canonical_workload": "relational-db",
+      "field_map": {
+        "engine": { "from": "database_version", "transform": { "POSTGRES_*": "postgres", "MYSQL_*": "mysql", "SQLSERVER_*": "sqlserver" } },
+        "availability": { "from": "settings.availability_type", "transform": { "ZONAL": "single-az", "REGIONAL": "multi-az" } },
+        "size_class": { "from": "settings.tier", "transform": { "db-f1-micro": "micro", "db-g1-small": "small", "db-custom-*": "medium" } }
+      },
+      "notes": "multi-az-ha and multi-region are never inferred from IaC — require Q6 user answer"
+    },
+    {
+      "source_type": "google_cloud_run_service",
+      "canonical_workload": "container",
+      "field_map": {
+        "service_type": "container",
+        "timeout": { "from": "template.spec.timeout_seconds", "transform": {} },
+        "memory": { "from": "template.spec.containers[0].resources.limits.memory", "transform": {} },
+        "vcpu": { "from": "template.spec.containers[0].resources.limits.cpu", "transform": {} }
+      }
+    },
+    {
+      "source_type": "google_compute_instance",
+      "canonical_workload": "vm",
+      "field_map": {
+        "service_type": "vm",
+        "vcpu": { "from": "machine_type", "transform": { "n2-standard-2": 2, "n2-standard-4": 4, "e2-medium": 2 } },
+        "memory": { "from": "machine_type", "transform": { "n2-standard-2": 8, "n2-standard-4": 16, "e2-medium": 4 } },
+        "gpu": { "from": "guest_accelerator", "transform": { "present": true, "absent": false } }
+      }
+    },
+    {
+      "source_type": "google_container_cluster",
+      "canonical_workload": "kubernetes",
+      "field_map": {
+        "service_type": "kubernetes"
+      },
+      "notes": "Kubernetes preference from preferences.json overrides: eks-managed, eks-or-ecs, ecs-fargate, or absent→Fargate"
+    },
+    {
+      "source_type": "google_firestore_database",
+      "canonical_workload": "nosql-document",
+      "field_map": {
+        "service_type": "nosql-document"
+      }
+    }
+  ]
+}

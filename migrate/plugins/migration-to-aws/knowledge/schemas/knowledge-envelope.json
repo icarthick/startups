@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "knowledge-envelope.json",
+  "title": "Knowledge File Envelope",
+  "description": "Common envelope for all migration knowledge store files.",
+  "type": "object",
+  "required": ["kind", "scope", "version", "entries"],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": ["direct-mappings", "skip-mappings", "normalization", "decision-matrix", "eliminators", "sizing", "vocabulary"]
+    },
+    "scope": {
+      "type": "string",
+      "pattern": "^(universal|source:[a-z-]+|aws)$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "description": { "type": "string" },
+    "last_verified": { "type": "string", "format": "date" },
+    "source_url": { "type": "string", "format": "uri" },
+    "selector": { "type": "string" },
+    "engine_source": { "type": "string" },
+    "matrix": { "type": "object" },
+    "absent_behavior": { "type": "string" },
+    "overrides": { "type": "array", "items": { "type": "string" } },
+    "entries": { "type": "array" }
+  },
+  "additionalProperties": false
+}

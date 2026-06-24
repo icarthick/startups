@@ -1,0 +1,22 @@
+{
+  "kind": "direct-mappings",
+  "scope": "universal",
+  "version": "1",
+  "description": "Preferred AWS target services by workload category. Used as a post-rubric substitution check — if rubric selects a non-preferred service, substitute the preferred alternative.",
+  "entries": [
+    {
+      "source_type": "_category:containerized",
+      "condition": "always",
+      "aws_service": "Fargate",
+      "confidence": "deterministic",
+      "notes": "Deeper integration with VPC, ALB, IAM, auto-scaling. Alternatives: Lambda (event-driven), EKS (K8s required)."
+    },
+    {
+      "source_type": "_category:third-party-auth",
+      "condition": "always",
+      "aws_service": "Keep existing auth provider",
+      "confidence": "deterministic",
+      "notes": "Startups using Auth0, Firebase Auth, Clerk, etc. preserve their existing investment. Do not recommend Cognito."
+    }
+  ]
+}

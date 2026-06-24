@@ -1,0 +1,66 @@
+{
+  "kind": "decision-matrix",
+  "scope": "universal",
+  "version": "1",
+  "description": "Maps source database engines to AWS RDS/Aurora engine identifiers. Validates engine compatibility and flags cases requiring user decision (engine escape paths).",
+  "last_verified": "2026-06-14",
+  "source_url": "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Welcome.html",
+  "selector": "engine",
+  "matrix": {
+    "postgres": {
+      "rds_engine": "postgres",
+      "aurora_engine": "postgresql",
+      "aws_service_suffix": "PostgreSQL",
+      "terraform_engine": "postgres"
+    },
+    "mysql": {
+      "rds_engine": "mysql",
+      "aurora_engine": "mysql",
+      "aws_service_suffix": "MySQL",
+      "terraform_engine": "mysql"
+    },
+    "sqlserver": {
+      "rds_engine": "sqlserver-se",
+      "aurora_engine": null,
+      "aws_service_suffix": "SQL Server",
+      "terraform_engine": "sqlserver-se",
+      "notes": "Aurora not available for SQL Server. Always provisioned."
+    },
+    "mariadb": {
+      "rds_engine": "mariadb",
+      "aurora_engine": null,
+      "aws_service_suffix": "MariaDB",
+      "terraform_engine": "mariadb",
+      "alternative": "mysql",
+      "needs_user_confirmation": true,
+      "notes": "MariaDB and MySQL have diverged (10.6+). Separate RDS engine exists. User may prefer MySQL for ecosystem."
+    },
+    "oracle": {
+      "rds_engine": "oracle-ee",
+      "aurora_engine": null,
+      "aws_service_suffix": "Oracle",
+      "terraform_engine": "oracle-ee",
+      "escape_path": "aurora-postgresql",
+      "needs_user_confirmation": true,
+      "notes": "Many migrations want to escape Oracle licensing → Aurora PostgreSQL. Requires schema conversion (AWS SCT) and app changes."
+    },
+    "cockroachdb": {
+      "rds_engine": null,
+      "aurora_engine": "postgresql",
+      "aws_service_suffix": "PostgreSQL",
+      "terraform_engine": "postgres",
+      "needs_user_confirmation": true,
+      "notes": "Wire-protocol compatible with Postgres. Distributed semantics do not map to RDS. Aurora DSQL may be an alternative for global distribution."
+    },
+    "alloydb": {
+      "rds_engine": null,
+      "aurora_engine": "postgresql",
+      "aws_service_suffix": "PostgreSQL",
+      "terraform_engine": "postgres",
+      "notes": "GCP Postgres-compatible. Custom extensions may not be available on Aurora."
+    }
+  },
+  "absent_behavior": "error",
+  "overrides": [],
+  "entries": []
+}

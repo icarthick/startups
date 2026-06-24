@@ -1,0 +1,16 @@
+{
+  "kind": "decision-matrix",
+  "scope": "universal",
+  "version": "1",
+  "description": "Maps canonical io_workload to AWS storage type selection for RDS and Aurora.",
+  "selector": "io_workload",
+  "engine_source": "family",
+  "matrix": {
+    "low": { "rds_storage": "gp3", "aurora_storage": "standard" },
+    "medium": { "rds_storage": "gp3", "aurora_storage": "standard" },
+    "high": { "rds_storage": "io2", "aurora_storage": "io-optimized" }
+  },
+  "absent_behavior": "use_default",
+  "overrides": [],
+  "entries": []
+}

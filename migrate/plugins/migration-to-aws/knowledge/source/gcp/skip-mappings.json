@@ -1,0 +1,33 @@
+{
+  "kind": "skip-mappings",
+  "scope": "source:gcp",
+  "version": "1",
+  "description": "GCP Terraform resource types that do not require AWS equivalents in v1.0.",
+  "last_verified": "2026-06-14",
+  "entries": [
+    {
+      "source_type": "google_project",
+      "reason": "AWS account structure (manual, not IaC)"
+    },
+    {
+      "source_type": "google_monitoring_*",
+      "reason": "Fallback to CloudWatch (managed)"
+    },
+    {
+      "source_type": "google_logging_*",
+      "reason": "Fallback to CloudWatch Logs (managed)"
+    },
+    {
+      "source_type": "google_compute_address",
+      "reason": "Elastic IPs managed by ALB/NAT (not standalone)"
+    },
+    {
+      "source_type": "google_identity_platform_*",
+      "reason": "Auth provider — keep existing solution, do not migrate to AWS Cognito or any AWS auth"
+    },
+    {
+      "source_type": "google_firebase_auth_*",
+      "reason": "Auth provider — keep existing solution, do not migrate to AWS Cognito or any AWS auth"
+    }
+  ]
+}
