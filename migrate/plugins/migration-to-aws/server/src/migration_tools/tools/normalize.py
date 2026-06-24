@@ -167,9 +167,10 @@ def normalize_resource(
         "container": ["workload_pattern"],
         "function": ["workload_pattern"],
         "vm": ["workload_pattern"],
-        "kubernetes": [],
         "relational-db": [],
         "nosql-document": [],
+        "cache": [],
+        "distributed-relational": [],
     }
     for field in workload_inference_fields.get(archetype, []):
         if field not in canonical_fields and field not in requires_inference:
@@ -181,9 +182,9 @@ def normalize_resource(
         "container": "recommend_compute",
         "function": "recommend_compute",
         "vm": "recommend_compute",
-        "kubernetes": "recommend_compute",
-        "app-engine": "recommend_compute",
-        "nosql-document": None,  # No tool yet — manual rubric fallback
+        "nosql-document": None,
+        "cache": None,
+        "distributed-relational": None,
     }
     next_tool = workload_to_tool.get(archetype)
 

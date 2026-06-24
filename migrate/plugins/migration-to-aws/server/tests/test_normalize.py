@@ -133,8 +133,8 @@ def test_gke(knowledge):
         raw_config={"name": "my-cluster"},
         knowledge=knowledge,
     )
-    assert result["archetype"] == "kubernetes"
-    assert result["canonical_fields"]["service_type"] == "kubernetes"
+    assert result["archetype"] == "container"
+    assert result["canonical_fields"]["service_type"] == "container"
 
 
 # --- Firestore ---

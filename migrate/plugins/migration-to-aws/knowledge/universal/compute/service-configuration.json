@@ -8,9 +8,7 @@
   "default_targets": {
     "container": "Fargate",
     "function": "Lambda",
-    "vm": "EC2",
-    "kubernetes": "preference-driven",
-    "app-engine": "Fargate"
+    "vm": "EC2"
   },
   "kubernetes_preference_map": {
     "eks-managed": "EKS",

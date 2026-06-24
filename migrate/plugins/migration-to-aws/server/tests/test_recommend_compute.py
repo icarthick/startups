@@ -129,7 +129,7 @@ def test_compute_engine_cost_sensitive_alternative(knowledge):
 def test_gke_eks_managed(knowledge):
     """GKE + kubernetes_pref=eks-managed → EKS."""
     result = recommend_compute_target(
-        service_type="kubernetes", vcpu=4, memory_gb=16,
+        service_type="container", vcpu=4, memory_gb=16,
         kubernetes_pref="eks-managed", knowledge=knowledge,
     )
     assert result["aws_service"] == "EKS"
@@ -138,7 +138,7 @@ def test_gke_eks_managed(knowledge):
 def test_gke_no_preference_fargate(knowledge):
     """GKE + no kubernetes preference → Fargate (not EKS)."""
     result = recommend_compute_target(
-        service_type="kubernetes", vcpu=2, memory_gb=4,
+        service_type="container", vcpu=2, memory_gb=4,
         kubernetes_pref=None, knowledge=knowledge,
     )
     assert result["aws_service"] == "Fargate"
@@ -147,7 +147,7 @@ def test_gke_no_preference_fargate(knowledge):
 def test_gke_ecs_fargate_preference(knowledge):
     """GKE + kubernetes_pref=ecs-fargate → Fargate."""
     result = recommend_compute_target(
-        service_type="kubernetes", vcpu=2, memory_gb=4,
+        service_type="container", vcpu=2, memory_gb=4,
         kubernetes_pref="ecs-fargate", knowledge=knowledge,
     )
     assert result["aws_service"] == "Fargate"

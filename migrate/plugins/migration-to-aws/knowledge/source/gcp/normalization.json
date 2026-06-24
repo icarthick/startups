@@ -73,11 +73,11 @@
     },
     {
       "source_type": "google_app_engine_application",
-      "archetype": "app-engine",
+      "archetype": "container",
       "field_map": {
-        "service_type": "app-engine"
+        "service_type": "container"
       },
-      "notes": "App Engine has minimal Terraform config. Workload pattern inference needed from app.yaml or project context."
+      "notes": "App Engine workloads are containerized web apps. Classify as container archetype."
     },
     {
       "source_type": "google_compute_instance",
@@ -109,11 +109,11 @@
     },
     {
       "source_type": "google_container_cluster",
-      "archetype": "kubernetes",
+      "archetype": "container",
       "field_map": {
-        "service_type": "kubernetes"
+        "service_type": "container"
       },
-      "notes": "Kubernetes preference from preferences.json overrides: eks-managed, eks-or-ecs, ecs-fargate, or absent→Fargate"
+      "notes": "GKE is a container orchestration platform. Archetype is 'container' (not 'kubernetes') — K8s preference is a signal for RESOLVE, not a different workload type."
     },
     {
       "source_type": "google_firestore_database",

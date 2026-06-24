@@ -85,26 +85,32 @@ def _eliminate(
     return excluded, applied
 
 
-def _default_target(service_type: str, kubernetes_pref: str | None, config: dict) -> tuple[str, str]:
+def _default_target(service_type: str, config: dict) -> tuple[str, str]:
     """Stage 2: DEFAULT — pick the starting target for this workload type."""
-    if service_type == "kubernetes":
-        k8s_map = config["kubernetes_preference_map"]
-        pref_key = kubernetes_pref if kubernetes_pref in k8s_map else "absent"
-        target = k8s_map[pref_key]
-        return target, f"kubernetes_pref={pref_key} → {target}"
-    else:
-        target = config["default_targets"][service_type]
-        return target, f"service_type={service_type} → default {target}"
+    target = config["default_targets"].get(service_type)
+    if target is None:
+        return "Fargate", f"service_type={service_type} → default Fargate (fallback)"
+    return target, f"service_type={service_type} → default {target}"
 
 
 def _apply_preferences(
     target: str, workload_pattern: str | None, cost_sensitivity: str | None,
-    excluded: set[str], config: dict
+    kubernetes_pref: str | None, excluded: set[str], config: dict
 ) -> tuple[str, list[str], list[dict], bool]:
-    """Stage 3: PREFER — adjust target based on workload pattern + cost sensitivity."""
+    """Stage 3: PREFER — adjust target based on K8s preference, workload pattern, cost sensitivity."""
     applied = []
     alternatives = []
     tie_break = False
+
+    # Kubernetes preference (overrides default for container workloads)
+    if kubernetes_pref:
+        k8s_map = config.get("kubernetes_preference_map", {})
+        if kubernetes_pref in k8s_map:
+            k8s_target = k8s_map[kubernetes_pref]
+            if k8s_target not in excluded:
+                old = target
+                target = k8s_target
+                applied.append(f"kubernetes_pref={kubernetes_pref} → {target}")
 
     # Workload pattern adjustments
     if workload_pattern:
@@ -234,13 +240,13 @@ def recommend_compute_target(
     logger.info("  ELIMINATE: excluded=%s", excluded)
 
     # ── 2. DEFAULT ────────────────────────────────────────────────────────────
-    target, default_reason = _default_target(service_type, kubernetes_pref, config)
+    target, default_reason = _default_target(service_type, config)
     rubric_applied.append(default_reason)
     logger.info("  DEFAULT: %s", target)
 
     # ── 3. PREFER ─────────────────────────────────────────────────────────────
     target, pref_applied, alternatives, tie_break_required = _apply_preferences(
-        target, workload_pattern, cost_sensitivity, excluded, config
+        target, workload_pattern, cost_sensitivity, kubernetes_pref, excluded, config
     )
     rubric_applied.extend(pref_applied)
     logger.info("  PREFER: target=%s, alternatives=%s", target, [a["aws_service"] for a in alternatives])
