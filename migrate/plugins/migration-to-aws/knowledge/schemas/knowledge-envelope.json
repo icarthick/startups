@@ -8,7 +8,15 @@
   "properties": {
     "kind": {
       "type": "string",
-      "enum": ["direct-mappings", "skip-mappings", "normalization", "decision-matrix", "eliminators", "sizing", "vocabulary"]
+      "enum": [
+        "direct-mappings",
+        "skip-mappings",
+        "normalization",
+        "decision-matrix",
+        "eliminators",
+        "sizing",
+        "vocabulary"
+      ]
     },
     "scope": {
       "type": "string",

@@ -4,8 +4,20 @@
   "version": "1",
   "description": "Maps JSON confidence values to user-facing labels and hints. Canonical reference — all phases use this.",
   "entries": [
-    { "key": "deterministic", "label": "Standard pairing", "hint": "Same AWS target for this resource type whenever it matches our fixed list — quick to sanity-check." },
-    { "key": "inferred", "label": "Tailored to your setup", "hint": "Based on your Terraform configuration, stack fit, and migration preferences — review again if those change." },
-    { "key": "billing_inferred", "label": "Estimated from billing only", "hint": "From GCP spend line items without full infrastructure detail — add Terraform for a tighter mapping." }
+    {
+      "key": "deterministic",
+      "label": "Standard pairing",
+      "hint": "Same AWS target for this resource type whenever it matches our fixed list — quick to sanity-check."
+    },
+    {
+      "key": "inferred",
+      "label": "Tailored to your setup",
+      "hint": "Based on your Terraform configuration, stack fit, and migration preferences — review again if those change."
+    },
+    {
+      "key": "billing_inferred",
+      "label": "Estimated from billing only",
+      "hint": "From GCP spend line items without full infrastructure detail — add Terraform for a tighter mapping."
+    }
   ]
 }

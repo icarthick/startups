@@ -21,6 +21,22 @@
         "get_pricing_attribute_values",
         "get_pricing"
       ]
+    },
+    "migration-tools": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "./server",
+        "serve"
+      ],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "timeout": 30000,
+      "type": "stdio",
+      "autoApprove": [
+        "recommend_database"
+      ]
     }
   }
 }
