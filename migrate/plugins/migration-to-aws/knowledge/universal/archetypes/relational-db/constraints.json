@@ -25,14 +25,16 @@
       "excludes": "_all",
       "when": { "field": "engine", "op": "==", "value": "oracle" },
       "reason": "Oracle requires user confirmation — escape path to Aurora PostgreSQL via AWS SCT",
-      "needs_clarification": "engine_choice"
+      "needs_clarification": "engine_choice",
+      "escape_path": { "target_engine": "postgres", "target_family": "Aurora", "tool": "AWS SCT" }
     },
     {
       "id": "mariadb-needs-confirmation",
       "excludes": "_all",
       "when": { "field": "engine", "op": "==", "value": "mariadb" },
       "reason": "MariaDB requires user confirmation — may prefer MySQL",
-      "needs_clarification": "engine_choice"
+      "needs_clarification": "engine_choice",
+      "alternative_engine": "mysql"
     }
   ]
 }
