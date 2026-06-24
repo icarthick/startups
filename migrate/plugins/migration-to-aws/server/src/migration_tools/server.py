@@ -13,6 +13,7 @@ from migration_tools.knowledge import load_knowledge
 from migration_tools.tools.recommend_database import recommend_database_target
 from migration_tools.tools.recommend_compute import recommend_compute_target
 from migration_tools.tools.normalize import normalize_resource as _normalize_resource
+from migration_tools.tools.lookup_direct import lookup_direct_mapping as _lookup_direct_mapping
 
 # Resolve knowledge directory — prefer env var (set by .mcp.json), fallback to relative for dev
 import os
@@ -136,6 +137,28 @@ def normalize_resource(
     return _normalize_resource(
         source_type=source_type,
         raw_config=raw_config,
+        knowledge=_knowledge,
+    )
+
+
+@mcp.tool()
+def lookup_direct_mapping(
+    source_type: str,
+    condition_context: dict | None = None,
+) -> dict:
+    """Check if a source resource has an unconditional direct AWS mapping.
+
+    Pass 1 fast-path lookup. If hit, returns the AWS target with deterministic
+    confidence — no further tools needed for this resource. If miss, proceed
+    to normalize_resource → recommend_database/compute.
+
+    Args:
+        source_type: Terraform resource type (e.g., google_storage_bucket).
+        condition_context: Optional fields for conditional mappings (e.g., {"engine": "sqlserver"}).
+    """
+    return _lookup_direct_mapping(
+        source_type=source_type,
+        condition_context=condition_context,
         knowledge=_knowledge,
     )
 

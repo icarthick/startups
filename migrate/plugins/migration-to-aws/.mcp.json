@@ -36,9 +36,10 @@
       "timeout": 30000,
       "type": "stdio",
       "autoApprove": [
+        "lookup_direct_mapping",
+        "normalize_resource",
         "recommend_database",
-        "recommend_compute",
-        "normalize_resource"
+        "recommend_compute"
       ]
     }
   }
