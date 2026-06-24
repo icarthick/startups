@@ -39,7 +39,8 @@
         "lookup_direct_mapping",
         "normalize_resource",
         "recommend_database",
-        "recommend_compute"
+        "recommend_compute",
+        "validate_design"
       ]
     }
   }

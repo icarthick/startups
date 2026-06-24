@@ -142,71 +142,30 @@ For each mapped AWS service, verify:
 
 ## Step 4: Write Design Output
 
-**File 1: `aws-design.json`**
+Assemble `aws-design.json` from the results accumulated in Steps 2–3:
 
-```json
-{
-  "clusters": [
-    {
-      "cluster_id": "compute_instance_us-central1_001",
-      "gcp_region": "us-central1",
-      "aws_region": "us-east-1",
-      "resources": [
-        {
-          "gcp_address": "google_compute_instance.web",
-          "gcp_type": "google_compute_instance",
-          "gcp_config": {
-            "machine_type": "n2-standard-2",
-            "zone": "us-central1-a",
-            "boot_disk_size_gb": 100
-          },
-          "aws_service": "Fargate",
-          "aws_config": {
-            "cpu": "0.5",
-            "memory": "1024",
-            "region": "us-east-1"
-          },
-          "confidence": "inferred",
-          "human_expertise_required": false,
-          "rationale": "Rubric: Compute Engine → Fargate (example — not a Direct Mapping row; Cloud Run/Compute Engine use Pass 2)",
-          "rubric_applied": [
-            "Eliminators: PASS",
-            "Operational Model: Managed Fargate",
-            "User Preference: Speed (q2)",
-            "Feature Parity: Full (always-on compute)",
-            "Cluster Context: Standalone compute tier",
-            "Simplicity: Fargate (managed, no EC2)"
-          ]
-        }
-      ]
-    }
-  ],
-  "warnings": [
-    "service X not fully supported in us-east-1; fallback to us-west-2"
-  ]
-}
+- Top level: `{ "clusters": [...], "warnings": [...] }`
+- Each cluster: `cluster_id` (from source clusters), `gcp_region`, `aws_region` (from preferences), `resources` array
+- Each resource: `gcp_address`, `gcp_type`, `gcp_config` (from inventory) + all fields from the tool response (`aws_service`, `aws_config`, `confidence`, `human_expertise_required`, `rubric_applied`) + a `rationale` string summarizing `rubric_applied`
+
+Then call `validate_design` to confirm the output is structurally correct before proceeding.
+
+## Output Validation
+
+After writing `aws-design.json`, call the `validate_design` MCP tool:
+
+```
+validate_design(design=<aws-design.json content>, clusters_source=<gcp-resource-clusters.json content>)
 ```
 
-## Output Validation Checklist
-
-- `clusters` array is non-empty
-- Every cluster has `cluster_id` matching a cluster from `gcp-resource-clusters.json`
-- Every cluster has `gcp_region` and `aws_region`
-- Every resource has `gcp_address`, `gcp_type`, `gcp_config`, `aws_service`, `aws_config`
-- Every resource has `human_expertise_required` (boolean) — `true` for all `google_bigquery_*` resources (specialist gate); `false` for others unless a rubric explicitly requires it
-- Every `google_bigquery_*` resource has `aws_service` exactly **`Deferred — specialist engagement`** (not Athena, Redshift, Glue, etc.)
-- Every `google_sql_database_instance` resource has `aws_service` ∈ {`RDS PostgreSQL`, `RDS MySQL`, `Aurora PostgreSQL`, `Aurora MySQL`} with non-empty `rationale` citing Q6 availability value. If `availability` is `single-az` or `multi-az`, `aws_service` MUST be RDS (not Aurora). If `multi-az-ha` or `multi-region`, MUST be Aurora.
-- All `confidence` values are either `"deterministic"` or `"inferred"`
-- All `rationale` fields are non-empty
-- Every resource from every evaluated cluster appears in the output
-- No duplicate `gcp_address` values across clusters
-- Output is valid JSON
+- If `valid: true` → proceed to Completion Handoff Gate.
+- If `valid: false` → review `violations` array. Fix the issues in `aws-design.json` and re-validate. Do not proceed until valid.
 
 ## Completion Handoff Gate (Fail Closed)
 
 Before returning control to `design.md`, require:
 
-- `aws-design.json` exists and passes the Output Validation Checklist above.
+- `aws-design.json` exists and `validate_design` returned `valid: true`.
 
 If this gate fails: STOP and output: "design-infra did not produce a valid `aws-design.json`; do not complete Phase 3."
 

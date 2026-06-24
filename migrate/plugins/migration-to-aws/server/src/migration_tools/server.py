@@ -14,6 +14,7 @@ from migration_tools.tools.recommend_database import recommend_database_target
 from migration_tools.tools.recommend_compute import recommend_compute_target
 from migration_tools.tools.normalize import normalize_resource as _normalize_resource
 from migration_tools.tools.lookup_direct import lookup_direct_mapping as _lookup_direct_mapping
+from migration_tools.tools.validate_design import validate_design as _validate_design
 
 # Resolve knowledge directory — prefer env var (set by .mcp.json), fallback to relative for dev
 import os
@@ -159,6 +160,28 @@ def lookup_direct_mapping(
     return _lookup_direct_mapping(
         source_type=source_type,
         condition_context=condition_context,
+        knowledge=_knowledge,
+    )
+
+
+@mcp.tool()
+def validate_design(
+    design: dict,
+    clusters_source: dict | None = None,
+) -> dict:
+    """Validate aws-design.json against the output checklist.
+
+    Runs structural assertions: non-empty clusters, required fields on every
+    resource, confidence enum, BigQuery→Deferred gate, SQL→correct family,
+    no duplicate addresses. Returns pass/fail with specific violations.
+
+    Args:
+        design: The aws-design.json content as a dict.
+        clusters_source: Optional gcp-resource-clusters.json for cluster_id cross-check.
+    """
+    return _validate_design(
+        design=design,
+        clusters_source=clusters_source,
         knowledge=_knowledge,
     )
 
