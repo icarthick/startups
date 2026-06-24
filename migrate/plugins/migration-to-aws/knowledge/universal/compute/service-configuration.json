@@ -1,0 +1,80 @@
+{
+  "kind": "engine-configuration",
+  "scope": "universal",
+  "version": "1",
+  "description": "Complete compute service selection and sizing configuration. Drives recommend_compute tool decisions: eliminators → default target → preference overrides → workload adjustments → sizing.",
+  "last_verified": "2026-06-24",
+  "source_url": "https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-cpu-memory-error.html",
+  "default_targets": {
+    "container": "Fargate",
+    "function": "Lambda",
+    "vm": "EC2",
+    "kubernetes": "preference-driven",
+    "app-engine": "Fargate"
+  },
+  "kubernetes_preference_map": {
+    "eks-managed": "EKS",
+    "eks-or-ecs": "EKS",
+    "ecs-fargate": "Fargate",
+    "absent": "Fargate"
+  },
+  "workload_adjustments": {
+    "always-on": {
+      "if_default": "Lambda",
+      "switch_to": "Fargate",
+      "reason": "Lambda cold starts unacceptable for always-on services"
+    },
+    "event-driven": {
+      "if_default": "Fargate",
+      "switch_to": null,
+      "note": "Fargate is fine for event-driven; Lambda also valid if timeout allows. No forced switch."
+    },
+    "batch": {
+      "if_default": "Fargate",
+      "switch_to": null,
+      "note": "Fargate handles batch. EC2 preferred only if cost_sensitivity=high + long-running."
+    },
+    "windows-only": {
+      "force": "EC2",
+      "reason": "Lambda and Fargate have limited/no Windows support"
+    }
+  },
+  "cost_sensitivity_adjustments": {
+    "high": {
+      "if_default": "EC2",
+      "suggest_alternative": "Fargate",
+      "reason": "Lower operational cost (no instance management)",
+      "tie_break": true
+    }
+  },
+  "fargate_valid_combos": {
+    "description": "Fargate only supports specific vCPU/memory combinations. Snap source sizing to nearest valid combo.",
+    "combos": [
+      { "cpu": 0.25, "memory_min_gb": 0.5, "memory_max_gb": 2 },
+      { "cpu": 0.5, "memory_min_gb": 1, "memory_max_gb": 4 },
+      { "cpu": 1, "memory_min_gb": 2, "memory_max_gb": 8 },
+      { "cpu": 2, "memory_min_gb": 4, "memory_max_gb": 16 },
+      { "cpu": 4, "memory_min_gb": 8, "memory_max_gb": 30 },
+      { "cpu": 8, "memory_min_gb": 16, "memory_max_gb": 60 },
+      { "cpu": 16, "memory_min_gb": 32, "memory_max_gb": 120 }
+    ]
+  },
+  "ec2_instance_mapping": {
+    "description": "Maps source vCPU/memory to equivalent EC2 instance type. Dev-tier defaults to t3; production to m-/r-class.",
+    "entries": [
+      { "vcpu_max": 2, "memory_max_gb": 4, "instance_type": "t3.medium", "notes": "Dev/light workload" },
+      { "vcpu_max": 2, "memory_max_gb": 8, "instance_type": "t3.large", "notes": "Dev/moderate" },
+      { "vcpu_max": 4, "memory_max_gb": 16, "instance_type": "m5.xlarge", "notes": "Production" },
+      { "vcpu_max": 8, "memory_max_gb": 32, "instance_type": "m5.2xlarge", "notes": "Production" },
+      { "vcpu_max": 16, "memory_max_gb": 64, "instance_type": "m5.4xlarge", "notes": "Heavy production" },
+      { "vcpu_max": 64, "memory_max_gb": 256, "instance_type": "m5.16xlarge", "notes": "Very large" }
+    ]
+  },
+  "lambda_config": {
+    "description": "Lambda sizing is memory-only (128MB–10GB). vCPU scales proportionally.",
+    "memory_min_mb": 128,
+    "memory_max_mb": 10240,
+    "timeout_max_seconds": 900
+  },
+  "entries": []
+}

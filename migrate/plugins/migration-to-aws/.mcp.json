@@ -23,19 +23,20 @@
       ]
     },
     "migration-tools": {
-      "command": "uvx",
+      "command": "python3",
       "args": [
-        "--from",
-        "/Users/carthick/dev/github/startups/migrate/plugins/migration-to-aws/server",
-        "serve"
+        "-m", "migration_tools.server"
       ],
       "env": {
-        "FASTMCP_LOG_LEVEL": "ERROR"
+        "FASTMCP_LOG_LEVEL": "ERROR",
+        "PYTHONPATH": "/Users/carthick/dev/github/startups/migrate/plugins/migration-to-aws/server/src",
+        "MIGRATION_TOOLS_KNOWLEDGE_DIR": "/Users/carthick/dev/github/startups/migrate/plugins/migration-to-aws/knowledge"
       },
       "timeout": 30000,
       "type": "stdio",
       "autoApprove": [
-        "recommend_database"
+        "recommend_database",
+        "recommend_compute"
       ]
     }
   }

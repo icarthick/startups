@@ -11,9 +11,14 @@ from fastmcp import FastMCP
 
 from migration_tools.knowledge import load_knowledge
 from migration_tools.tools.recommend_database import recommend_database_target
+from migration_tools.tools.recommend_compute import recommend_compute_target
 
-# Resolve knowledge directory (relative to server source)
-KNOWLEDGE_DIR = Path(__file__).resolve().parents[3] / "knowledge"
+# Resolve knowledge directory — prefer env var (set by .mcp.json), fallback to relative for dev
+import os
+KNOWLEDGE_DIR = Path(os.environ.get(
+    "MIGRATION_TOOLS_KNOWLEDGE_DIR",
+    Path(__file__).resolve().parents[3] / "knowledge"
+))
 
 # Configure logging — writes to a file next to the server for easy inspection
 LOG_FILE = Path(__file__).resolve().parents[3] / "server" / "migration-tools.log"
@@ -66,6 +71,48 @@ def recommend_database(
         io_workload=io_workload,
         traffic=traffic,
         data_size_gb=data_size_gb,
+        knowledge=_knowledge,
+    )
+
+
+@mcp.tool()
+def recommend_compute(
+    service_type: str,
+    timeout_seconds: int | None = None,
+    vcpu: float = 0.25,
+    memory_gb: float = 0.5,
+    gpu: bool = False,
+    runtime: str | None = None,
+    workload_pattern: str | None = None,
+    kubernetes_pref: str | None = None,
+    cost_sensitivity: str | None = None,
+) -> dict:
+    """Recommend an AWS compute target for a workload migration.
+
+    Given canonical compute attributes (service type, resource specs, preferences,
+    workload pattern), returns AWS service selection + validated sizing.
+
+    Args:
+        service_type: Canonical workload type (container, function, vm, kubernetes, app-engine).
+        timeout_seconds: Max execution/request timeout in seconds.
+        vcpu: Source vCPU count.
+        memory_gb: Source memory in GB.
+        gpu: Whether GPU is required.
+        runtime: Language runtime (for functions, e.g. python39, nodejs18).
+        workload_pattern: LLM-inferred pattern (always-on, event-driven, batch, windows-only). Null if undetermined.
+        kubernetes_pref: User's K8s preference from Clarify (eks-managed, eks-or-ecs, ecs-fargate, or null).
+        cost_sensitivity: User's cost sensitivity (high, medium, low, or null).
+    """
+    return recommend_compute_target(
+        service_type=service_type,
+        timeout_seconds=timeout_seconds,
+        vcpu=vcpu,
+        memory_gb=memory_gb,
+        gpu=gpu,
+        runtime=runtime,
+        workload_pattern=workload_pattern,
+        kubernetes_pref=kubernetes_pref,
+        cost_sensitivity=cost_sensitivity,
         knowledge=_knowledge,
     )
 

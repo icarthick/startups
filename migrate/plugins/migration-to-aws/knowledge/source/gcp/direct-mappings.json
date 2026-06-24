@@ -2,8 +2,8 @@
   "kind": "direct-mappings",
   "scope": "source:gcp",
   "version": "1",
-  "description": "GCP Terraform resource types with unconditional 1:1 AWS mappings. Pass 1 fast-path — no rubric evaluation needed.",
-  "last_verified": "2026-06-14",
+  "description": "GCP Terraform resource types with unconditional 1:1 AWS mappings. No eliminator or preference can flip these targets. Compute resources (Cloud Run, Cloud Functions, Compute Engine, GKE, App Engine) are NOT here — they all have eliminators and go through recommend_compute tool.",
+  "last_verified": "2026-06-24",
   "source_url": "https://github.com/awslabs/startups/blob/main/migrate/plugins/migration-to-aws/skills/gcp-to-aws/references/design-refs/fast-path.md",
   "entries": [
     {
@@ -12,41 +12,6 @@
       "aws_service": "S3",
       "confidence": "deterministic",
       "notes": "1:1 mapping; preserve ACL/versioning/lifecycle rules"
-    },
-    {
-      "source_type": "google_cloud_run_service",
-      "condition": "always",
-      "aws_service": "Fargate",
-      "confidence": "deterministic",
-      "notes": "Preferred container runtime target"
-    },
-    {
-      "source_type": "google_cloud_run_v2_service",
-      "condition": "always",
-      "aws_service": "Fargate",
-      "confidence": "deterministic",
-      "notes": "v2 API variant of Cloud Run"
-    },
-    {
-      "source_type": "google_cloudfunctions_function",
-      "condition": "always",
-      "aws_service": "Lambda",
-      "confidence": "deterministic",
-      "notes": "Gen 1 function mapping"
-    },
-    {
-      "source_type": "google_cloudfunctions2_function",
-      "condition": "always",
-      "aws_service": "Lambda",
-      "confidence": "deterministic",
-      "notes": "Gen 2 function mapping"
-    },
-    {
-      "source_type": "google_sql_database_instance",
-      "condition": { "engine": "sqlserver" },
-      "aws_service": "RDS SQL Server",
-      "confidence": "deterministic",
-      "notes": "Always provisioned (no serverless). Postgres/MySQL use rubric path."
     },
     {
       "source_type": "google_compute_network",
@@ -96,6 +61,13 @@
       "aws_service": "ElastiCache Redis",
       "confidence": "deterministic",
       "notes": "1:1 mapping; preserve cluster mode and node type"
+    },
+    {
+      "source_type": "google_sql_database_instance",
+      "condition": { "engine": "sqlserver" },
+      "aws_service": "RDS SQL Server",
+      "confidence": "deterministic",
+      "notes": "SQL Server is always RDS (no Aurora option, no eliminator can flip it). Postgres/MySQL use recommend_database tool."
     }
   ]
 }
