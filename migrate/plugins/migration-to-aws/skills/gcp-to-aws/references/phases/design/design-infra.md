@@ -25,10 +25,10 @@ For each PRIMARY resource in the cluster:
 1. Call the `lookup_direct_mapping` MCP tool:
 
    ```
-   lookup_direct_mapping(source_type=<gcp_type>, condition_context=<optional>)
+   lookup_direct_mapping(source_type=<gcp_type>, raw_config=<resource config from inventory>)
    ```
 
-   For `google_sql_database_instance`, extract the engine from `database_version` and pass as `condition_context`: `{"engine": "postgres"}`, `{"engine": "mysql"}`, or `{"engine": "sqlserver"}`.
+   The tool auto-extracts condition fields from raw_config (e.g., `database_version` → engine for Cloud SQL conditional mappings). You may also pass `condition_context` explicitly if preferred.
 
 2. If `hit: true` → write the result into `aws-design.json`:
    - `aws_service` ← tool's `aws_service`
@@ -56,9 +56,10 @@ normalize_resource(source_type=<gcp_type>, raw_config=<resource config from inve
 
 This returns:
 
-- `canonical_workload` — which recommend tool to call (`relational-db` → `recommend_database`, `container`/`function`/`vm`/`kubernetes` → `recommend_compute`)
+- `archetype` — the workload pattern (`relational-db`, `container`, `function`, `vm`, `load-balancer`, `message-broker`, etc.)
+- `next_tool` — which recommend tool to call (`recommend_database`, `recommend_compute`, `recommend_networking`, `recommend_messaging`, or `null`)
 - `canonical_fields` — deterministically extracted fields ready for the tool
-- `requires_inference` — fields the LLM must infer before calling (e.g., `workload_pattern`)
+- `requires_inference` — fields the LLM must infer before calling (e.g., `workload_pattern`, `delivery_pattern`, `subscriber_count`)
 
 If `normalize_resource` returns an error (unknown source type) or `next_tool` is null (no recommend tool for this archetype):
 
@@ -69,6 +70,8 @@ If `normalize_resource` returns an error (unknown source type) or `next_tool` is
 For each field in `requires_inference`, examine the raw resource config and determine:
 
 - `workload_pattern`: `always-on` (min_instances > 0, long-running), `event-driven` (trigger-based, no min_instances), `batch` (scheduled, startup_script), `windows-only` (Windows OS image)
+- `delivery_pattern` (messaging): `fan-out` (topic with multiple subscriptions), `point-to-point` (single consumer queue)
+- `subscriber_count` (messaging): count subscriptions attached to the topic in the inventory
 - If undetermined, pass `null` — the recommend tool will produce a best-effort answer.
 
 Also read from `preferences.json`:
@@ -82,7 +85,7 @@ Also read from `preferences.json`:
 
 **3. Call the recommend tool indicated by `next_tool`:**
 
-The `normalize_resource` response includes `next_tool` (e.g., `"recommend_database"` or `"recommend_compute"`). Call that tool with `canonical_fields` + inferred signals + preference values merged as inputs.
+The `normalize_resource` response includes `next_tool` (e.g., `"recommend_database"`, `"recommend_compute"`, `"recommend_networking"`, or `"recommend_messaging"`). Call that tool with `canonical_fields` + inferred signals + preference values merged as inputs.
 
 If `next_tool` is `null`: no recommend tool exists for this workload type yet. Apply the manual rubric from `design-refs/<category>.md` as fallback.
 
@@ -101,14 +104,30 @@ If `next_tool` is `null`: no recommend tool exists for this workload type yet. A
 
 **IaC extraction note:** Only `single-az` and `multi-az` can be auto-extracted from Terraform (`ZONAL` / `REGIONAL`). **`multi-az-ha` and `multi-region` are never inferred from IaC** — they require explicit user intent via Q6. If `availability` is absent in preferences, pass `null` to the tool — it will return `needs_clarification`.
 
-**5.** Write `human_expertise_required` from the tool response (or `true` if Pass 1 returned deferred/skip). For resources still using manual rubric (networking, storage, messaging — no recommend tool yet), verify the selected `aws_service` against the Preferred AWS Target Services table in `design-refs/fast-path.md`.
+**5.** Write `human_expertise_required` from the tool response (or `true` if Pass 1 returned deferred/skip).
 
 ## Step 3: Handle Secondary Resources
 
 For each SECONDARY resource:
 
 1. Call `lookup_direct_mapping` (handles direct, skip, and deferred — same as primary resources)
-2. If miss: call `normalize_resource` → `recommend_compute`/`recommend_database` (same Pass 2 flow as primary resources)
+2. If miss: call `normalize_resource` with `resolved_primaries` — pass the already-resolved primary resources from this cluster so the tool can handle parent-dependent decisions:
+
+   ```
+   normalize_resource(
+     source_type=<gcp_type>,
+     raw_config=<resource config>,
+     resolved_primaries=[
+       {"type": "google_container_cluster", "aws_service": "EKS", ...},
+       {"type": "google_compute_network", "aws_service": "VPC", ...}
+     ]
+   )
+   ```
+
+   The `resolved_primaries` array should include every primary resource in this cluster that was resolved in Step 2 — each with at minimum `type` and `aws_service`.
+
+3. If the response has `next_action: "skip"` → write a skip entry with the `skip_reason` and move on.
+4. Otherwise → follow the same Pass 2 flow (infer signals, call `recommend_*`, write result).
 
 ## Step 3.5: Validate AWS Architecture (using awsknowledge)
 

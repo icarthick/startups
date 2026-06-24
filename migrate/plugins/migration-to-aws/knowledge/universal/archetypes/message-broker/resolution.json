@@ -1,0 +1,28 @@
+{
+  "archetype": "message-broker",
+  "description": "Rules for selecting SNS+SQS vs SQS-only. Delivery pattern is the primary signal.",
+  "priority_order": [
+    {
+      "id": "pattern-fanout",
+      "type": "force",
+      "when": { "field": "delivery_pattern", "op": "==", "value": "fan-out" },
+      "select": "SNS+SQS",
+      "reason": "Fan-out (one-to-many) → SNS topic with SQS subscription(s)"
+    },
+    {
+      "id": "pattern-point-to-point",
+      "type": "force",
+      "when": { "field": "delivery_pattern", "op": "==", "value": "point-to-point" },
+      "select": "SQS",
+      "reason": "Point-to-point (one-to-one) → SQS queue directly"
+    },
+    {
+      "id": "multiple-subscribers",
+      "type": "force",
+      "when": { "field": "subscriber_count", "op": ">", "value": 1 },
+      "select": "SNS+SQS",
+      "reason": "Multiple subscribers detected → fan-out pattern"
+    }
+  ],
+  "default": "SQS"
+}

@@ -1,0 +1,7 @@
+{
+  "archetype": "load-balancer",
+  "description": "Traffic distribution across backend targets. Includes HTTP/HTTPS application load balancing, TCP/UDP network load balancing, and internal service routing.",
+  "candidates": ["ALB", "NLB"],
+  "source_examples": ["GCP Forwarding Rule", "GCP HTTP(S) LB", "Azure Application Gateway", "Azure Load Balancer"],
+  "default": "ALB"
+}

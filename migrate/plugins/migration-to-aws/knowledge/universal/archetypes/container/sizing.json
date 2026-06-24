@@ -20,6 +20,14 @@
       { "vcpu_max": 8, "memory_max_gb": 32, "instance_type": "m5.2xlarge", "notes": "Production" },
       { "vcpu_max": 16, "memory_max_gb": 64, "instance_type": "m5.4xlarge", "notes": "Heavy production" },
       { "vcpu_max": 64, "memory_max_gb": 256, "instance_type": "m5.16xlarge", "notes": "Very large" }
+    ],
+    "gpu_instance_mapping": [
+      { "gpu_max": 1, "vcpu_max": 4, "memory_max_gb": 16, "instance_type": "g5.xlarge", "notes": "1× NVIDIA A10G" },
+      { "gpu_max": 1, "vcpu_max": 8, "memory_max_gb": 32, "instance_type": "g5.2xlarge", "notes": "1× NVIDIA A10G" },
+      { "gpu_max": 4, "vcpu_max": 48, "memory_max_gb": 192, "instance_type": "g5.12xlarge", "notes": "4× NVIDIA A10G" },
+      { "gpu_max": 4, "vcpu_max": 32, "memory_max_gb": 244, "instance_type": "p3.8xlarge", "notes": "4× NVIDIA V100" },
+      { "gpu_max": 8, "vcpu_max": 64, "memory_max_gb": 488, "instance_type": "p3.16xlarge", "notes": "8× NVIDIA V100" },
+      { "gpu_max": 8, "vcpu_max": 96, "memory_max_gb": 1152, "instance_type": "p4d.24xlarge", "notes": "8× NVIDIA A100" }
     ]
   },
   "lambda": {

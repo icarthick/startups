@@ -204,6 +204,7 @@ def configure(
     vcpu: float,
     memory_gb: float,
     timeout_seconds: int | None,
+    gpu: bool,
     sizing_data: dict,
 ) -> tuple[dict, str, list[str]]:
     """Produce the concrete AWS config (sizing/topology) for the chosen service.
@@ -221,18 +222,28 @@ def configure(
         if snapped is None:
             # Exceeded Fargate limits — fall to EC2
             target = "EC2"
-            entries = sizing_data.get("ec2", {}).get("instance_mapping", [])
-            aws_config["instance_type"] = _find_ec2_instance(vcpu, memory_gb, entries)
-            rubric.append(f"Fargate overflow → EC2 {aws_config['instance_type']}")
+            if gpu:
+                entries = sizing_data.get("ec2", {}).get("gpu_instance_mapping", [])
+                aws_config["instance_type"] = _find_gpu_instance(vcpu, memory_gb, entries)
+                rubric.append(f"Fargate overflow + GPU → EC2 {aws_config['instance_type']}")
+            else:
+                entries = sizing_data.get("ec2", {}).get("instance_mapping", [])
+                aws_config["instance_type"] = _find_ec2_instance(vcpu, memory_gb, entries)
+                rubric.append(f"Fargate overflow → EC2 {aws_config['instance_type']}")
         else:
             aws_config["cpu"] = snapped["cpu"]
             aws_config["memory_gb"] = snapped["memory_gb"]
             rubric.append(f"Fargate: {snapped['cpu']} vCPU / {snapped['memory_gb']} GB")
 
     elif target == "EC2":
-        entries = sizing_data.get("ec2", {}).get("instance_mapping", [])
-        aws_config["instance_type"] = _find_ec2_instance(vcpu, memory_gb, entries)
-        rubric.append(f"EC2: {aws_config['instance_type']}")
+        if gpu:
+            entries = sizing_data.get("ec2", {}).get("gpu_instance_mapping", [])
+            aws_config["instance_type"] = _find_gpu_instance(vcpu, memory_gb, entries)
+            rubric.append(f"EC2 GPU: {aws_config['instance_type']}")
+        else:
+            entries = sizing_data.get("ec2", {}).get("instance_mapping", [])
+            aws_config["instance_type"] = _find_ec2_instance(vcpu, memory_gb, entries)
+            rubric.append(f"EC2: {aws_config['instance_type']}")
 
     elif target == "Lambda":
         lcfg = sizing_data.get("lambda", {})
@@ -267,6 +278,14 @@ def _find_ec2_instance(vcpu: float, memory_gb: float, entries: list[dict]) -> st
     return entries[-1]["instance_type"] if entries else "m5.xlarge"
 
 
+def _find_gpu_instance(vcpu: float, memory_gb: float, entries: list[dict]) -> str:
+    """Find smallest GPU instance that fits by vCPU and memory."""
+    for entry in entries:
+        if entry["vcpu_max"] >= vcpu and entry["memory_max_gb"] >= memory_gb:
+            return entry["instance_type"]
+    return entries[-1]["instance_type"] if entries else "p3.8xlarge"
+
+
 # ─── Main entry point ─────────────────────────────────────────────────────────
 
 def recommend_compute_target(
@@ -292,6 +311,9 @@ def recommend_compute_target(
     # Load archetype knowledge
     archetype = service_type
     valid_types = {"container", "function", "vm"}
+    # Alias common alternative names
+    aliases = {"kubernetes": "container", "app-engine": "container"}
+    archetype = aliases.get(archetype, archetype)
     if archetype not in valid_types:
         return {"error": f"Unknown service_type: '{archetype}'. Valid: {list(valid_types)}"}
 
@@ -328,7 +350,7 @@ def recommend_compute_target(
     logger.info("  VERIFY: target=%s", target)
 
     # ── CONFIGURE ─────────────────────────────────────────────────────────────
-    aws_config, target, config_rubric = configure(target, vcpu, memory_gb, timeout_seconds, sizing_data)
+    aws_config, target, config_rubric = configure(target, vcpu, memory_gb, timeout_seconds, gpu, sizing_data)
     rubric_applied.extend(config_rubric)
     logger.info("  CONFIGURE: %s → %s", target, aws_config)
 

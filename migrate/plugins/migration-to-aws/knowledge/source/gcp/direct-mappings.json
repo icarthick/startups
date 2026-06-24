@@ -21,6 +21,13 @@
       "notes": "1:1; preserve CIDR ranges"
     },
     {
+      "source_type": "google_compute_subnetwork",
+      "condition": "always",
+      "aws_service": "Subnet",
+      "confidence": "deterministic",
+      "notes": "1:1; preserve CIDR range and region → AZ mapping"
+    },
+    {
       "source_type": "google_compute_firewall",
       "condition": "always",
       "aws_service": "Security Group",
@@ -68,6 +75,27 @@
       "aws_service": "RDS SQL Server",
       "confidence": "deterministic",
       "notes": "SQL Server is always RDS (no Aurora option, no eliminator can flip it). Postgres/MySQL use recommend_database tool."
+    },
+    {
+      "source_type": "google_filestore_instance",
+      "condition": "always",
+      "aws_service": "EFS",
+      "confidence": "deterministic",
+      "notes": "1:1 managed NFS; preserve tier/capacity in sizing"
+    },
+    {
+      "source_type": "google_compute_security_policy",
+      "condition": "always",
+      "aws_service": "AWS WAF",
+      "confidence": "deterministic",
+      "notes": "Cloud Armor → WAF; migrate rules as WAF ACL rules"
+    },
+    {
+      "source_type": "google_cloud_tasks_queue",
+      "condition": "always",
+      "aws_service": "SQS",
+      "confidence": "deterministic",
+      "notes": "Cloud Tasks → SQS; preserve retry/rate config as queue attributes"
     }
   ]
 }

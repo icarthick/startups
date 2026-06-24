@@ -1,0 +1,7 @@
+{
+  "archetype": "message-broker",
+  "description": "Asynchronous messaging between services. Includes fan-out pub/sub patterns (one-to-many) and point-to-point queuing (one-to-one). The delivery pattern determines whether SNS, SQS, or both are needed.",
+  "candidates": ["SNS+SQS", "SQS"],
+  "source_examples": ["GCP Pub/Sub", "Azure Service Bus", "RabbitMQ", "Kafka (simple)"],
+  "default": "SQS"
+}

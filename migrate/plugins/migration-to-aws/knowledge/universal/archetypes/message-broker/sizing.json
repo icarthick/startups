@@ -1,0 +1,15 @@
+{
+  "archetype": "message-broker",
+  "description": "Per-service configuration for the CONFIGURE stage.",
+  "sns_sqs": {
+    "fifo_when_ordering_required": true,
+    "dlq_default": true,
+    "notes": "SNS topic → SQS subscription(s). Add DLQ per queue. Use FIFO if ordering matters."
+  },
+  "sqs": {
+    "fifo_when_ordering_required": true,
+    "dlq_default": true,
+    "visibility_timeout_default_seconds": 30,
+    "notes": "Standard or FIFO queue. Add DLQ. Set visibility timeout based on consumer processing time."
+  }
+}

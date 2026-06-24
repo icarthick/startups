@@ -197,3 +197,58 @@ def test_fargate_sizing_3vcpu_snaps_to_4(knowledge):
     assert result["aws_service"] == "Fargate"
     assert result["aws_config"]["cpu"] == 4
     assert result["aws_config"]["memory_gb"] == 8
+
+
+# --- GPU instance selection ---
+
+def test_vm_gpu_selects_gpu_instance(knowledge):
+    """VM with gpu=True → EC2 with GPU instance (not general-purpose)."""
+    result = recommend_compute_target(
+        service_type="vm", vcpu=16, memory_gb=104, gpu=True,
+        workload_pattern="batch", knowledge=knowledge,
+    )
+    assert result["aws_service"] == "EC2"
+    # g5.12xlarge (48 vCPU, 192 GB) is smallest GPU instance that fits 16/104
+    assert result["aws_config"]["instance_type"] == "g5.12xlarge"
+
+
+def test_container_gpu_falls_to_ec2_gpu(knowledge):
+    """Container with GPU → Fargate excluded → EC2 with GPU instance."""
+    result = recommend_compute_target(
+        service_type="container", vcpu=8, memory_gb=30, gpu=True,
+        workload_pattern="always-on", knowledge=knowledge,
+    )
+    assert result["aws_service"] == "EC2"
+    assert "p3" in result["aws_config"]["instance_type"] or "g5" in result["aws_config"]["instance_type"]
+
+
+def test_vm_gpu_small_gets_g5(knowledge):
+    """Small GPU VM → g5.xlarge."""
+    result = recommend_compute_target(
+        service_type="vm", vcpu=4, memory_gb=16, gpu=True,
+        workload_pattern="always-on", knowledge=knowledge,
+    )
+    assert result["aws_service"] == "EC2"
+    assert result["aws_config"]["instance_type"] == "g5.xlarge"
+
+
+# --- Kubernetes alias ---
+
+def test_kubernetes_alias_to_container(knowledge):
+    """service_type='kubernetes' is aliased to 'container'."""
+    result = recommend_compute_target(
+        service_type="kubernetes", vcpu=4, memory_gb=16,
+        kubernetes_pref="eks-managed", knowledge=knowledge,
+    )
+    assert result["aws_service"] == "EKS"
+    assert "error" not in result
+
+
+def test_app_engine_alias_to_container(knowledge):
+    """service_type='app-engine' is aliased to 'container'."""
+    result = recommend_compute_target(
+        service_type="app-engine", vcpu=1, memory_gb=2,
+        workload_pattern="always-on", knowledge=knowledge,
+    )
+    assert result["aws_service"] == "Fargate"
+    assert "error" not in result

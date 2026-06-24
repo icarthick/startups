@@ -1,0 +1,20 @@
+{
+  "archetype": "load-balancer",
+  "description": "Hard limits that eliminate load balancer candidates.",
+  "entries": [
+    {
+      "id": "alb-no-tcp-udp",
+      "excludes": "ALB",
+      "fallback": "NLB",
+      "when": { "field": "protocol", "op": "==", "value": "TCP" },
+      "reason": "ALB operates at Layer 7 (HTTP/HTTPS only); raw TCP/UDP requires NLB"
+    },
+    {
+      "id": "alb-no-udp",
+      "excludes": "ALB",
+      "fallback": "NLB",
+      "when": { "field": "protocol", "op": "==", "value": "UDP" },
+      "reason": "ALB does not support UDP; NLB required"
+    }
+  ]
+}

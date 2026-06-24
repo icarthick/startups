@@ -12,6 +12,8 @@ from fastmcp import FastMCP
 from migration_tools.knowledge import load_knowledge
 from migration_tools.tools.recommend_database import recommend_database_target
 from migration_tools.tools.recommend_compute import recommend_compute_target
+from migration_tools.tools.recommend_networking import recommend_networking_target
+from migration_tools.tools.recommend_messaging import recommend_messaging_target
 from migration_tools.tools.normalize import normalize_resource as _normalize_resource
 from migration_tools.tools.lookup_direct import lookup_direct_mapping as _lookup_direct_mapping
 from migration_tools.tools.validate_design import validate_design as _validate_design
@@ -121,9 +123,64 @@ def recommend_compute(
 
 
 @mcp.tool()
+def recommend_networking(
+    protocol: str | None = None,
+    scheme: str | None = None,
+    port_range: str | None = None,
+    performance_priority: str | None = None,
+) -> dict:
+    """Recommend an AWS load balancer target for a networking migration.
+
+    Given canonical networking attributes (protocol, scheme, port range),
+    returns ALB or NLB recommendation with configuration.
+
+    Args:
+        protocol: Traffic protocol (HTTP, HTTPS, TCP, UDP). Primary decision signal.
+        scheme: Load balancer scheme (EXTERNAL, INTERNAL).
+        port_range: Port or port range (e.g., "80", "443", "8080-8090").
+        performance_priority: Optional priority signal (ultra-low-latency favors NLB).
+    """
+    return recommend_networking_target(
+        protocol=protocol,
+        scheme=scheme,
+        port_range=port_range,
+        performance_priority=performance_priority,
+        knowledge=_knowledge,
+    )
+
+
+@mcp.tool()
+def recommend_messaging(
+    delivery_pattern: str | None = None,
+    subscriber_count: int | None = None,
+    ordering_required: bool | None = None,
+    ack_deadline_seconds: int | None = None,
+) -> dict:
+    """Recommend an AWS messaging target for a message broker migration.
+
+    Given canonical messaging attributes (delivery pattern, subscriber count,
+    ordering requirement), returns SNS+SQS or SQS-only recommendation.
+
+    Args:
+        delivery_pattern: Message delivery pattern (fan-out, point-to-point).
+        subscriber_count: Number of consumers/subscribers. >1 implies fan-out.
+        ordering_required: Whether message ordering must be preserved (→ FIFO queues).
+        ack_deadline_seconds: Source acknowledgment deadline (maps to SQS visibility timeout).
+    """
+    return recommend_messaging_target(
+        delivery_pattern=delivery_pattern,
+        subscriber_count=subscriber_count,
+        ordering_required=ordering_required,
+        ack_deadline_seconds=ack_deadline_seconds,
+        knowledge=_knowledge,
+    )
+
+
+@mcp.tool()
 def normalize_resource(
     source_type: str,
     raw_config: dict,
+    resolved_primaries: list[dict] | None = None,
 ) -> dict:
     """Normalize a source resource to canonical model fields.
 
@@ -131,14 +188,20 @@ def normalize_resource(
     that recommend_* tools consume. Returns extracted fields plus a list of
     fields that require LLM inference.
 
+    For secondary resources with parent dependencies (e.g., node pools),
+    pass resolved_primaries to enable parent-aware skip/proceed logic.
+
     Args:
         source_type: Terraform resource type (e.g., google_sql_database_instance, heroku_addon:heroku-postgresql).
         raw_config: Raw resource configuration dict from the discovery inventory.
+        resolved_primaries: Optional list of already-resolved primary resources in this cluster.
+            Each entry should have at minimum: {"type": "<source_type>", "aws_service": "<resolved target>"}.
     """
     return _normalize_resource(
         source_type=source_type,
         raw_config=raw_config,
         knowledge=_knowledge,
+        resolved_primaries=resolved_primaries,
     )
 
 
@@ -146,6 +209,7 @@ def normalize_resource(
 def lookup_direct_mapping(
     source_type: str,
     condition_context: dict | None = None,
+    raw_config: dict | None = None,
 ) -> dict:
     """Check if a source resource has an unconditional direct AWS mapping.
 
@@ -156,10 +220,14 @@ def lookup_direct_mapping(
     Args:
         source_type: Terraform resource type (e.g., google_storage_bucket).
         condition_context: Optional fields for conditional mappings (e.g., {"engine": "sqlserver"}).
+        raw_config: Optional raw resource config. If provided, the tool auto-extracts
+            condition fields (e.g., database_version → engine for Cloud SQL) so you
+            don't need to manually pass condition_context.
     """
     return _lookup_direct_mapping(
         source_type=source_type,
         condition_context=condition_context,
+        raw_config=raw_config,
         knowledge=_knowledge,
     )
 

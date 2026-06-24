@@ -146,3 +146,47 @@ def test_logging_skip(knowledge):
     result = lookup_direct_mapping("google_logging_metric", knowledge=knowledge)
     assert result["hit"] is True
     assert result["type"] == "skip"
+
+
+# --- Auto-extraction from raw_config ---
+
+def test_cloud_sql_sqlserver_auto_extracted(knowledge):
+    """raw_config with SQLSERVER database_version → auto-extracts engine, hits direct mapping."""
+    result = lookup_direct_mapping(
+        "google_sql_database_instance",
+        raw_config={"database_version": "SQLSERVER_2019_STANDARD", "settings": {}},
+        knowledge=knowledge,
+    )
+    assert result["hit"] is True
+    assert result["aws_service"] == "RDS SQL Server"
+
+
+def test_cloud_sql_postgres_no_direct_hit(knowledge):
+    """raw_config with POSTGRES → auto-extracts engine=postgres, no direct mapping (goes to recommend)."""
+    result = lookup_direct_mapping(
+        "google_sql_database_instance",
+        raw_config={"database_version": "POSTGRES_15", "settings": {}},
+        knowledge=knowledge,
+    )
+    assert result["hit"] is False
+
+
+def test_cloud_sql_mysql_no_direct_hit(knowledge):
+    """raw_config with MYSQL → no direct mapping."""
+    result = lookup_direct_mapping(
+        "google_sql_database_instance",
+        raw_config={"database_version": "MYSQL_8_0", "settings": {}},
+        knowledge=knowledge,
+    )
+    assert result["hit"] is False
+
+
+def test_raw_config_no_extractor(knowledge):
+    """Non-SQL resource with raw_config → no extraction attempted, works normally."""
+    result = lookup_direct_mapping(
+        "google_storage_bucket",
+        raw_config={"location": "US", "versioning": {"enabled": True}},
+        knowledge=knowledge,
+    )
+    assert result["hit"] is True
+    assert result["aws_service"] == "S3"

@@ -1,0 +1,13 @@
+{
+  "archetype": "message-broker",
+  "description": "Hard limits that eliminate messaging candidates.",
+  "entries": [
+    {
+      "id": "sqs-no-fanout",
+      "excludes": "SQS",
+      "fallback": "SNS+SQS",
+      "when": { "field": "subscriber_count", "op": ">", "value": 1 },
+      "reason": "SQS alone cannot fan out to multiple independent consumers; need SNS in front"
+    }
+  ]
+}

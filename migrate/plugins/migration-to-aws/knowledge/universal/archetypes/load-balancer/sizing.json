@@ -1,0 +1,15 @@
+{
+  "archetype": "load-balancer",
+  "description": "Per-service configuration details for the CONFIGURE stage.",
+  "alb": {
+    "scheme_map": { "EXTERNAL": "internet-facing", "INTERNAL": "internal" },
+    "default_scheme": "internet-facing",
+    "notes": "ALB is fully managed; no instance sizing. Configure listeners, target groups, and rules."
+  },
+  "nlb": {
+    "scheme_map": { "EXTERNAL": "internet-facing", "INTERNAL": "internal" },
+    "default_scheme": "internet-facing",
+    "cross_zone_default": true,
+    "notes": "NLB is fully managed; configure target groups and health checks. Preserves source IP by default."
+  }
+}

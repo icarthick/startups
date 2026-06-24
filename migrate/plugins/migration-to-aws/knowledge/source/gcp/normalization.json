@@ -86,23 +86,11 @@
         "service_type": "vm",
         "vcpu": {
           "from": "machine_type",
-          "transform": {
-            "n2-standard-2": 2,
-            "n2-standard-4": 4,
-            "n2-standard-8": 8,
-            "e2-medium": 2,
-            "e2-standard-4": 4
-          }
+          "transform": { "__gcp_machine_type__": "vcpu" }
         },
         "memory_gb": {
           "from": "machine_type",
-          "transform": {
-            "n2-standard-2": 8,
-            "n2-standard-4": 16,
-            "n2-standard-8": 32,
-            "e2-medium": 4,
-            "e2-standard-4": 16
-          }
+          "transform": { "__gcp_machine_type__": "memory_gb" }
         },
         "gpu": { "from": "guest_accelerator", "transform": { "present": true, "absent": false } }
       }
@@ -116,11 +104,74 @@
       "notes": "GKE is a container orchestration platform. Archetype is 'container' (not 'kubernetes') — K8s preference is a signal for RESOLVE, not a different workload type."
     },
     {
+      "source_type": "google_container_node_pool",
+      "archetype": "container-node-group",
+      "parent_ref": {
+        "parent_type": "google_container_cluster",
+        "skip_mapping_when_parent_target": ["Fargate"],
+        "continue_mapping_when_parent_target": ["EKS", "EC2"]
+      },
+      "field_map": {
+        "service_type": "vm",
+        "vcpu": {
+          "from": "machine_type",
+          "transform": { "__gcp_machine_type__": "vcpu" }
+        },
+        "memory_gb": {
+          "from": "machine_type",
+          "transform": { "__gcp_machine_type__": "memory_gb" }
+        },
+        "gpu": { "from": "guest_accelerator", "transform": { "present": true, "absent": false } },
+        "min_nodes": { "from": ["autoscaling.min_node_count", "autoscaling_min"], "transform": {} },
+        "max_nodes": { "from": ["autoscaling.max_node_count", "autoscaling_max"], "transform": {} }
+      },
+      "notes": "Node pool sizing depends on parent cluster's AWS target. Fargate manages compute (skip). EKS/EC2 need explicit node group sizing."
+    },
+    {
       "source_type": "google_firestore_database",
       "archetype": "nosql-document",
       "field_map": {
         "service_type": "nosql-document"
       }
+    },
+    {
+      "source_type": "google_compute_forwarding_rule",
+      "archetype": "load-balancer",
+      "field_map": {
+        "protocol": {
+          "from": "ip_protocol",
+          "transform": { "TCP": "TCP", "UDP": "UDP" }
+        },
+        "scheme": {
+          "from": "load_balancing_scheme",
+          "transform": { "EXTERNAL": "EXTERNAL", "INTERNAL": "INTERNAL" }
+        },
+        "port_range": { "from": "port_range", "transform": {} }
+      },
+      "notes": "Protocol determines ALB vs NLB. HTTP/HTTPS inferred by LLM from port_range (80/443) + backend type when ip_protocol is TCP."
+    },
+    {
+      "source_type": "google_pubsub_topic",
+      "archetype": "message-broker",
+      "field_map": {
+        "ordering_required": {
+          "from": "message_storage_policy.allowed_persistence_regions",
+          "transform": {}
+        }
+      },
+      "notes": "Pub/Sub topic. Delivery pattern (fan-out vs point-to-point) and subscriber_count inferred by LLM from subscription count in inventory."
+    },
+    {
+      "source_type": "google_pubsub_subscription",
+      "archetype": "message-broker",
+      "field_map": {
+        "ack_deadline_seconds": { "from": "ack_deadline_seconds", "transform": {} },
+        "ordering_required": {
+          "from": "enable_message_ordering",
+          "transform": { "true": true, "false": false }
+        }
+      },
+      "notes": "Pub/Sub subscription. Maps to SQS queue visibility timeout. Multiple subscriptions on same topic → fan-out pattern."
     }
   ]
 }

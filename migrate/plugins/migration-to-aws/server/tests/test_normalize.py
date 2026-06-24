@@ -160,3 +160,94 @@ def test_unknown_source_type(knowledge):
     )
     assert result["archetype"] is None
     assert "error" in result
+
+
+# --- Parent-ref (node pool) scenarios ---
+
+def test_node_pool_parent_fargate_skip(knowledge):
+    """Node pool + parent resolved to Fargate → skip mapping."""
+    result = normalize_resource(
+        source_type="google_container_node_pool",
+        raw_config={"machine_type": "e2-standard-4", "autoscaling": {"min_node_count": 1, "max_node_count": 5}},
+        knowledge=knowledge,
+        resolved_primaries=[{"type": "google_container_cluster", "aws_service": "Fargate"}],
+    )
+    assert result["next_action"] == "skip"
+    assert result["archetype"] == "container-node-group"
+    assert "Fargate" in result["skip_reason"]
+
+
+def test_node_pool_parent_eks_proceed(knowledge):
+    """Node pool + parent resolved to EKS → proceed with field extraction."""
+    result = normalize_resource(
+        source_type="google_container_node_pool",
+        raw_config={
+            "machine_type": "n1-highmem-8",
+            "guest_accelerator": {"type": "nvidia-tesla-v100", "count": 4},
+            "autoscaling": {"min_node_count": 0, "max_node_count": 4},
+        },
+        knowledge=knowledge,
+        resolved_primaries=[{"type": "google_container_cluster", "aws_service": "EKS"}],
+    )
+    assert result["archetype"] == "container-node-group"
+    assert result["next_tool"] == "recommend_compute"
+    assert result["canonical_fields"]["service_type"] == "vm"
+    assert result["canonical_fields"]["vcpu"] == 8
+    assert result["canonical_fields"]["memory_gb"] == 52
+    assert result["canonical_fields"]["gpu"] is True
+    assert result["parent"]["aws_service"] == "EKS"
+    assert result["parent"]["status"] == "resolved"
+
+
+def test_node_pool_parent_ec2_proceed(knowledge):
+    """Node pool + parent resolved to EC2 → proceed."""
+    result = normalize_resource(
+        source_type="google_container_node_pool",
+        raw_config={"machine_type": "e2-standard-4", "autoscaling": {"min_node_count": 2, "max_node_count": 10}},
+        knowledge=knowledge,
+        resolved_primaries=[{"type": "google_container_cluster", "aws_service": "EC2"}],
+    )
+    assert result["next_tool"] == "recommend_compute"
+    assert result["canonical_fields"]["vcpu"] == 4
+    assert result["canonical_fields"]["memory_gb"] == 16
+
+
+def test_node_pool_no_primaries_provided(knowledge):
+    """Node pool + no resolved_primaries → proceeds (no parent info, defers to LLM)."""
+    result = normalize_resource(
+        source_type="google_container_node_pool",
+        raw_config={"machine_type": "e2-standard-4", "autoscaling": {"min_node_count": 1, "max_node_count": 5}},
+        knowledge=knowledge,
+        resolved_primaries=None,
+    )
+    assert result["archetype"] == "container-node-group"
+    assert result["next_tool"] == "recommend_compute"
+    assert result["parent"]["status"] == "not_provided"
+
+
+def test_node_pool_parent_not_found(knowledge):
+    """Node pool + primaries without a container cluster → not_found status."""
+    result = normalize_resource(
+        source_type="google_container_node_pool",
+        raw_config={"machine_type": "e2-standard-4", "autoscaling": {"min_node_count": 1, "max_node_count": 5}},
+        knowledge=knowledge,
+        resolved_primaries=[{"type": "google_compute_network", "aws_service": "VPC"}],
+    )
+    assert result["next_tool"] == "recommend_compute"
+    assert result["parent"]["status"] == "not_found"
+
+
+def test_node_pool_ambiguous_parents(knowledge):
+    """Node pool + two container clusters in primaries → ambiguous."""
+    result = normalize_resource(
+        source_type="google_container_node_pool",
+        raw_config={"machine_type": "e2-standard-4", "autoscaling": {"min_node_count": 1, "max_node_count": 5}},
+        knowledge=knowledge,
+        resolved_primaries=[
+            {"type": "google_container_cluster", "aws_service": "EKS"},
+            {"type": "google_container_cluster", "aws_service": "Fargate"},
+        ],
+    )
+    assert result["next_tool"] == "recommend_compute"
+    assert result["parent"]["status"] == "ambiguous"
+    assert len(result["parent"]["candidates"]) == 2

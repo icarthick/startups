@@ -9,6 +9,8 @@ import logging
 import re
 from typing import Any
 
+from migration_tools.tools.gcp_machine_type import parse_gcp_machine_type
+
 logger = logging.getLogger("migration_tools.normalize_resource")
 
 
@@ -27,7 +29,20 @@ def _resolve_path(config: dict, path: str) -> Any:
 
 
 def _match_transform(value: Any, transform: dict) -> Any:
-    """Match a value against transform patterns (supports trailing * as wildcard)."""
+    """Match a value against transform patterns (supports trailing * as wildcard).
+
+    Special transforms:
+      - {"__gcp_machine_type__": "vcpu"} → parse machine type, return vCPU
+      - {"__gcp_machine_type__": "memory_gb"} → parse machine type, return memory
+    """
+    # Special: GCP machine type parser
+    if "__gcp_machine_type__" in transform:
+        field = transform["__gcp_machine_type__"]
+        parsed = parse_gcp_machine_type(value)
+        if parsed:
+            return parsed.get(field)
+        return None
+
     # Handle presence/absence check (for fields like gpu where value is a list or truthy/falsy)
     if "present" in transform and "absent" in transform:
         if value and value != [] and value != {}:
@@ -59,6 +74,7 @@ def normalize_resource(
     source_type: str,
     raw_config: dict,
     knowledge: dict[str, Any] = None,
+    resolved_primaries: list[dict] | None = None,
 ) -> dict:
     """Normalize a source resource to canonical model fields.
 
@@ -66,6 +82,9 @@ def normalize_resource(
         source_type: Terraform resource type (e.g., google_sql_database_instance).
         raw_config: Raw resource config dict from inventory.
         knowledge: Pre-loaded knowledge store.
+        resolved_primaries: Optional list of already-resolved primary resources
+            in this cluster. Each entry: {"type": str, "aws_service": str, ...}.
+            Required for secondary resources with parent_ref.
 
     Returns:
         archetype, canonical_fields, unmapped_fields, requires_inference.
@@ -96,6 +115,58 @@ def normalize_resource(
         }
 
     archetype = norm_entry["archetype"]
+
+    # ── Handle parent_ref (secondary resources with parent dependency) ────────
+    parent_ref = norm_entry.get("parent_ref")
+    parent_info = None
+    if parent_ref:
+        parent_type = parent_ref["parent_type"]
+        skip_targets = parent_ref.get("skip_mapping_when_parent_target", [])
+        continue_targets = parent_ref.get("continue_mapping_when_parent_target", [])
+
+        if resolved_primaries is None:
+            # No primaries passed — fall back to LLM
+            parent_info = {"type": parent_type, "aws_service": None, "status": "not_provided"}
+            logger.info("  parent_ref: resolved_primaries not provided, deferring to LLM")
+        else:
+            # Find matching parent(s)
+            matches = [p for p in resolved_primaries if p.get("type") == parent_type]
+
+            if len(matches) == 0:
+                parent_info = {"type": parent_type, "aws_service": None, "status": "not_found"}
+                logger.info("  parent_ref: no parent of type %s found in resolved_primaries", parent_type)
+            elif len(matches) == 1:
+                parent_service = matches[0].get("aws_service", "")
+                parent_info = {"type": parent_type, "aws_service": parent_service, "status": "resolved"}
+
+                if parent_service in skip_targets:
+                    logger.info("  parent_ref: parent=%s → skip mapping", parent_service)
+                    return {
+                        "archetype": archetype,
+                        "parent": parent_info,
+                        "next_tool": None,
+                        "next_action": "skip",
+                        "skip_reason": f"Compute managed by {parent_service} — no explicit sizing needed",
+                        "canonical_fields": {},
+                        "requires_inference": [],
+                        "unmapped_fields": [],
+                    }
+                elif parent_service in continue_targets:
+                    logger.info("  parent_ref: parent=%s → continue mapping", parent_service)
+                else:
+                    # Parent target not in either list — defer to LLM
+                    parent_info["status"] = "unknown_target"
+                    logger.info("  parent_ref: parent=%s not in skip/continue lists, deferring", parent_service)
+            else:
+                # Multiple parents — ambiguous
+                parent_info = {
+                    "type": parent_type,
+                    "aws_service": None,
+                    "status": "ambiguous",
+                    "candidates": [{"aws_service": p.get("aws_service")} for p in matches],
+                }
+                logger.info("  parent_ref: multiple parents of type %s found, ambiguous", parent_type)
+
     field_map = norm_entry.get("field_map", {})
     canonical_fields = {}
     requires_inference = []
@@ -131,7 +202,16 @@ def normalize_resource(
             source_path = mapping.get("from", "")
             transform = mapping.get("transform", {})
 
-            raw_value = _resolve_path(raw_config, source_path)
+            # "from" can be a string or a list of paths (first match wins)
+            if isinstance(source_path, list):
+                raw_value = None
+                for path in source_path:
+                    raw_value = _resolve_path(raw_config, path)
+                    if raw_value is not None:
+                        source_path = path
+                        break
+            else:
+                raw_value = _resolve_path(raw_config, source_path)
 
             if raw_value is None:
                 requires_inference.append(canonical_name)
@@ -156,7 +236,12 @@ def normalize_resource(
     referenced_paths = set()
     for mapping in field_map.values():
         if isinstance(mapping, dict) and "from" in mapping:
-            referenced_paths.add(mapping["from"].split(".")[0])
+            from_val = mapping["from"]
+            if isinstance(from_val, list):
+                for p in from_val:
+                    referenced_paths.add(p.split(".")[0])
+            else:
+                referenced_paths.add(from_val.split(".")[0])
         elif isinstance(mapping, str) and mapping.startswith("from:"):
             referenced_paths.add(mapping[5:].split(".")[0])
 
@@ -168,6 +253,8 @@ def normalize_resource(
         "function": ["workload_pattern"],
         "vm": ["workload_pattern"],
         "relational-db": [],
+        "load-balancer": [],
+        "message-broker": ["delivery_pattern", "subscriber_count"],
         "nosql-document": [],
         "cache": [],
         "distributed-relational": [],
@@ -180,8 +267,11 @@ def normalize_resource(
     workload_to_tool = {
         "relational-db": "recommend_database",
         "container": "recommend_compute",
+        "container-node-group": "recommend_compute",
         "function": "recommend_compute",
         "vm": "recommend_compute",
+        "load-balancer": "recommend_networking",
+        "message-broker": "recommend_messaging",
         "nosql-document": None,
         "cache": None,
         "distributed-relational": None,
@@ -195,6 +285,9 @@ def normalize_resource(
         "unmapped_fields": unmapped_fields,
         "requires_inference": requires_inference,
     }
+
+    if parent_info is not None:
+        result["parent"] = parent_info
 
     logger.info("<<< normalize_resource returning: workload=%s, next_tool=%s, fields=%s, requires_inference=%s",
                 archetype, next_tool, list(canonical_fields.keys()), requires_inference)

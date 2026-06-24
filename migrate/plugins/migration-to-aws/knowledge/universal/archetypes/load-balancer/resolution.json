@@ -1,0 +1,43 @@
+{
+  "archetype": "load-balancer",
+  "description": "Rules for selecting ALB vs NLB. Protocol is the primary signal.",
+  "priority_order": [
+    {
+      "id": "protocol-http",
+      "type": "force",
+      "when": { "field": "protocol", "op": "==", "value": "HTTP" },
+      "select": "ALB",
+      "reason": "HTTP/HTTPS traffic → ALB (Layer 7 routing, path-based rules)"
+    },
+    {
+      "id": "protocol-https",
+      "type": "force",
+      "when": { "field": "protocol", "op": "==", "value": "HTTPS" },
+      "select": "ALB",
+      "reason": "HTTPS traffic → ALB (TLS termination, path-based rules)"
+    },
+    {
+      "id": "protocol-tcp",
+      "type": "force",
+      "when": { "field": "protocol", "op": "==", "value": "TCP" },
+      "select": "NLB",
+      "reason": "Raw TCP → NLB (Layer 4, preserves source IP)"
+    },
+    {
+      "id": "protocol-udp",
+      "type": "force",
+      "when": { "field": "protocol", "op": "==", "value": "UDP" },
+      "select": "NLB",
+      "reason": "UDP → NLB (only option)"
+    },
+    {
+      "id": "high-throughput-preference",
+      "type": "adjustment",
+      "when": { "field": "performance_priority", "op": "==", "value": "ultra-low-latency" },
+      "if_current": "ALB",
+      "switch_to": "NLB",
+      "reason": "Ultra-low-latency requirement favors NLB (no L7 processing overhead)"
+    }
+  ],
+  "default": "ALB"
+}
