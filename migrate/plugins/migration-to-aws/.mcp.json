@@ -45,7 +45,7 @@
         "validate_design"
       ]
     },
-    "migration-orchestrator": {
+    "migration-plugin": {
       "command": "python3",
       "args": [
         "-m",
@@ -53,8 +53,8 @@
       ],
       "env": {
         "FASTMCP_LOG_LEVEL": "ERROR",
-        "PYTHONPATH": "/Users/carthick/dev/github/startups/migrate/plugins/migration-to-aws/mcp-servers/orchestration/src",
-        "MIGRATION_ORCHESTRATOR_KNOWLEDGE_DIR": "/Users/carthick/dev/github/startups/migrate/plugins/migration-to-aws/mcp-servers/orchestration/knowledge"
+        "PYTHONPATH": "/Users/carthick/dev/github/startups/migrate/plugins/migration-to-aws/mcp-servers/migration-plugin/src",
+        "MIGRATION_ORCHESTRATOR_KNOWLEDGE_DIR": "/Users/carthick/dev/github/startups/migrate/plugins/migration-to-aws/mcp-servers/migration-plugin/knowledge"
       },
       "timeout": 30000,
       "type": "stdio",
@@ -63,7 +63,10 @@
         "migration_init",
         "phase_router",
         "phase_advance",
-        "phase_reset"
+        "phase_reset",
+        "detect_ai_signals",
+        "cluster_terraform",
+        "create_ai_profile_from_iac"
       ]
     }
   }

@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from migration_knowledge.knowledge import load_knowledge
-from migration_knowledge.tools.detect_ai_signals import detect_ai_signals
-from migration_knowledge.tools.cluster_terraform import cluster_terraform
+from migration_orchestrator.knowledge import load_knowledge
+from migration_orchestrator.tools.detect_ai_signals import detect_ai_signals
+from migration_orchestrator.tools.cluster_terraform import cluster_terraform
 
 KNOWLEDGE_DIR = Path(__file__).resolve().parents[1] / "knowledge"
 
@@ -197,7 +197,7 @@ def test_no_files_without_migration_dir(knowledge):
 
 # --- create_ai_profile_from_iac ---
 
-from migration_knowledge.tools.create_ai_profile import create_ai_profile_from_iac
+from migration_orchestrator.tools.create_ai_profile import create_ai_profile_from_iac
 
 
 def test_creates_ai_profile_gemini(tmp_path):
