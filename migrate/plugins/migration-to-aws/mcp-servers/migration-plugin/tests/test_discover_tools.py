@@ -195,6 +195,54 @@ def test_no_files_without_migration_dir(knowledge):
     assert "clusters" in result
 
 
+def test_bidirectional_serves(knowledge):
+    """PRIMARY referencing a SECONDARY → secondary serves that primary."""
+    resources = [
+        {"address": "google_container_cluster.primary", "type": "google_container_cluster", "name": "primary",
+         "config": {}, "depends_on": ["google_service_account.gke"]},
+        {"address": "google_service_account.gke", "type": "google_service_account", "name": "gke",
+         "config": {}, "depends_on": []},
+    ]
+    result = cluster_terraform(resources, knowledge=knowledge)
+    res_map = {r["address"]: r for r in result["resources"]}
+    assert "google_container_cluster.primary" in res_map["google_service_account.gke"].get("serves", [])
+
+
+def test_transitive_serves_via_iam(knowledge):
+    """IAM binding links SA to primary → SA serves that primary transitively."""
+    resources = [
+        {"address": "google_sql_database_instance.db", "type": "google_sql_database_instance", "name": "db",
+         "config": {}, "depends_on": []},
+        {"address": "google_service_account.app", "type": "google_service_account", "name": "app",
+         "config": {}, "depends_on": []},
+        {"address": "google_project_iam_member.app_sql", "type": "google_project_iam_member", "name": "app_sql",
+         "config": {}, "depends_on": []},
+    ]
+    edges = [
+        {"from": "google_project_iam_member.app_sql", "to": "google_service_account.app", "type": "reference"},
+        {"from": "google_project_iam_member.app_sql", "to": "google_sql_database_instance.db", "type": "reference"},
+    ]
+    result = cluster_terraform(resources, edges=edges, knowledge=knowledge)
+    res_map = {r["address"]: r for r in result["resources"]}
+    assert "google_sql_database_instance.db" in res_map["google_service_account.app"].get("serves", [])
+
+
+def test_external_edges_used(knowledge):
+    """Edges passed as parameter are used for serves resolution."""
+    resources = [
+        {"address": "google_cloud_run_service.api", "type": "google_cloud_run_service", "name": "api",
+         "config": {}, "depends_on": []},
+        {"address": "google_service_account.api_sa", "type": "google_service_account", "name": "api_sa",
+         "config": {}, "depends_on": []},
+    ]
+    edges = [
+        {"from": "google_cloud_run_service.api", "to": "google_service_account.api_sa", "type": "reference"},
+    ]
+    result = cluster_terraform(resources, edges=edges, knowledge=knowledge)
+    res_map = {r["address"]: r for r in result["resources"]}
+    assert "google_cloud_run_service.api" in res_map["google_service_account.api_sa"].get("serves", [])
+
+
 # --- create_ai_profile_from_iac ---
 
 from migration_orchestrator.tools.create_ai_profile import create_ai_profile_from_iac

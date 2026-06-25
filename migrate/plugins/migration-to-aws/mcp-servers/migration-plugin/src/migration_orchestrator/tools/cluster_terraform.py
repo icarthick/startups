@@ -74,33 +74,77 @@ def _classify(resources: list[dict], knowledge: dict) -> list[dict]:
 
 # ─── EDGES + SERVES ───────────────────────────────────────────────────────────
 
-def _build_edges(resources: list[dict]) -> list[dict]:
-    """Build dependency edges from depends_on and config references."""
+def _build_edges(resources: list[dict], external_edges: list[dict] | None = None) -> list[dict]:
+    """Build dependency edges from external scanner, depends_on, and config references.
+
+    Populates serves bidirectionally and transitively via IAM bridge pattern.
+    """
     address_set = {r["address"] for r in resources}
     edges = []
+    seen = set()
 
+    def _add(frm, to, edge_type):
+        key = (frm, to)
+        if key not in seen and frm in address_set and to in address_set:
+            edges.append({"from": frm, "to": to, "type": edge_type})
+            seen.add(key)
+
+    # External edges (from scanner — highest quality)
+    for edge in (external_edges or []):
+        _add(edge["from"], edge["to"], edge.get("type", "reference"))
+
+    # Explicit depends_on
     for res in resources:
-        # Explicit depends_on
         for dep in res.get("depends_on", []):
-            if dep in address_set:
-                edges.append({"from": res["address"], "to": dep, "type": "depends_on"})
+            _add(res["address"], dep, "depends_on")
 
-        # Scan config for resource references (google_X.name patterns)
+    # Config string scan (fallback for edges not in scanner or depends_on)
+    for res in resources:
         config_str = str(res.get("config", {}))
         refs = re.findall(r"(google_\w+\.\w+)", config_str)
         for ref in refs:
-            if ref in address_set and ref != res["address"]:
-                edges.append({"from": res["address"], "to": ref, "type": "reference"})
+            if ref != res["address"]:
+                _add(res["address"], ref, "config_scan")
 
-    # Populate serves for SECONDARY resources
+    # Populate serves — BIDIRECTIONAL
     primary_addresses = {r["address"] for r in resources if r.get("classification") == "PRIMARY"}
     for res in resources:
         if res.get("classification") == "SECONDARY":
             serves = set()
             for edge in edges:
+                # Outgoing: secondary → primary
                 if edge["from"] == res["address"] and edge["to"] in primary_addresses:
                     serves.add(edge["to"])
+                # Incoming: primary → secondary (bidirectional)
+                if edge["to"] == res["address"] and edge["from"] in primary_addresses:
+                    serves.add(edge["from"])
             res["serves"] = sorted(serves)
+
+    # Transitive bridge: access_control links identity/encryption to primaries
+    access_control = {r["address"] for r in resources if r.get("secondary_role") == "access_control"}
+    identity_or_encryption = {r["address"] for r in resources
+                              if r.get("secondary_role") in ("identity", "encryption")}
+
+    for ac_addr in access_control:
+        # Collect all neighbors of this bridge node
+        neighbors = set()
+        for edge in edges:
+            if edge["from"] == ac_addr:
+                neighbors.add(edge["to"])
+            if edge["to"] == ac_addr:
+                neighbors.add(edge["from"])
+
+        linked_primaries = neighbors & primary_addresses
+        linked_identities = neighbors & identity_or_encryption
+
+        # Propagate: each linked identity/encryption now serves each linked primary
+        if linked_primaries and linked_identities:
+            for id_addr in linked_identities:
+                id_res = next((r for r in resources if r["address"] == id_addr), None)
+                if id_res:
+                    current = set(id_res.get("serves", []))
+                    current.update(linked_primaries)
+                    id_res["serves"] = sorted(current)
 
     return edges
 
@@ -247,6 +291,8 @@ def cluster_terraform(
     ai_detection: dict | None = None,
     metadata: dict | None = None,
     knowledge: dict[str, Any] = None,
+    edges: list[dict] | None = None,
+    file_map: dict[str, str] | None = None,
 ) -> dict:
     """Classify, build edges, compute depth, cluster, and optionally write output files.
 
@@ -279,14 +325,14 @@ def cluster_terraform(
     logger.info("  classified: %d primary, %d secondary, %d excluded", primary_count, secondary_count, excluded_count)
 
     # Build edges
-    edges = _build_edges(classified)
-    logger.info("  edges: %d", len(edges))
+    computed_edges = _build_edges(classified, external_edges=edges)
+    logger.info("  edges: %d", len(computed_edges))
 
     # Compute depth
-    _compute_depth(classified, edges)
+    _compute_depth(classified, computed_edges)
 
     # Cluster
-    clusters = _cluster(classified, edges)
+    clusters = _cluster(classified, computed_edges)
     logger.info("  clusters: %d", len(clusters))
 
     summary = {
