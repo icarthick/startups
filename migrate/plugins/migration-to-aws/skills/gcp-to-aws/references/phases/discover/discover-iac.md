@@ -133,48 +133,9 @@ Report to user when written: "Wrote ai-workload-profile.json (IaC-inferred Verte
 
 After all steps complete, `phase_advance` handles the phase status update — do not update `.phase-status.json` here.
 
-## Output Validation Checklist
+## Output Validation
 
-### gcp-resource-inventory.json
-
-- Every resource has `address`, `type`, `name`, and `classification` fields
-- Every resource has `confidence` field
-- Every PRIMARY resource has `depth` and `tier` fields
-- Every SECONDARY resource has `secondary_role` and `serves` fields
-- Every resource has `cluster_id` matching one of the generated clusters
-- All field names use EXACT required keys (see Step 7a)
-- No duplicate resource addresses
-- `ai_detection` section present with `has_ai_workload` and `confidence` fields
-- If `has_ai_workload: true`, then `signals_found` array contains at least one signal with confidence >= 70%
-- If `has_ai_workload: false`, then `confidence: 0` and `signals_found: []`
-- `ai_services` array lists only services actually detected (vertex_ai, bigquery_ml, etc.)
-- `confidence_level` is one of: "very_high" (90%+), "high" (70-89%), "medium" (50-69%), "low" (< 50%), "none" (0%)
-- Output is valid JSON
-
-### gcp-resource-clusters.json
-
-- Every cluster has `cluster_id`, `primary_resources`, `secondary_resources`
-- `primary_resources` and `secondary_resources` are non-overlapping
-- `creation_order_depth` matches resource depths
-- `gcp_region` is populated for every cluster
-- `network` field is populated (references VPC resource or null if standalone)
-- `must_migrate_together` is a boolean
-- `dependencies` array contains only valid cluster IDs
-- `edges` array uses `{from, to, relationship_type, evidence}` format
-- `creation_order` array is topologically sorted
-- All cluster dependencies exist in clusters array
-- All resource addresses across all clusters account for every resource in inventory
-- No duplicate cluster_ids
-- No cycles in dependency graph
-- Output is valid JSON
-
-### ai-workload-profile.json (only if Step 7d executed)
-
-- `metadata.profile_source` is `"iac_vertex"`
-- `summary.inferred_from_iac` is `true`
-- `integration.pattern` is `"unknown"` unless evidence supports another value
-- `models` is `[]` unless Terraform explicitly exposes model IDs
-- Valid JSON and matches `references/shared/schema-discover-ai.md`
+Output files are written by `cluster_terraform` and `create_ai_profile_from_iac` tools with guaranteed correct schema. No manual validation needed — field names, structure, and cross-references are correct by construction.
 
 ---
 
