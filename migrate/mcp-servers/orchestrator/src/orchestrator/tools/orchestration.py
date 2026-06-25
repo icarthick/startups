@@ -13,6 +13,7 @@ def migration_status(project_dir: str) -> dict[str, Any]:
     """List existing migration runs in a project."""
     root = Path(project_dir) / ".migration"
     if not root.is_dir():
+        logger.info("No .migration/ directory in %s", project_dir)
         return {"runs": [], "message": "No .migration/ directory found"}
 
     runs = []
@@ -27,6 +28,7 @@ def migration_status(project_dir: str) -> dict[str, Any]:
         else:
             runs.append({"id": run_dir.name, "path": str(run_dir), "status": "unknown"})
 
+    logger.info("Found %d migration run(s) in %s", len(runs), project_dir)
     return {"runs": runs}
 
 
@@ -36,6 +38,7 @@ def migration_init(project_dir: str, skill: str = "heroku-to-aws") -> dict[str, 
     run_id = datetime.now().strftime("%m%d-%H%M")
     run_dir = root / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
+    logger.info("Created migration run: %s", run_dir)
 
     # Write .gitignore
     gitignore = root / ".gitignore"
@@ -168,6 +171,7 @@ def phase_advance(migration_dir: str, project_dir: str, routes_config: dict) -> 
 
     current_phase = status.get("current_phase", "")
     phases = routes_config.get("phases", [])
+    logger.info("phase_advance: validating gate for phase '%s'", current_phase)
 
     # Check gate: all active routes' produces must exist
     router_result = phase_router(migration_dir, project_dir, routes_config)

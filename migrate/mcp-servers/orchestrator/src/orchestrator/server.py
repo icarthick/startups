@@ -18,6 +18,8 @@ from orchestrator.tools.orchestration import (
     phase_advance as _phase_advance,
     phase_reset as _phase_reset,
 )
+from orchestrator.tools.scan_heroku_terraform import scan_heroku_terraform as _scan_heroku_terraform
+from orchestrator.tools.extract_heroku_billing import extract_heroku_billing as _extract_heroku_billing
 
 KNOWLEDGE_DIR = default_knowledge_dir()
 
@@ -111,6 +113,35 @@ def phase_reset(migration_dir: str, from_phase: str, skill: str = "heroku-to-aws
     if not routes_config:
         return {"error": f"No routes.json found for skill '{skill}'"}
     return _phase_reset(migration_dir=migration_dir, from_phase=from_phase, routes_config=routes_config)
+
+
+@mcp.tool()
+def scan_heroku_terraform(project_dir: str, migration_dir: str | None = None) -> dict:
+    """Scan Terraform files for Heroku resources and produce discovery output.
+
+    Parses .tf files for heroku_* resources, extracts attributes, resolves
+    cross-references, integrates Procfile/app.json, detects Cedar/Fir
+    generation, and writes _terraform-discovery.json.
+
+    Args:
+        project_dir: Absolute path to the project root.
+        migration_dir: If provided, writes _terraform-discovery.json here.
+    """
+    return _scan_heroku_terraform(project_dir=project_dir, migration_dir=migration_dir)
+
+
+@mcp.tool()
+def extract_heroku_billing(project_dir: str, migration_dir: str | None = None) -> dict:
+    """Extract billing summary from Heroku billing exports.
+
+    Parses Enterprise CSV, Dashboard invoice CSV/JSON, and API invoice JSON.
+    Produces per-app cost breakdown and writes _billing-discovery.json.
+
+    Args:
+        project_dir: Absolute path to the project root.
+        migration_dir: If provided, writes _billing-discovery.json here.
+    """
+    return _extract_heroku_billing(project_dir=project_dir, migration_dir=migration_dir)
 
 
 if __name__ == "__main__":

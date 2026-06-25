@@ -104,7 +104,11 @@ class TestPhaseRouter:
         run_dir = _write_status(tmp_path, "discover")
 
         result = phase_router(str(run_dir), str(tmp_path), routes_config)
-        assert result["routes"] == []
+        route_ids = [r["id"] for r in result["routes"]]
+        # Only assemble (always) fires — terraform and billing skipped
+        assert "terraform" not in route_ids
+        assert "billing" not in route_ids
+        assert "assemble" in route_ids
 
     def test_clarify_requires_discover_completed(self, tmp_path, routes_config):
         run_dir = _write_status(tmp_path, "clarify")
@@ -133,6 +137,7 @@ class TestPhaseAdvance:
     def test_advance_discover_to_clarify(self, tmp_path, routes_config):
         run_dir = _write_status(tmp_path, "discover")
         (tmp_path / "main.tf").touch()
+        (run_dir / "_terraform-discovery.json").write_text("{}")
         (run_dir / "heroku-resource-inventory.json").write_text("{}")
 
         result = phase_advance(str(run_dir), str(tmp_path), routes_config)
