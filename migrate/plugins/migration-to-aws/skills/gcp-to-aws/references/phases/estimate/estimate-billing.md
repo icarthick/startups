@@ -1,6 +1,6 @@
 # Estimate Phase: Billing-Only Cost Analysis
 
-> Loaded by estimate.md when aws-design-billing.json exists and aws-design.json does NOT exist.
+> Loaded by `phase_router` when aws-design-billing.json exists and aws-design.json does NOT exist.
 
 **Execute ALL steps in order. Do not skip or optimize.**
 
@@ -279,7 +279,7 @@ Write `estimation-billing.json`.
 
 ## Completion Handoff Gate (Fail Closed)
 
-Before returning control to `estimate.md`, require:
+Before calling `phase_advance`, require:
 
 - `estimation-billing.json` exists and passes the Output Validation Checklist above.
 

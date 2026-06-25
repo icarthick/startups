@@ -1,6 +1,6 @@
 # Migration Preview Heuristic
 
-> Loaded by `discover.md` Step 3 to compute a lightweight preview signal and rough cost
+> Loaded by `phase_router` (always-active route in discover phase) to compute a lightweight preview signal and rough cost
 > estimate from discovery artifacts alone — before Clarify, Design, or Estimate run.
 > This is NOT the full complexity tier (that lives in `migration-complexity.md` and requires
 > preferences + billing). This is a fast, honest "at a glance" for the user.
@@ -206,7 +206,7 @@ Write `$MIGRATION_DIR/migration-preview.json`:
 
 ### Step 6A: Build preview chat message (AI-only)
 
-Output this block as part of `discover.md` Step 3's user message (chat only — not a file):
+Output this block as part of the discover phase's user message (chat only — not a file):
 
 ```
 ### Your AI migration at a glance *(preview — not final)*
@@ -404,7 +404,7 @@ Write `$MIGRATION_DIR/migration-preview.json`:
 
 ## Step 6: Build preview chat message
 
-Output this block as part of `discover.md` Step 3's user message (chat only -- not a file):
+Output this block as part of the discover phase's user message (chat only -- not a file):
 
 ```
 ### Your migration at a glance *(preview -- not final)*

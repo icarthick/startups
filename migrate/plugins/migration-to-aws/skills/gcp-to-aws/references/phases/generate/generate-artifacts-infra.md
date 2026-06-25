@@ -1,6 +1,6 @@
 # Generate Phase: Infrastructure Artifact Generation
 
-> Loaded by generate.md when generation-infra.json and aws-design.json exist.
+> Loaded by `phase_router` when generation-infra.json and aws-design.json exist.
 
 **Execute ALL steps in order. Do not skip or optimize.**
 
@@ -356,7 +356,7 @@ Verify these quality rules before reporting completion:
 
 ## Phase Completion
 
-Report generated files to the parent orchestrator. **Do NOT update `.phase-status.json`** — the parent `generate.md` handles phase completion.
+Report generated files to the parent orchestrator. **Do NOT update `.phase-status.json`** — `phase_advance` handles phase completion.
 
 Before reporting completion, enforce artifact output gate:
 

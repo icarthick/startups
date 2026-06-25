@@ -1,6 +1,6 @@
 # Generate Phase: AI Artifact Generation
 
-> Loaded by generate.md when generation-ai.json and aws-design-ai.json exist.
+> Loaded by `phase_router` when generation-ai.json and aws-design-ai.json exist.
 
 **Execute ALL steps in order. Do not skip or optimize.**
 
@@ -765,7 +765,7 @@ Verify all generated artifacts:
 
 ## Phase Completion
 
-Report generated files to the parent orchestrator. **Do NOT update `.phase-status.json`** — the parent `generate.md` handles phase completion.
+Report generated files to the parent orchestrator. **Do NOT update `.phase-status.json`** — `phase_advance` handles phase completion.
 
 Output:
 

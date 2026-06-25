@@ -591,7 +591,7 @@ If `$MIGRATION_DIR/ai-workload-profile.json` **already exists** with `metadata.p
 - `agentic_profile` — Include ONLY if `is_agentic: true` from Step 3.5. Omit entirely if not agentic.
 - `tool_manifest` — Include ONLY if `agentic_profile` exists. Set to `[]` if agentic but no tools detected in Step 6.5.
 
-After generating the output file, the parent `discover.md` handles the phase status update — do not update `.phase-status.json` here.
+After generating the output file, `phase_advance` handles the phase status update — do not update `.phase-status.json` here.
 
 ---
 
@@ -630,7 +630,7 @@ After generating the output file, the parent `discover.md` handles the phase sta
 
 ## Design Phase Integration
 
-The Design phase (`references/phases/design/design.md`) uses `ai-workload-profile.json`:
+The Design phase uses `ai-workload-profile.json`:
 
 1. **`summary.ai_source`** — Routes to the correct design reference: `"gemini"` → `ai-gemini-to-bedrock.md`, `"openai"` → `ai-openai-to-bedrock.md`, `"anthropic"` → `ai-anthropic-to-bedrock.md` (Anthropic SDK → Bedrock Converse API client swap), `"both"` → load both Gemini and OpenAI refs, `"other"` → `ai.md` (traditional ML / Vision API / Speech API only)
 2. **`models`** — Determines which Bedrock models to recommend via the model selection decision tree

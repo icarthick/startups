@@ -1,6 +1,6 @@
 # Generate Phase: Billing Skeleton Artifact Generation
 
-> Loaded by generate.md when generation-billing.json and aws-design-billing.json exist.
+> Loaded by `phase_router` when generation-billing.json and aws-design-billing.json exist.
 
 **Execute ALL steps in order. Do not skip or optimize.**
 
@@ -100,7 +100,7 @@ For storage stubs: include bucket with account ID suffix, versioning enabled, SS
 
 ## Phase Completion
 
-Report generated files to the parent orchestrator. **Do NOT update `.phase-status.json`** — the parent `generate.md` handles phase completion.
+Report generated files to the parent orchestrator. **Do NOT update `.phase-status.json`** — `phase_advance` handles phase completion.
 
 ```
 Generated billing skeleton artifacts:

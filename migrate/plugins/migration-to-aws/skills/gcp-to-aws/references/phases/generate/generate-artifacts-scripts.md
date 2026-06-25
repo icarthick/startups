@@ -1,6 +1,6 @@
 # Generate Phase: Migration Script Generation
 
-> Loaded by generate.md after generate-artifacts-infra.md completes (terraform files generated).
+> Loaded by `phase_router` after generate-artifacts-infra.md completes (terraform files generated).
 
 **Execute ALL steps in order. Do not skip or optimize.**
 
@@ -386,7 +386,7 @@ After generating all scripts, verify the following quality rules:
 
 ## Phase Completion
 
-Report the list of generated script files to the parent orchestrator. **Do NOT update `.phase-status.json`** — the parent `generate.md` handles phase completion.
+Report the list of generated script files to the parent orchestrator. **Do NOT update `.phase-status.json`** — `phase_advance` handles phase completion.
 
 Only list scripts that were actually generated (based on Step 1 resource detection flags):
 

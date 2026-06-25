@@ -1,6 +1,6 @@
 # Generate Phase: Documentation Generation
 
-> Loaded by generate.md LAST, after all other artifact generation sub-files complete.
+> Loaded by `phase_router` LAST, after all other artifact generation sub-files complete.
 
 **Execute ALL steps in order. Do not skip or optimize.**
 
@@ -331,7 +331,7 @@ After generating documentation, verify:
 
 ## Phase Completion
 
-Report the list of generated files to the parent orchestrator. **Do NOT update `.phase-status.json`** — the parent `generate.md` handles phase completion.
+Report the list of generated files to the parent orchestrator. **Do NOT update `.phase-status.json`** — `phase_advance` handles phase completion.
 
 Before reporting completion, enforce artifact output gate:
 

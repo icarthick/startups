@@ -1,6 +1,6 @@
 # Design Phase: AI Workloads (Bedrock)
 
-> Loaded by `design.md` when `ai-workload-profile.json` exists.
+> Loaded by `phase_router` when `ai-workload-profile.json` exists.
 
 **Execute ALL steps in order. Do not skip or optimize.**
 
@@ -354,7 +354,7 @@ Write `aws-design-ai.json` to `$MIGRATION_DIR/`.
 
 ## Completion Handoff Gate (Fail Closed)
 
-Before returning control to `design.md`, require:
+Before calling `phase_advance`, require:
 
 - `aws-design-ai.json` exists and passes the Validation Checklist above.
 

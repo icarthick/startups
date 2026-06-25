@@ -1,12 +1,12 @@
 # Estimate Phase: AI Workload Cost Analysis
 
-> Loaded by estimate.md when aws-design-ai.json exists.
+> Loaded by `phase_router` when aws-design-ai.json exists.
 
 **Execute ALL steps in order. Do not skip or optimize.**
 
 ## Pricing Mode
 
-The parent `estimate.md` selects the pricing mode before loading this file.
+The `phase_advance` selects the pricing mode before loading this file.
 
 **Price lookup order:**
 
@@ -218,7 +218,7 @@ All cost values are numbers, not strings. Output must be valid JSON.
 
 ## Completion Handoff Gate (Fail Closed)
 
-Before returning control to `estimate.md`, require:
+Before calling `phase_advance`, require:
 
 - `estimation-ai.json` exists and passes the Validation Checklist above.
 

@@ -1,6 +1,6 @@
 # Generate Phase: Billing-Only Migration Plan
 
-> Loaded by generate.md when estimation-billing.json exists.
+> Loaded by `phase_router` when estimation-billing.json exists.
 
 **Execute ALL steps in order. Do not skip or optimize.**
 
@@ -338,7 +338,7 @@ The example below shows a **small** tier migration. Adjust `complexity_tier`, `c
 
 ## Completion Handoff Gate (Fail Closed)
 
-Before returning control to `generate.md`, require:
+Before calling `phase_advance`, require:
 
 - `generation-billing.json` exists and passes the Output Validation Checklist above.
 
@@ -346,7 +346,7 @@ If this gate fails: STOP and output: "generate-billing did not produce a valid `
 
 ## Generate Phase Integration
 
-The parent orchestrator (`generate.md`) uses `generation-billing.json` to:
+The next phase uses `generation-billing.json` to:
 
 1. Gate Stage 2 artifact generation — `generate-artifacts-billing.md` requires this file
 2. Provide billing context to `generate-artifacts-docs.md` for MIGRATION_GUIDE.md

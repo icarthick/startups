@@ -1,6 +1,6 @@
 # Generate Phase: HTML Migration Report
 
-> Loaded by generate.md AFTER generate-artifacts-docs.md completes.
+> Loaded by `phase_router` AFTER generate-artifacts-docs.md completes.
 
 **Execute ALL steps in order. Do not skip or optimize.**
 
@@ -19,7 +19,7 @@ Generate a single self-contained HTML report (`migration-report.html`) combining
 Load and execute `shared/validate-artifacts.md` **before** building report content.
 
 - Run all **required** checks (field presence only — do not rewrite artifact prose).
-- On any `GATE_FAIL`: output failure lines to the user, **do NOT write** `migration-report.html`, **do NOT patch artifacts**, return to parent `generate.md`.
+- On any `GATE_FAIL`: output failure lines to the user, **do NOT write** `migration-report.html`, **do NOT patch artifacts**, stop (do not call `phase_advance`).
 - On `VALIDATE_OK`: proceed to Step 1.
 
 ## Prerequisites
@@ -553,7 +553,7 @@ file://$MIGRATION_DIR/migration-report.html
 
 ## Completion
 
-Report to the parent orchestrator. **Do NOT update `.phase-status.json`** — the parent `generate.md` handles phase completion.
+Report to the parent orchestrator. **Do NOT update `.phase-status.json`** — `phase_advance` handles phase completion.
 
 Output:
 

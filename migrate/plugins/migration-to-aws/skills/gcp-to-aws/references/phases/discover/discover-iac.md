@@ -295,7 +295,7 @@ Do **not** run this step for AI signals that are **only** BigQuery ML, Document 
 
 Report to user when written: "Wrote ai-workload-profile.json (IaC-inferred Vertex AI)."
 
-After generating output files (including optional Step 7d), the parent `discover.md` handles the phase status update — do not update `.phase-status.json` here.
+After generating output files (including optional Step 7d), `phase_advance` handles the phase status update — do not update `.phase-status.json` here.
 
 ## Output Validation Checklist
 
@@ -344,7 +344,7 @@ After generating output files (including optional Step 7d), the parent `discover
 
 ## Design Phase Integration
 
-The Design phase (`references/phases/design/design.md`) uses these outputs:
+The Design phase uses these outputs:
 
 1. **From gcp-resource-clusters.json:**
    - `creation_order` — evaluates clusters depth-first (foundational first)

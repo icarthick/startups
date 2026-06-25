@@ -1,6 +1,6 @@
 # Generate Phase: AI Migration Plan
 
-> Loaded by generate.md when estimation-ai.json exists.
+> Loaded by `phase_router` when estimation-ai.json exists.
 
 **Execute ALL steps in order. Do not skip or optimize.**
 
@@ -158,7 +158,7 @@ Write `generation-ai.json` to `$MIGRATION_DIR/`.
 
 ## Generate Phase Integration
 
-The parent orchestrator (`generate.md`) uses `generation-ai.json` to:
+The next phase uses `generation-ai.json` to:
 
 1. Gate Stage 2 artifact generation — `generate-artifacts-ai.md` requires this file
 2. Provide AI migration context to `generate-artifacts-docs.md` for MIGRATION_GUIDE.md

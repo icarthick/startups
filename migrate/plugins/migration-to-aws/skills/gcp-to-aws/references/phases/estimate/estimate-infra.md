@@ -1,12 +1,12 @@
 # Estimate Phase: Infrastructure Cost Analysis
 
-> Loaded by estimate.md when aws-design.json exists.
+> Loaded by `phase_router` when aws-design.json exists.
 
 **Execute ALL steps in order. Do not skip or optimize.**
 
 ## Pricing Mode
 
-The parent `estimate.md` determines pricing source before loading this file.
+The `phase_advance` determines pricing source before loading this file.
 
 **Price lookup order for each AWS service in `aws-design.json`:**
 
@@ -551,16 +551,16 @@ Read `shared/schema-estimate-infra.md` for the `estimation-infra.json` schema an
 
 Load `shared/handoff-gates.md`. **Re-read from disk** before checking.
 
-Before returning control to `estimate.md`, require:
+Before calling `phase_advance`, require:
 
 - `estimation-infra.json` exists and passes `shared/schema-estimate-infra.md` validation.
 - `recommendation.path` is one of `migrate_optimized`, `migrate_phased`, or `stay`
 - `recommendation.path_label` is non-empty
 - `recommendation.migrate_if` and `recommendation.stay_if` are non-empty arrays (Part 7 MUST persist `recommendation`)
 
-**On FAIL:** Emit `GATE_FAIL | phase=estimate | field=<path> | reason=missing`. **Do NOT patch `estimation-infra.json` to pass the gate.** STOP — do not return control to `estimate.md` for phase completion.
+**On FAIL:** Emit `GATE_FAIL | phase=estimate | field=<path> | reason=missing`. **Do NOT patch `estimation-infra.json` to pass the gate.** STOP — do not call `phase_advance`.
 
-**On PASS:** Emit `HANDOFF_OK | phase=estimate | artifacts=estimation-infra.json` (parent `estimate.md` emits the combined handoff after all routes pass).
+**On PASS:** Emit `HANDOFF_OK | phase=estimate | artifacts=estimation-infra.json` (`phase_advance` emits the combined handoff after all routes pass).
 
 ## Present Summary
 
@@ -579,7 +579,7 @@ Keep it under 25 lines. The user can ask for details or re-read `estimation-infr
 
 ## Generate Phase Integration
 
-The Generate phase (`generate.md`) uses `estimation-infra.json` as follows:
+The Generate phase uses `estimation-infra.json` as follows:
 
 1. **`projected_costs.breakdown`** — Budget allocation per cluster migration phase
 2. **`migration_cost_considerations`** — Data transfer egress cost estimates (if billing data available)

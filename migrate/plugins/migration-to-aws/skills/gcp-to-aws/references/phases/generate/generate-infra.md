@@ -1,6 +1,6 @@
 # Generate Phase: Infrastructure Migration Plan
 
-> Loaded by generate.md when estimation-infra.json exists.
+> Loaded by `phase_router` when estimation-infra.json exists.
 
 **Execute ALL steps in order. Do not skip or optimize.**
 
@@ -496,7 +496,7 @@ Generate `generation-infra.json` in `$MIGRATION_DIR/` with the following schema:
 
 ## Completion Handoff Gate (Fail Closed)
 
-Before returning control to `generate.md`, require:
+Before calling `phase_advance`, require:
 
 - `generation-infra.json` exists and passes the Output Validation Checklist above.
 
@@ -504,7 +504,7 @@ If this gate fails: STOP and output: "generate-infra did not produce a valid `ge
 
 ## Generate Phase Integration
 
-The parent orchestrator (`generate.md`) uses `generation-infra.json` to:
+The next phase uses `generation-infra.json` to:
 
 1. Gate Stage 2 artifact generation — `generate-artifacts-infra.md` requires this file
 2. Provide timeline context to `generate-artifacts-docs.md` for MIGRATION_GUIDE.md

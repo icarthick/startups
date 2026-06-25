@@ -1,6 +1,6 @@
 # Design Phase: Billing-Only Service Mapping
 
-> Loaded by `design.md` when `billing-profile.json` exists and `gcp-resource-inventory.json` does NOT exist.
+> Loaded by `phase_router` when `billing-profile.json` exists and `gcp-resource-inventory.json` does NOT exist.
 
 **Execute ALL steps in order. Do not skip or optimize.**
 
@@ -174,7 +174,7 @@ Write to `$MIGRATION_DIR/aws-design-billing.json`:
 
 ## Completion Handoff Gate (Fail Closed)
 
-Before returning control to `design.md`, require:
+Before calling `phase_advance`, require:
 
 - `aws-design-billing.json` exists and passes the Output Validation Checklist above.
 
