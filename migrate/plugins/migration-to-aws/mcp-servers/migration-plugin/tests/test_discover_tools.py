@@ -318,3 +318,40 @@ def test_creates_ai_profile_other(tmp_path):
     assert profile["summary"]["ai_source"] == "other"
     assert profile["models"] == []
     assert profile["integration"]["primary_sdk"] is None
+
+
+# --- Integration: scan_tf_references + cluster_terraform ---
+
+from migration_orchestrator.tools.scan_tf_references import scan_tf_references
+
+
+def test_full_pipeline_fintech(knowledge):
+    """Integration: scanner + clustering produces reasonable clusters on real data."""
+    project_dir = Path("/Users/carthick/Downloads/iac-zips/gcp-fintech-platform")
+    inv_path = project_dir / ".migration/0625-0708/gcp-resource-inventory.json"
+    if not inv_path.exists():
+        pytest.skip("Fintech inventory not available")
+
+    inv = json.loads(inv_path.read_text())
+    resources = [
+        {"address": r["address"], "type": r["type"], "name": r["name"],
+         "config": r["config"], "depends_on": r.get("depends_on", [])}
+        for r in inv["resources"]
+    ]
+
+    scan = scan_tf_references(str(project_dir))
+    result = cluster_terraform(resources, edges=scan["edges"], file_map=scan["file_map"], knowledge=knowledge)
+
+    # No workload cluster should have more than 40 secondaries
+    for c in result["clusters"]:
+        if "shared" not in c["cluster_id"]:
+            assert len(c["secondary_resources"]) <= 40, (
+                f"{c['cluster_id']} has {len(c['secondary_resources'])}S — still a dumping ground"
+            )
+
+    # Shared infra should exist
+    shared = [c for c in result["clusters"] if "shared" in c["cluster_id"]]
+    assert len(shared) == 1
+
+    # Scanner should find significantly more edges than LLM extraction alone
+    assert scan["summary"]["edges_found"] > 100

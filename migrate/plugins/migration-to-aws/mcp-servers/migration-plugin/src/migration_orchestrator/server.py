@@ -22,6 +22,7 @@ from migration_orchestrator.tools.orchestration import (
 )
 from migration_orchestrator.tools.detect_ai_signals import detect_ai_signals as _detect_ai_signals
 from migration_orchestrator.tools.cluster_terraform import cluster_terraform as _cluster_terraform
+from migration_orchestrator.tools.scan_tf_references import scan_tf_references as _scan_tf_references
 from migration_orchestrator.tools.create_ai_profile import create_ai_profile_from_iac as _create_ai_profile_from_iac
 
 # Resolve knowledge directory
@@ -159,25 +160,49 @@ def detect_ai_signals(resources: list[dict]) -> dict:
 
 
 @mcp.tool()
+def scan_tf_references(project_directory: str) -> dict:
+    """Scan .tf files for resource blocks and cross-references.
+
+    Reads raw Terraform files, identifies resource blocks, and extracts
+    cross-resource references via regex. Returns edges, a file map, and
+    flags unresolved references (var.*, local.*, module.*) for LLM review.
+
+    Call BEFORE cluster_terraform to get the edge set. Review the output
+    for gaps (unresolved_references, for_each_resources), then pass edges
+    and file_map to cluster_terraform.
+
+    Args:
+        project_directory: Absolute path to directory containing .tf files.
+    """
+    return _scan_tf_references(project_directory=project_directory)
+
+
+@mcp.tool()
 def cluster_terraform(
     resources: list[dict],
     migration_dir: str | None = None,
     ai_detection: dict | None = None,
     metadata: dict | None = None,
+    edges: list[dict] | None = None,
+    file_map: dict[str, str] | None = None,
 ) -> dict:
     """Classify, build edges, compute depth, cluster, and write output files.
 
-    Full discovery pipeline for Terraform resources.
+    Full discovery pipeline for Terraform resources. For best results, call
+    scan_tf_references first and pass its edges/file_map here.
 
     Args:
         resources: Flat list from Terraform parsing (address, type, name, config, depends_on).
         migration_dir: If provided, writes output files to this directory.
         ai_detection: Output from detect_ai_signals (included in inventory).
         metadata: Report metadata (report_date, project_directory, terraform_version).
+        edges: Pre-computed edges from scan_tf_references (merged with internal edge discovery).
+        file_map: Resource address → source filename mapping from scan_tf_references.
     """
     return _cluster_terraform(
         resources=resources, migration_dir=migration_dir,
         ai_detection=ai_detection, metadata=metadata, knowledge=_knowledge,
+        edges=edges, file_map=file_map,
     )
 
 
