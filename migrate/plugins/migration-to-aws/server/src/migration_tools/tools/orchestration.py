@@ -220,14 +220,21 @@ def phase_router(
         else:
             skipped_routes.append({"id": route["id"], "reason": "Trigger not met"})
 
-    # Apply excludes_if_active
+    # Apply do_not_run_with_routes and run_only_with_routes
     final_routes = []
     for route in active_routes:
-        excludes = route.get("excludes_if_active", [])
-        if any(ex_id in active_ids for ex_id in excludes):
+        do_not_run = route.get("do_not_run_with_routes", [])
+        run_only = route.get("run_only_with_routes", [])
+
+        if any(ex_id in active_ids for ex_id in do_not_run):
             skipped_routes.append({
                 "id": route["id"],
-                "reason": f"Excluded because {[e for e in excludes if e in active_ids]} is active",
+                "reason": f"Excluded because {[e for e in do_not_run if e in active_ids]} is active",
+            })
+        elif run_only and not all(req_id in active_ids for req_id in run_only):
+            skipped_routes.append({
+                "id": route["id"],
+                "reason": f"Requires {run_only} to be active",
             })
         else:
             final_routes.append({
@@ -296,12 +303,16 @@ def phase_advance(
             active_routes.append(route)
             active_ids.add(route["id"])
 
-    # Apply excludes_if_active
+    # Apply do_not_run_with_routes and run_only_with_routes
     final_routes = []
     for route in active_routes:
-        excludes = route.get("excludes_if_active", [])
-        if not any(ex_id in active_ids for ex_id in excludes):
-            final_routes.append(route)
+        do_not_run = route.get("do_not_run_with_routes", [])
+        run_only = route.get("run_only_with_routes", [])
+        if any(ex_id in active_ids for ex_id in do_not_run):
+            continue
+        if run_only and not all(req_id in active_ids for req_id in run_only):
+            continue
+        final_routes.append(route)
 
     # Check gate: all produces from active routes must exist
     missing = []

@@ -18,10 +18,17 @@
           "produces": ["ai-workload-profile.json"]
         },
         {
-          "id": "billing",
+          "id": "billing-full",
           "trigger": { "glob": ["**/*billing*.csv", "**/*billing*.json", "**/*cost*.csv", "**/*cost*.json", "**/*usage*.csv", "**/*usage*.json"] },
-          "excludes_if_active": ["iac"],
+          "do_not_run_with_routes": ["iac"],
           "file": "references/phases/discover/discover-billing.md",
+          "produces": ["billing-profile.json"]
+        },
+        {
+          "id": "billing-lightweight",
+          "trigger": { "glob": ["**/*billing*.csv", "**/*billing*.json", "**/*cost*.csv", "**/*cost*.json", "**/*usage*.csv", "**/*usage*.json"] },
+          "run_only_with_routes": ["iac"],
+          "file": "references/phases/discover/discover-billing-lightweight.md",
           "produces": ["billing-profile.json"]
         },
         {

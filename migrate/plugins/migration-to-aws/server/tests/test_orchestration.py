@@ -155,7 +155,8 @@ def routes_config():
             "discover": {
                 "routes": [
                     {"id": "iac", "trigger": {"glob": ["**/*.tf"]}, "file": "discover-iac.md", "produces": ["inventory.json"]},
-                    {"id": "billing", "trigger": {"glob": ["**/*billing*.csv"]}, "excludes_if_active": ["iac"], "file": "discover-billing.md", "produces": ["billing.json"]},
+                    {"id": "billing-full", "trigger": {"glob": ["**/*billing*.csv"]}, "do_not_run_with_routes": ["iac"], "file": "discover-billing.md", "produces": ["billing.json"]},
+                    {"id": "billing-lightweight", "trigger": {"glob": ["**/*billing*.csv"]}, "run_only_with_routes": ["iac"], "file": "discover-billing-lightweight.md", "produces": ["billing.json"]},
                     {"id": "preview", "trigger": {"always": True}, "file": "discover-preview.md", "produces": []},
                 ]
             },
@@ -191,9 +192,10 @@ def _write_status(tmp_path, phase, phases_override=None):
 
 
 def test_router_discover_with_terraform(tmp_path, routes_config):
-    """Terraform files present → iac route active, billing excluded."""
+    """Terraform files present → iac route active, billing-full excluded, billing-lightweight included."""
     run_dir = _write_status(tmp_path, "discover")
     (tmp_path / "main.tf").touch()
+    (tmp_path / "costs-billing.csv").touch()  # billing files also present
 
     result = phase_router(
         migration_dir=str(run_dir), project_dir=str(tmp_path), routes_config=routes_config
@@ -201,15 +203,16 @@ def test_router_discover_with_terraform(tmp_path, routes_config):
     assert result["current_phase"] == "discover"
     route_ids = [r["id"] for r in result["routes"]]
     assert "iac" in route_ids
+    assert "billing-lightweight" in route_ids
     assert "preview" in route_ids
-    assert "billing" not in route_ids  # excluded because iac is active
+    assert "billing-full" not in route_ids
 
     skipped_ids = [r["id"] for r in result["skipped_routes"]]
-    assert "billing" in skipped_ids
+    assert "billing-full" in skipped_ids
 
 
 def test_router_discover_billing_only(tmp_path, routes_config):
-    """No Terraform, billing file present → billing route active."""
+    """No Terraform, billing file present → billing-full route active, billing-lightweight skipped."""
     run_dir = _write_status(tmp_path, "discover")
     (tmp_path / "costs-billing.csv").touch()
 
@@ -217,8 +220,12 @@ def test_router_discover_billing_only(tmp_path, routes_config):
         migration_dir=str(run_dir), project_dir=str(tmp_path), routes_config=routes_config
     )
     route_ids = [r["id"] for r in result["routes"]]
-    assert "billing" in route_ids
+    assert "billing-full" in route_ids
     assert "iac" not in route_ids
+    assert "billing-lightweight" not in route_ids
+
+    skipped_ids = [r["id"] for r in result["skipped_routes"]]
+    assert "billing-lightweight" in skipped_ids
 
 
 def test_router_discover_no_files(tmp_path, routes_config):
@@ -337,16 +344,16 @@ def test_advance_gate_fails_missing_artifact(tmp_path, routes_config):
 
 
 def test_advance_skipped_routes_not_checked(tmp_path, routes_config):
-    """Billing route excluded → its produces not checked."""
+    """billing-full route excluded → its produces not checked."""
     run_dir = _write_status(tmp_path, "discover")
-    (tmp_path / "main.tf").touch()  # iac active → billing excluded
-    (tmp_path / "costs-billing.csv").touch()  # billing trigger matches but excluded
+    (tmp_path / "main.tf").touch()  # iac active → billing-full excluded
+    (tmp_path / "costs-billing.csv").touch()  # billing trigger matches but billing-full excluded
     (run_dir / "inventory.json").touch()  # iac's artifact present
+    (run_dir / "billing.json").touch()  # billing-lightweight's artifact present
 
     result = phase_advance(
         migration_dir=str(run_dir), project_dir=str(tmp_path), routes_config=routes_config
     )
-    # billing.json is NOT required because billing route was excluded
     assert result["gate_passed"] is True
 
 
