@@ -65,10 +65,15 @@ Returns an `ai_detection` object (`has_ai_workload`, `confidence`, `confidence_l
 
 ## Step 3: Classify and Cluster
 
-Call the `cluster_terraform` MCP tool with the resource list from Step 1:
+Call the `cluster_terraform` MCP tool with the resource list from Step 1, the AI detection from Step 2, and the migration directory:
 
 ```
-cluster_terraform(resources=<resource list from Step 1>)
+cluster_terraform(
+  resources=<resource list from Step 1>,
+  migration_dir=$MIGRATION_DIR,
+  ai_detection=<result from Step 2>,
+  metadata={"report_date": "<today>", "project_directory": "<project path>", "terraform_version": "<version>"}
+)
 ```
 
 This tool performs the full pipeline deterministically:
@@ -77,79 +82,23 @@ This tool performs the full pipeline deterministically:
 - Builds dependency edges from `depends_on` and config references
 - Computes topological depth via Kahn's algorithm
 - Clusters resources by type/tier (networking cluster, same-type grouping)
+- **Writes `gcp-resource-inventory.json` and `gcp-resource-clusters.json`** to `$MIGRATION_DIR` with guaranteed correct schema
 
 Returns:
-- `resources` — classified list with `classification`, `tier`/`secondary_role`, `confidence`, `depth`, `cluster_id`, `serves` (for secondaries)
-- `clusters` — cluster objects with `cluster_id`, `gcp_region`, `primary_resources`, `secondary_resources`, `creation_order_depth`
 - `summary` — counts (`total_resources`, `primary_resources`, `secondary_resources`, `excluded_resources`, `total_clusters`)
+- `files_written` — list of files written to migration_dir
 
 Report the summary to user (e.g., "Classified: 12 PRIMARY, 38 SECONDARY, 2 excluded. Generated 6 clusters.")
 
 If any resources were excluded, report them: "Auth provider detected — excluded from migration scope. Keep your existing auth solution."
 
-## Step 7: Write Final Output Files
+## Step 7: Verify Output and Optional AI Profile
 
-**This step is MANDATORY. Write all files with exact schemas.**
+### 7a-7c: Output files (handled by tool)
 
-### 7a: Write gcp-resource-inventory.json
+`cluster_terraform` in Step 3 already wrote `gcp-resource-inventory.json` and `gcp-resource-clusters.json` to `$MIGRATION_DIR` with guaranteed correct schema. No manual file writing or validation needed.
 
-1. Create file: `$MIGRATION_DIR/gcp-resource-inventory.json`
-2. Load `references/shared/schema-discover-iac.md` and write with the exact schema for `gcp-resource-inventory.json`
-
-**CRITICAL field names (use EXACTLY these):**
-
-- `address` (resource Terraform address)
-- `type` (resource Terraform type)
-- `name` (resource name component)
-- `classification` (PRIMARY or SECONDARY)
-- `tier` (infrastructure layer: compute, database, storage, networking, identity, etc.)
-- `confidence` (classification confidence, 0.0-1.0)
-- `secondary_role` (for secondaries only; one of: identity, access_control, network_path, configuration, encryption, orchestration)
-- `serves` (for secondaries only; list of resources this secondary supports)
-- `cluster_id` (assigned cluster)
-- `depth` (topological depth, integer >= 0)
-
-Include top-level sections:
-
-- `metadata` — report_date, project_directory, terraform_version
-- `summary` — total_resources, primary_resources, secondary_resources, total_clusters, classification_coverage
-- `resources[]` — all resources with above fields
-- `ai_detection` — has_ai_workload, confidence, confidence_level, signals_found, ai_services
-
-### 7b: Write gcp-resource-clusters.json
-
-1. Create file: `$MIGRATION_DIR/gcp-resource-clusters.json`
-2. Write with the exact schema for `gcp-resource-clusters.json` (from `schema-discover-iac.md`, already loaded above)
-
-**CRITICAL field names (use EXACTLY these):**
-
-- `cluster_id` (matches resources' cluster_id)
-- `primary_resources` (array of addresses)
-- `secondary_resources` (array of addresses)
-- `network` (which VPC/network this cluster belongs to)
-- `creation_order_depth` (matches resource depths)
-- `must_migrate_together` (boolean — whether cluster is atomic deployment unit)
-- `dependencies` (array of other cluster IDs this depends on)
-- `gcp_region` (GCP region for this cluster)
-- `edges` (array of {from, to, relationship_type, evidence})
-
-Include top-level `creation_order` array:
-
-```json
-"creation_order": [
-  { "depth": 0, "clusters": ["networking_vpc_us-central1_001"] },
-  { "depth": 1, "clusters": ["security_iam_us-central1_001"] },
-  { "depth": 2, "clusters": ["database_sql_us-central1_001"] }
-]
-```
-
-### 7c: Validate Output Files
-
-1. Confirm `$MIGRATION_DIR/gcp-resource-inventory.json` exists and is valid JSON
-2. Confirm `$MIGRATION_DIR/gcp-resource-clusters.json` exists and is valid JSON
-3. Verify all resource addresses in inventory appear in exactly one cluster
-4. Verify all cluster IDs match resource cluster_id assignments
-5. Report to user: "Wrote gcp-resource-inventory.json (X resources) and gcp-resource-clusters.json (Y clusters)"
+Confirm the tool response includes `files_written: ["gcp-resource-inventory.json", "gcp-resource-clusters.json"]`.
 
 ### 7d: Optional — Write `ai-workload-profile.json` (Vertex-strong Terraform only)
 

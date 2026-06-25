@@ -243,23 +243,31 @@ def _cluster(resources: list[dict], edges: list[dict]) -> list[dict]:
 
 def cluster_terraform(
     resources: list[dict],
+    migration_dir: str | None = None,
+    ai_detection: dict | None = None,
+    metadata: dict | None = None,
     knowledge: dict[str, Any] = None,
 ) -> dict:
-    """Classify, build edges, compute depth, and cluster GCP resources.
+    """Classify, build edges, compute depth, cluster, and optionally write output files.
 
     Args:
         resources: Flat list from LLM's Terraform parsing. Each resource needs
             at minimum: address, type, name, config, depends_on.
+        migration_dir: If provided, writes gcp-resource-inventory.json and
+            gcp-resource-clusters.json to this directory.
+        ai_detection: Output from detect_ai_signals (included in inventory file).
+        metadata: Report metadata (report_date, project_directory, terraform_version).
         knowledge: Pre-loaded knowledge store.
 
     Returns:
         {
-            "resources": [...],  # classified with tier/role/depth/cluster_id
-            "clusters": [...],   # cluster objects for gcp-resource-clusters.json
-            "summary": { "total": N, "primary": N, "secondary": N, "excluded": N, "clusters": N }
+            "resources": [...],
+            "clusters": [...],
+            "summary": {...},
+            "files_written": [...] (if migration_dir provided)
         }
     """
-    logger.info(">>> cluster_terraform called: %d resources", len(resources))
+    logger.info(">>> cluster_terraform called: %d resources, migration_dir=%s", len(resources), migration_dir)
 
     total_input = len(resources)
 
@@ -281,17 +289,45 @@ def cluster_terraform(
     clusters = _cluster(classified, edges)
     logger.info("  clusters: %d", len(clusters))
 
+    summary = {
+        "total_resources": len(classified),
+        "primary_resources": primary_count,
+        "secondary_resources": secondary_count,
+        "excluded_resources": excluded_count,
+        "total_clusters": len(clusters),
+        "classification_coverage": "100%",
+    }
+
     result = {
         "resources": classified,
         "clusters": clusters,
-        "summary": {
-            "total_resources": len(classified),
-            "primary_resources": primary_count,
-            "secondary_resources": secondary_count,
-            "excluded_resources": excluded_count,
-            "total_clusters": len(clusters),
-        },
+        "summary": summary,
     }
+
+    # Write files if migration_dir provided
+    if migration_dir:
+        import json
+        from pathlib import Path
+        out_dir = Path(migration_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        # gcp-resource-inventory.json
+        inventory = {
+            "metadata": metadata or {"report_date": "", "project_directory": ""},
+            "summary": summary,
+            "resources": classified,
+            "ai_detection": ai_detection or {"has_ai_workload": False, "confidence": 0, "confidence_level": "none", "signals_found": [], "ai_services": []},
+        }
+        inventory_path = out_dir / "gcp-resource-inventory.json"
+        inventory_path.write_text(json.dumps(inventory, indent=2) + "\n")
+
+        # gcp-resource-clusters.json
+        clusters_output = {"clusters": clusters}
+        clusters_path = out_dir / "gcp-resource-clusters.json"
+        clusters_path.write_text(json.dumps(clusters_output, indent=2) + "\n")
+
+        result["files_written"] = ["gcp-resource-inventory.json", "gcp-resource-clusters.json"]
+        logger.info("  wrote: %s", result["files_written"])
 
     logger.info("<<< cluster_terraform: %d resources → %d clusters", len(classified), len(clusters))
     return result

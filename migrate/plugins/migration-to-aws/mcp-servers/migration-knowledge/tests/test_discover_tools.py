@@ -150,3 +150,45 @@ def test_summary_counts(knowledge):
     assert result["summary"]["secondary_resources"] == 1
     assert result["summary"]["excluded_resources"] == 1
     assert result["summary"]["total_resources"] == 2
+
+
+def test_writes_files_when_migration_dir_provided(tmp_path, knowledge):
+    """With migration_dir, writes inventory and clusters JSON files."""
+    resources = [
+        {"address": "google_cloud_run_service.api", "type": "google_cloud_run_service", "name": "api", "config": {}, "depends_on": []},
+        {"address": "google_compute_network.vpc", "type": "google_compute_network", "name": "vpc", "config": {}, "depends_on": []},
+    ]
+    ai_detection = {"has_ai_workload": False, "confidence": 0, "confidence_level": "none", "signals_found": [], "ai_services": []}
+    metadata = {"report_date": "2026-06-25", "project_directory": "/test"}
+
+    result = cluster_terraform(
+        resources, migration_dir=str(tmp_path), ai_detection=ai_detection,
+        metadata=metadata, knowledge=knowledge,
+    )
+
+    assert "files_written" in result
+    assert (tmp_path / "gcp-resource-inventory.json").exists()
+    assert (tmp_path / "gcp-resource-clusters.json").exists()
+
+    # Verify inventory has correct schema
+    import json
+    inventory = json.loads((tmp_path / "gcp-resource-inventory.json").read_text())
+    assert inventory["metadata"]["report_date"] == "2026-06-25"
+    assert inventory["summary"]["total_resources"] == 2
+    assert "ai_detection" in inventory
+    assert all("address" in r and "classification" in r and "depth" in r for r in inventory["resources"])
+
+    # Verify clusters file
+    clusters = json.loads((tmp_path / "gcp-resource-clusters.json").read_text())
+    assert len(clusters["clusters"]) >= 1
+
+
+def test_no_files_without_migration_dir(knowledge):
+    """Without migration_dir, returns data only (no file writing)."""
+    resources = [
+        {"address": "google_cloud_run_service.api", "type": "google_cloud_run_service", "name": "api", "config": {}, "depends_on": []},
+    ]
+    result = cluster_terraform(resources, knowledge=knowledge)
+    assert "files_written" not in result
+    assert "resources" in result
+    assert "clusters" in result

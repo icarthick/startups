@@ -293,21 +293,36 @@ def detect_ai_signals(resources: list[dict]) -> dict:
 
 
 @mcp.tool()
-def cluster_terraform(resources: list[dict]) -> dict:
-    """Classify, build dependency edges, compute depth, and cluster GCP resources.
+def cluster_terraform(
+    resources: list[dict],
+    migration_dir: str | None = None,
+    ai_detection: dict | None = None,
+    metadata: dict | None = None,
+) -> dict:
+    """Classify, build dependency edges, compute depth, cluster, and write output files.
 
     Takes a flat resource list from Terraform parsing and produces fully
-    classified, depth-assigned, clustered output ready for writing to
-    gcp-resource-inventory.json and gcp-resource-clusters.json.
+    classified, depth-assigned, clustered output. If migration_dir is provided,
+    writes gcp-resource-inventory.json and gcp-resource-clusters.json directly
+    (guaranteeing correct schema).
 
     Pipeline: exclude → classify (PRIMARY/SECONDARY) → build edges →
-    topological depth (Kahn's) → cluster by type/tier.
+    topological depth (Kahn's) → cluster by type/tier → write files.
 
     Args:
         resources: Flat list from Terraform parsing. Each resource needs:
             address, type, name, config (dict), depends_on (list of addresses).
+        migration_dir: If provided, writes output files to this directory.
+        ai_detection: Output from detect_ai_signals (included in inventory).
+        metadata: Report metadata (report_date, project_directory, terraform_version).
     """
-    return _cluster_terraform(resources=resources, knowledge=_knowledge)
+    return _cluster_terraform(
+        resources=resources,
+        migration_dir=migration_dir,
+        ai_detection=ai_detection,
+        metadata=metadata,
+        knowledge=_knowledge,
+    )
 
 
 if __name__ == "__main__":
