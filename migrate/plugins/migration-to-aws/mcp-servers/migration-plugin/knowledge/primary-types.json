@@ -7,7 +7,6 @@
     { "type": "google_cloud_run_service", "tier": "compute" },
     { "type": "google_cloud_run_v2_service", "tier": "compute" },
     { "type": "google_container_cluster", "tier": "compute" },
-    { "type": "google_container_node_pool", "tier": "compute" },
     { "type": "google_compute_instance", "tier": "compute" },
     { "type": "google_cloudfunctions_function", "tier": "compute" },
     { "type": "google_cloudfunctions2_function", "tier": "compute" },
@@ -24,7 +23,6 @@
     { "type": "google_cloud_tasks_queue", "tier": "messaging" },
     { "type": "google_compute_network", "tier": "networking" },
     { "type": "google_compute_security_policy", "tier": "networking" },
-    { "type": "google_dns_managed_zone", "tier": "networking" },
-    { "type": "google_monitoring_alert_policy", "tier": "monitoring" }
+    { "type": "google_dns_managed_zone", "tier": "networking" }
   ]
 }
