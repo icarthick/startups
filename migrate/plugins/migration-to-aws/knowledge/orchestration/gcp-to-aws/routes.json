@@ -15,7 +15,7 @@
           "id": "app-code",
           "trigger": { "glob": ["**/*.py", "**/*.js", "**/*.ts", "**/*.go", "**/*.java", "**/*.scala", "**/*.kt", "**/*.rs", "**/requirements.txt", "**/package.json", "**/go.mod", "**/pom.xml", "**/build.gradle"] },
           "file": "references/phases/discover/discover-app-code.md",
-          "produces": ["ai-workload-profile.json"]
+          "produces": []
         },
         {
           "id": "billing-full",
