@@ -37,9 +37,11 @@ def migration_status(project_dir: str) -> dict:
     Returns:
         {"migrations": [...], "latest": "MMDD-HHMM" or null}
     """
+    logger.info(">>> migration_status called: project_dir=%s", project_dir)
     migration_root = Path(project_dir) / ".migration"
 
     if not migration_root.exists():
+        logger.info("  No .migration/ directory found")
         return {"migrations": [], "latest": None}
 
     migrations = []
@@ -79,6 +81,7 @@ def migration_status(project_dir: str) -> dict:
         })
 
     latest = migrations[-1]["id"] if migrations else None
+    logger.info("<<< migration_status: %d runs found, latest=%s", len(migrations), latest)
     return {"migrations": migrations, "latest": latest}
 
 
@@ -93,6 +96,8 @@ def migration_init(project_dir: str) -> dict:
     """
     migration_root = Path(project_dir) / ".migration"
     migration_root.mkdir(exist_ok=True)
+
+    logger.info(">>> migration_init called: project_dir=%s", project_dir)
 
     # Write .gitignore if not present
     gitignore = migration_root / ".gitignore"
@@ -182,7 +187,7 @@ def phase_router(
     migration_path = Path(migration_dir) if Path(migration_dir).is_absolute() else Path(project_dir) / migration_dir
     project_path = Path(project_dir)
 
-    # Read current phase
+    logger.info(">>> phase_router called: migration_dir=%s, project_dir=%s", migration_dir, project_dir)
     status_file = migration_path / ".phase-status.json"
     if not status_file.exists():
         return {"error": f"No .phase-status.json in {migration_dir}"}
@@ -196,6 +201,7 @@ def phase_router(
     if current_phase not in routes_config.get("routes", {}):
         return {"error": f"No routes defined for phase '{current_phase}'"}
 
+    logger.info("  current_phase=%s", current_phase)
     phase_config = routes_config["routes"][current_phase]
 
     # Check requires_phase prerequisite
@@ -217,8 +223,10 @@ def phase_router(
         if _evaluate_trigger(trigger, project_path, migration_path):
             active_routes.append(route)
             active_ids.add(route["id"])
+            logger.debug("  route '%s': trigger matched", route["id"])
         else:
             skipped_routes.append({"id": route["id"], "reason": "Trigger not met"})
+            logger.debug("  route '%s': trigger not met", route["id"])
 
     # Apply do_not_run_with_routes and run_only_with_routes
     final_routes = []
@@ -296,6 +304,8 @@ def phase_advance(
     migration_path = Path(migration_dir) if Path(migration_dir).is_absolute() else Path(project_dir) / migration_dir
     project_path = Path(project_dir)
 
+    logger.info(">>> phase_advance called: migration_dir=%s", migration_dir)
+
     # Read current status
     status_file = migration_path / ".phase-status.json"
     if not status_file.exists():
@@ -343,6 +353,7 @@ def phase_advance(
                 missing.append(artifact)
 
     if missing:
+        logger.info("  GATE FAILED: phase=%s, missing=%s", current_phase, missing)
         return {
             "gate_passed": False,
             "current_phase": current_phase,
@@ -397,6 +408,8 @@ def phase_reset(
         or {"error": str}
     """
     migration_path = Path(migration_dir) if Path(migration_dir).is_absolute() else Path(project_dir) / migration_dir
+
+    logger.info(">>> phase_reset called: from_phase=%s, migration_dir=%s", from_phase, migration_dir)
 
     status_file = migration_path / ".phase-status.json"
     if not status_file.exists():
