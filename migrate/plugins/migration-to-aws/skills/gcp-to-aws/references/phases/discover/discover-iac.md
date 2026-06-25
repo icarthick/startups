@@ -51,144 +51,41 @@ Sensitive key patterns to redact (case-insensitive): `password`, `passwd`, `secr
 4. Also extract provider and backend configuration (for region detection)
 5. Report total resources found to user (e.g., "Parsed 50 GCP resources from 12 Terraform files")
 
-## Step 2: Flag AI Signals
+## Step 2: Detect AI Signals
 
-Scan all `.tf` files for AI-relevant patterns. For each match, record the pattern, file location, and confidence score.
+Call the `detect_ai_signals` MCP tool with the resource list from Step 1:
 
-| Pattern             | What to look for                                                                                                                                                     | Confidence |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| Vertex AI resources | `google_vertex_ai_*` resource types (`_model`, `_endpoint`, `_training_pipeline`, `_custom_job`, `_index`, `_featurestore`, `_tensorboard`, `_batch_prediction_job`) | 95%        |
-| BigQuery ML         | `google_bigquery_ml_*` resource types                                                                                                                                | 85%        |
-| Cloud AI Services   | `google_cloud_document_ai_*`, `google_cloud_vision_*`, `google_cloud_speech_*`, `google_cloud_translation_*`, `google_cloud_dialogflow_*`                            | 80%        |
-| AI module usage     | Module names containing `*ai*`, `*ml*`, `*model*`, `*prediction*`; variable values referencing `vertex-ai`, `bigquery-ml`                                            | 70%        |
-| Variable references | Variable/local names matching `*vertex*`, `*prediction*`, `*model*`, `*ml*`; values containing `vertex-ai`, `bigquery`, `gemini`, `palm`                             | 60%        |
+```
+detect_ai_signals(resources=<resource list from Step 1>)
+```
 
-Record all signals for the `ai_detection` section in `gcp-resource-inventory.json`. If any signal has confidence >= 70%, set `has_ai_workload: true`.
+Returns an `ai_detection` object (`has_ai_workload`, `confidence`, `confidence_level`, `signals_found`, `ai_services`). Save this for Step 7a (written into the `ai_detection` section of `gcp-resource-inventory.json`).
 
-**Note:** This step only detects signals from Terraform. Full AI workload profiling (code analysis, billing data) is handled by `discover-app-code.md`.
+**Note:** This detects signals from Terraform resource types only. Full AI workload profiling (code analysis, billing data) is handled by `discover-app-code.md`.
 
-## Step 2.5: Complexity Assessment
+## Step 3: Classify and Cluster
 
-Count the unique GCP resource types extracted in Step 1 that are PRIMARY candidates
-(compute, database, storage, messaging services — not IAM, firewall rules, or project services).
-Use the Priority 1 list from classification-rules.md as reference:
+Call the `cluster_terraform` MCP tool with the resource list from Step 1:
 
-**Primary types:** google_cloud_run_v2_service, google_cloud_run_service, google_cloudfunctions_function,
-google_cloudfunctions2_function, google_compute_instance, google_container_cluster,
-google_app_engine_application, google_sql_database_instance, google_spanner_instance,
-google_firestore_database, google_bigtable_instance, google_bigquery_dataset,
-google_redis_instance, google_storage_bucket, google_filestore_instance,
-google_pubsub_topic, google_cloud_tasks_queue
+```
+cluster_terraform(resources=<resource list from Step 1>)
+```
 
-Count resources matching these types. This is the **primary resource count**.
+This tool performs the full pipeline deterministically:
+- Excludes auth providers (Identity Platform, Firebase Auth) — these are not migrated
+- Classifies resources as PRIMARY (with tier) or SECONDARY (with role)
+- Builds dependency edges from `depends_on` and config references
+- Computes topological depth via Kahn's algorithm
+- Clusters resources by type/tier (networking cluster, same-type grouping)
 
-- **If primary resource count ≤ 8:** Use **simplified discovery** (Step 3S below). Skip Steps 3-6.
-- **If primary resource count > 8:** Use **full discovery** (Steps 3-6, unchanged).
+Returns:
+- `resources` — classified list with `classification`, `tier`/`secondary_role`, `confidence`, `depth`, `cluster_id`, `serves` (for secondaries)
+- `clusters` — cluster objects with `cluster_id`, `gcp_region`, `primary_resources`, `secondary_resources`, `creation_order_depth`
+- `summary` — counts (`total_resources`, `primary_resources`, `secondary_resources`, `excluded_resources`, `total_clusters`)
 
-## Step 3S: Simplified Discovery (≤ 8 primary resources)
+Report the summary to user (e.g., "Classified: 12 PRIMARY, 38 SECONDARY, 2 excluded. Generated 6 clusters.")
 
-For small projects, skip the full clustering pipeline. Instead:
-
-0. **Exclude Priority 0 resources** before classification. Remove any resources matching the
-   Excluded Resources list in `classification-rules.md` (Priority 0). These include:
-   - `google_identity_platform_*` — Auth provider (keep existing, do not migrate)
-   - `google_firebase_auth_*` — Auth provider (keep existing, do not migrate)
-     Log each excluded resource: "Auth provider detected — excluded from migration scope. Keep your existing auth solution."
-     Do NOT include excluded resources in `gcp-resource-inventory.json` or any cluster.
-
-1. **Classify resources** using only Priority 1 hardcoded rules from the PRIMARY types list above.
-   - Resources matching the list → PRIMARY
-   - All other resources → SECONDARY with role inferred from type:
-     - `google_service_account*`, `google_project_iam*` → role: identity
-     - `google_compute_firewall`, `google_compute_network`, `google_compute_subnetwork`,
-       `google_compute_global_address`, `google_compute_router*`, `google_dns*` → role: network_path
-     - `google_secret_manager*`, `google_kms*` → role: encryption
-     - `google_project_service` → role: configuration
-     - Everything else → role: configuration
-   - Set `confidence: 0.99` for all
-
-2. **Build simple dependency edges:**
-   - For each SECONDARY resource, find which PRIMARY resource it serves by checking
-     Terraform reference expressions (e.g., `google_cloud_run_v2_service.X.name` referenced
-     in a service account → that SA serves that Cloud Run service)
-   - Edge type: `serves` for all edges (skip typed-edge classification)
-   - If no reference found, attach to the nearest PRIMARY resource by file proximity
-
-3. **Create clusters** using simple grouping:
-   - **Networking cluster:** All `google_compute_network`, `google_compute_subnetwork`,
-     `google_compute_firewall`, `google_compute_router*`, `google_compute_global_address`,
-     `google_dns*` resources → 1 cluster
-   - **Per-primary clusters:** Each PRIMARY resource + its SECONDARY `serves` dependents → 1 cluster
-   - `google_project_service` resources → attach to the cluster of the service they enable
-   - Naming: `{category}_{type}_{region}_{sequence}` (same convention as full clustering)
-
-4. **Set depth:** Networking cluster = depth 0. All other clusters = depth 1. (No Kahn's algorithm needed.)
-
-5. **Load** `references/shared/schema-discover-iac.md` and write output files
-   (`gcp-resource-inventory.json`, `gcp-resource-clusters.json`) using the same schema.
-   Add to metadata: `"clustering_mode": "simplified"`.
-
-6. **Proceed to Step 7** (same as full path).
-
-**Note:** The simplified path produces the SAME output schema as the full path. Downstream
-phases (clarify, design, estimate, generate) work identically regardless of clustering mode.
-
-## Step 3: Classify Resources (PRIMARY vs SECONDARY)
-
-1. Read `references/clustering/terraform/classification-rules.md` completely
-2. For EACH resource from Step 1, apply classification rules in priority order:
-   - **Priority 0**: Check if in Excluded Resources list → **remove from resource list entirely**. Do not classify, cluster, or include in output. Log: "Auth provider detected — excluded from migration scope."
-   - **Priority 1**: Check if in PRIMARY list → mark `classification: "PRIMARY"`, assign `tier`, continue
-   - **Priority 2**: Check if type matches SECONDARY patterns → mark `classification: "SECONDARY"` with `secondary_role` (one of: `identity`, `access_control`, `network_path`, `configuration`, `encryption`, `orchestration`)
-   - **Priority 3**: Apply fallback heuristics first, then LLM inference → mark as SECONDARY with `secondary_role` and `confidence` field (0.5-0.75)
-   - **Default**: Mark as `SECONDARY` with `secondary_role: "configuration"` and `confidence: 0.5`
-3. For each resource, also record:
-   - `confidence`: `0.99` (hardcoded) or `0.5-0.75` (LLM inference)
-4. Confirm ALL resources have `classification` and `confidence` fields
-5. Report counts (e.g., "Classified: 12 PRIMARY, 38 SECONDARY")
-
-## Step 4: Build Dependency Edges and Populate Serves
-
-1. Read `references/clustering/terraform/typed-edges-strategy.md` completely
-2. For EACH resource from Step 1, extract references from `raw_hcl`:
-   - Extract all `google_*\.[\w\.]+` patterns
-   - Classify edge type by field name/value context (see typed-edges-strategy.md)
-   - Store as `{from, to, relationship_type, evidence}` in `typed_edges[]` array
-   - Include both **Secondary→Primary** edges (identity, network_path, etc.) and **Primary→Primary** edges (data_dependency, cache_dependency, publishes_to, etc.)
-3. For SECONDARY resources, populate `serves[]` array:
-   - Trace outgoing references to PRIMARY resources
-   - Trace incoming `depends_on` references from PRIMARY resources
-   - Include transitive chains (e.g., IAM → SA → Cloud Run)
-4. Report dependency summary (e.g., "Found 45 typed edges, 38 secondaries populated serves arrays")
-
-## Step 5: Calculate Topological Depth
-
-1. Read `references/clustering/terraform/depth-calculation.md` completely
-2. Use Kahn's algorithm (or equivalent topological sort) to assign `depth` field:
-   - Depth 0: resources with no incoming dependencies
-   - Depth N: resources where at least one dependency is depth N-1
-3. **Detect cycles**: If any resource cannot be assigned depth, flag error: "Circular dependency detected between: [resources]. Breaking lowest-confidence edge."
-4. Confirm ALL resources have `depth` field (integer >= 0)
-5. Report depth summary (e.g., "Depth 0: 8 resources, Depth 1: 15 resources, ..., Max depth: 3")
-
-## Step 6: Apply Clustering Algorithm
-
-1. Read `references/clustering/terraform/clustering-algorithm.md` completely
-2. Apply Rules 1-6 in exact priority order:
-   - **Rule 1: Networking Cluster** — `google_compute_network` + all `network_path` secondaries → 1 cluster
-   - **Rule 2: Same-Type Grouping** — ALL primaries of identical type → 1 cluster (not one per resource)
-   - **Rule 3: Seed Clusters** — Each remaining PRIMARY gets cluster + its `serves[]` secondaries
-   - **Rule 4: Merge on Dependencies** — Merge only if single deployment unit (rare)
-   - **Rule 5: Skip API Services** — `google_project_service` never gets own cluster; attach to service it enables
-   - **Rule 6: Deterministic Naming** — `{service_category}_{service_type}_{gcp_region}_{sequence}` (e.g., `compute_cloudrun_us-central1_001`, `database_sql_us-central1_001`)
-3. For each cluster, also populate:
-   - `network` — which VPC/network the cluster's resources belong to
-   - `must_migrate_together` — boolean (true for all clusters by default; set false only if resources can be migrated independently)
-   - `dependencies` — array of other cluster IDs this cluster depends on (derived from Primary→Primary edges between clusters)
-4. Assign `cluster_id` to EVERY resource (must match one of generated clusters)
-5. Confirm ALL resources have `cluster_id` field
-6. Build `creation_order` — global ordering of clusters by depth level
-7. Report clustering results (e.g., "Generated 6 clusters from 50 resources")
+If any resources were excluded, report them: "Auth provider detected — excluded from migration scope. Keep your existing auth solution."
 
 ## Step 7: Write Final Output Files
 
