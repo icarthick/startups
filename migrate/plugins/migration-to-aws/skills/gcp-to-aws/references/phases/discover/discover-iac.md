@@ -63,32 +63,62 @@ Returns an `ai_detection` object (`has_ai_workload`, `confidence`, `confidence_l
 
 **Note:** This detects signals from Terraform resource types only. Full AI workload profiling (code analysis, billing data) is handled by `discover-app-code.md`.
 
-## Step 3: Classify and Cluster
+## Step 3: Scan References and Cluster
 
-Call the `cluster_terraform` MCP tool with the resource list from Step 1, the AI detection from Step 2, and the migration directory:
+### 3a: Extract cross-resource references
+
+Call the `scan_tf_references` MCP tool with the project directory:
+
+```
+scan_tf_references(project_directory=<project path>)
+```
+
+This scans raw `.tf` files and returns:
+- `edges` — cross-resource references found in HCL (high-confidence)
+- `file_map` — which `.tf` file each resource is defined in
+- `unresolved_references` — `var.*`, `local.*`, `module.*` references the scanner couldn't resolve
+- `for_each_resources` — resources with dynamic addressing
+
+Report the summary to user (e.g., "Scanned 12 .tf files: found 154 edges, 5 unresolved references, 3 for_each resources.")
+
+### 3b: Review and enrich edges (optional)
+
+Review `unresolved_references` and `for_each_resources` from the scanner output. For each unresolved reference:
+- If the variable or local value is visible in the scanned files, resolve it and add the missing edge to the `edges` list
+- If a `for_each` resource has references that imply specific instance addressing, expand them
+
+This step improves clustering quality but is not blocking — proceed even if some references remain unresolved.
+
+### 3c: Classify and cluster
+
+Call the `cluster_terraform` MCP tool with the resource list from Step 1, the AI detection from Step 2, and the scanner output from Step 3a:
 
 ```
 cluster_terraform(
   resources=<resource list from Step 1>,
   migration_dir=$MIGRATION_DIR,
   ai_detection=<result from Step 2>,
-  metadata={"report_date": "<today>", "project_directory": "<project path>", "terraform_version": "<version>"}
+  metadata={"report_date": "<today>", "project_directory": "<project path>", "terraform_version": "<version>"},
+  edges=<edges from Step 3a + any additions from Step 3b>,
+  file_map=<file_map from Step 3a>
 )
 ```
 
 This tool performs the full pipeline deterministically:
 - Excludes auth providers (Identity Platform, Firebase Auth) — these are not migrated
 - Classifies resources as PRIMARY (with tier) or SECONDARY (with role)
-- Builds dependency edges from `depends_on` and config references
+- Builds dependency edges by merging scanner edges with `depends_on` and config references
+- Resolves `serves` bidirectionally and transitively (via IAM bridge pattern)
 - Computes topological depth via Kahn's algorithm
-- Clusters resources by type/tier (networking cluster, same-type grouping)
+- Clusters resources by type/tier (networking cluster, same-type grouping, file proximity)
+- Routes unaffiliated resources to a `shared_infrastructure` cluster
 - **Writes `gcp-resource-inventory.json` and `gcp-resource-clusters.json`** to `$MIGRATION_DIR` with guaranteed correct schema
 
 Returns:
 - `summary` — counts (`total_resources`, `primary_resources`, `secondary_resources`, `excluded_resources`, `total_clusters`)
 - `files_written` — list of files written to migration_dir
 
-Report the summary to user (e.g., "Classified: 12 PRIMARY, 38 SECONDARY, 2 excluded. Generated 6 clusters.")
+Report the summary to user (e.g., "Classified: 12 PRIMARY, 38 SECONDARY, 2 excluded. Generated 8 clusters.")
 
 If any resources were excluded, report them: "Auth provider detected — excluded from migration scope. Keep your existing auth solution."
 
@@ -96,7 +126,7 @@ If any resources were excluded, report them: "Auth provider detected — exclude
 
 ### 7a-7c: Output files (handled by tool)
 
-`cluster_terraform` in Step 3 already wrote `gcp-resource-inventory.json` and `gcp-resource-clusters.json` to `$MIGRATION_DIR` with guaranteed correct schema. No manual file writing or validation needed.
+`cluster_terraform` in Step 3c already wrote `gcp-resource-inventory.json` and `gcp-resource-clusters.json` to `$MIGRATION_DIR` with guaranteed correct schema. No manual file writing or validation needed.
 
 Confirm the tool response includes `files_written: ["gcp-resource-inventory.json", "gcp-resource-clusters.json"]`.
 
