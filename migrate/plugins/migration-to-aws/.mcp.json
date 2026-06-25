@@ -65,6 +65,7 @@
         "phase_advance",
         "phase_reset",
         "detect_ai_signals",
+        "scan_tf_references",
         "cluster_terraform",
         "create_ai_profile_from_iac"
       ]
