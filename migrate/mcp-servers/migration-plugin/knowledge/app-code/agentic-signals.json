@@ -1,0 +1,23 @@
+{
+  "description": "Agentic framework detection patterns",
+  "import_patterns": [
+    {"id": "langgraph", "framework": "langgraph", "patterns": ["from langgraph", "langgraph.graph"], "code_patterns": ["StateGraph(", "add_node(", "add_edge(", ".compile()"], "confidence": 0.95},
+    {"id": "crewai", "framework": "crewai", "patterns": ["from crewai", "crewai"], "code_patterns": ["Crew(", "Agent(", "Task("], "confidence": 0.95},
+    {"id": "autogen", "framework": "autogen", "patterns": ["from autogen", "autogen"], "code_patterns": ["AssistantAgent(", "GroupChat(", "ConversableAgent("], "confidence": 0.95},
+    {"id": "openai_agents", "framework": "openai_agents", "patterns": ["from openai.agents", "from agents import", "openai.beta.assistants"], "code_patterns": ["Runner("], "confidence": 0.95},
+    {"id": "strands", "framework": "strands", "patterns": ["from strands", "strands-agents"], "code_patterns": ["Agent(", "Swarm(", "GraphBuilder("], "confidence": 0.95},
+    {"id": "pydantic_ai", "framework": "pydantic_ai", "patterns": ["from pydantic_ai", "pydantic-ai"], "code_patterns": ["Agent(model=", ".run_sync(", ".run("], "confidence": 0.95},
+    {"id": "agno", "framework": "agno", "patterns": ["from agno", "agno"], "code_patterns": ["Agent(model=", "Team(", ".print_response("], "confidence": 0.95}
+  ],
+  "dependency_patterns": [
+    {"id": "langgraph", "packages": ["langgraph"]},
+    {"id": "crewai", "packages": ["crewai"]},
+    {"id": "autogen", "packages": ["pyautogen", "autogen"]},
+    {"id": "strands", "packages": ["strands-agents"]},
+    {"id": "pydantic_ai", "packages": ["pydantic-ai"]},
+    {"id": "agno", "packages": ["agno"]},
+    {"id": "mcp", "packages": ["mcp"]}
+  ],
+  "tool_patterns": ["@tool", "function_declarations=", "tools=[{"],
+  "memory_patterns": ["ConversationBufferMemory(", "ChatMessageHistory(", "MemorySaver("]
+}

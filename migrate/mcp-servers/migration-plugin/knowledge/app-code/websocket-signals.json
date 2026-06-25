@@ -1,0 +1,14 @@
+{
+  "description": "WebSocket and long-lived connection signal patterns",
+  "patterns": [
+    "websocket",
+    "WebSocket",
+    "socket.io",
+    "@nestjs/websockets",
+    "FastAPI WebSocket",
+    "\"ws\"",
+    "from ws import",
+    "EventSource",
+    "text/event-stream"
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "description": "Maps ai_source + agentic context to design reference files to load",
+  "ai_source_refs": {
+    "gemini": ["references/design-refs/ai-gemini-to-bedrock.md"],
+    "openai": ["references/design-refs/ai-openai-to-bedrock.md"],
+    "anthropic": ["references/design-refs/ai-anthropic-to-bedrock.md"],
+    "both": ["references/design-refs/ai-gemini-to-bedrock.md", "references/design-refs/ai-openai-to-bedrock.md"],
+    "other": ["references/design-refs/ai.md"]
+  },
+  "agentic_refs": {
+    "retarget": ["references/shared/retarget-gotchas.md"],
+    "harness": ["references/design-refs/design-ref-harness.md"],
+    "strands": ["references/design-refs/design-ref-agentic-to-agentcore.md"],
+    "undecided": ["references/shared/retarget-gotchas.md"]
+  },
+  "shared_refs": ["references/shared/ai-migration-guardrails.md"]
+}

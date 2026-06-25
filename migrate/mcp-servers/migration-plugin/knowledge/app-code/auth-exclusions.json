@@ -1,0 +1,12 @@
+{
+  "description": "Auth SDK import patterns — recognized but excluded from migration scope",
+  "patterns": [
+    {"provider": "Auth0", "imports": ["auth0", "@auth0/", "auth0-python"]},
+    {"provider": "Supabase Auth", "imports": ["@supabase/supabase-js", "supabase"]},
+    {"provider": "Firebase Auth", "imports": ["firebase-admin", "firebase/auth", "@angular/fire/auth"]},
+    {"provider": "Clerk", "imports": ["@clerk/", "clerk-sdk-python"]},
+    {"provider": "Okta", "imports": ["@okta/", "okta-sdk-python", "okta-jwt-verifier"]},
+    {"provider": "Keycloak", "imports": ["keycloak", "@keycloak/keycloak-admin-client", "python-keycloak"]},
+    {"provider": "NextAuth", "imports": ["next-auth", "@auth/core"]}
+  ]
+}

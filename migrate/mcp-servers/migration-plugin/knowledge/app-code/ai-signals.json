@@ -1,0 +1,32 @@
+{
+  "description": "AI/ML signal patterns for source code and dependency manifests",
+  "import_patterns": [
+    {"id": "vertex_ai", "patterns": ["google.cloud.aiplatform", "@google-cloud/aiplatform", "cloud.google.com/go/aiplatform", "com.google.cloud.aiplatform"], "confidence": 0.95},
+    {"id": "bigquery_ml", "patterns": ["google.cloud.bigquery"], "requires_context": ["CREATE MODEL", "ML."], "confidence": 0.85},
+    {"id": "gemini", "patterns": ["google.generativeai", "vertexai.generative_models", "vertexai.preview.generative_models"], "confidence": 0.98},
+    {"id": "openai", "patterns": ["openai", "from openai"], "confidence": 0.98},
+    {"id": "anthropic", "patterns": ["anthropic", "from anthropic"], "confidence": 0.98},
+    {"id": "document_ai", "patterns": ["google.cloud.documentai", "@google-cloud/documentai", "cloud.google.com/go/documentai"], "confidence": 0.90},
+    {"id": "vision_ai", "patterns": ["google.cloud.vision", "@google-cloud/vision", "cloud.google.com/go/vision"], "confidence": 0.90},
+    {"id": "speech_ai", "patterns": ["google.cloud.speech", "@google-cloud/speech", "cloud.google.com/go/speech"], "confidence": 0.90},
+    {"id": "translate_ai", "patterns": ["google.cloud.translate", "@google-cloud/translate"], "confidence": 0.90},
+    {"id": "dialogflow", "patterns": ["google.cloud.dialogflow", "@google-cloud/dialogflow"], "confidence": 0.90},
+    {"id": "embeddings_rag", "patterns": ["langchain", "llama_index", "llama-index"], "requires_context": ["Embeddings", "VectorStore", "retrieval"], "confidence": 0.85}
+  ],
+  "dependency_patterns": [
+    {"id": "vertex_ai", "packages": ["google-cloud-aiplatform", "google-cloud-vertexai"]},
+    {"id": "bigquery_ml", "packages": ["google-cloud-bigquery-ml"]},
+    {"id": "vision_ai", "packages": ["google-cloud-vision"]},
+    {"id": "speech_ai", "packages": ["google-cloud-speech"]},
+    {"id": "translate_ai", "packages": ["google-cloud-language"]},
+    {"id": "openai", "packages": ["openai"]},
+    {"id": "anthropic", "packages": ["anthropic"]},
+    {"id": "litellm", "packages": ["litellm"]},
+    {"id": "langchain", "packages": ["langchain", "langchain-google-vertexai", "langchain-openai", "langchain-aws"]}
+  ],
+  "model_string_patterns": [
+    {"id": "gemini", "regex": "gemini-(pro|1\\.5|2\\.0|2\\.5|3)"},
+    {"id": "openai", "regex": "gpt-(3\\.5|4|4o|4\\.1)|o[134]-"},
+    {"id": "anthropic", "regex": "claude-(3|sonnet|haiku|opus)"}
+  ]
+}

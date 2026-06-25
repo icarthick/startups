@@ -155,8 +155,9 @@ def routes_config():
             "discover": {
                 "routes": [
                     {"id": "iac", "trigger": {"glob": ["**/*.tf"]}, "file": "discover-iac.md", "produces": ["inventory.json"]},
-                    {"id": "billing-full", "trigger": {"glob": ["**/*billing*.csv"]}, "do_not_run_with_routes": ["iac"], "file": "discover-billing.md", "produces": ["billing.json"]},
-                    {"id": "billing-lightweight", "trigger": {"glob": ["**/*billing*.csv"]}, "run_only_with_routes": ["iac"], "file": "discover-billing-lightweight.md", "produces": ["billing.json"]},
+                    {"id": "billing", "trigger": {"glob": ["**/*billing*.csv"]}, "file": "discover-billing.md", "produces": ["billing.json"]},
+                    {"id": "app-code-full", "trigger": {"glob": ["**/*.py"]}, "do_not_run_with_routes": ["iac"], "file": "discover-app-full.md", "produces": ["app-profile.json"]},
+                    {"id": "app-code-light", "trigger": {"glob": ["**/*.py"]}, "run_only_with_routes": ["iac"], "file": "discover-app-light.md", "produces": ["app-profile.json"]},
                     {"id": "preview", "trigger": {"always": True}, "file": "discover-preview.md", "produces": []},
                 ]
             },
@@ -192,10 +193,10 @@ def _write_status(tmp_path, phase, phases_override=None):
 
 
 def test_router_discover_with_terraform(tmp_path, routes_config):
-    """Terraform files present → iac route active, billing-full excluded, billing-lightweight included."""
+    """Terraform files present → iac route active, app-code-full excluded, app-code-light included."""
     run_dir = _write_status(tmp_path, "discover")
     (tmp_path / "main.tf").touch()
-    (tmp_path / "costs-billing.csv").touch()  # billing files also present
+    (tmp_path / "app.py").touch()  # app code files also present
 
     result = phase_router(
         migration_dir=str(run_dir), project_dir=str(tmp_path), routes_config=routes_config
@@ -203,29 +204,29 @@ def test_router_discover_with_terraform(tmp_path, routes_config):
     assert result["current_phase"] == "discover"
     route_ids = [r["id"] for r in result["routes"]]
     assert "iac" in route_ids
-    assert "billing-lightweight" in route_ids
+    assert "app-code-light" in route_ids
     assert "preview" in route_ids
-    assert "billing-full" not in route_ids
+    assert "app-code-full" not in route_ids
 
     skipped_ids = [r["id"] for r in result["skipped_routes"]]
-    assert "billing-full" in skipped_ids
+    assert "app-code-full" in skipped_ids
 
 
 def test_router_discover_billing_only(tmp_path, routes_config):
-    """No Terraform, billing file present → billing-full route active, billing-lightweight skipped."""
+    """No Terraform, app code present → app-code-full route active, app-code-light skipped."""
     run_dir = _write_status(tmp_path, "discover")
-    (tmp_path / "costs-billing.csv").touch()
+    (tmp_path / "app.py").touch()
 
     result = phase_router(
         migration_dir=str(run_dir), project_dir=str(tmp_path), routes_config=routes_config
     )
     route_ids = [r["id"] for r in result["routes"]]
-    assert "billing-full" in route_ids
+    assert "app-code-full" in route_ids
     assert "iac" not in route_ids
-    assert "billing-lightweight" not in route_ids
+    assert "app-code-light" not in route_ids
 
     skipped_ids = [r["id"] for r in result["skipped_routes"]]
-    assert "billing-lightweight" in skipped_ids
+    assert "app-code-light" in skipped_ids
 
 
 def test_router_discover_no_files(tmp_path, routes_config):

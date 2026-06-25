@@ -1,0 +1,33 @@
+{
+  "description": "Dev-tier AWS pricing for migration preview estimates. Updated 2026-06.",
+  "dev_tier_monthly": {
+    "google_cloud_run_v2_service": {"aws_target": "Fargate", "sizing": "0.5 vCPU, 1GB, 730h", "usd": 18.43},
+    "google_cloud_run_service": {"aws_target": "Fargate", "sizing": "0.5 vCPU, 1GB, 730h", "usd": 18.43},
+    "google_cloudfunctions_function": {"aws_target": "Lambda", "sizing": "1M req, 128MB, 200ms", "usd": 3.54},
+    "google_cloudfunctions2_function": {"aws_target": "Lambda", "sizing": "1M req, 128MB, 200ms", "usd": 3.54},
+    "google_compute_instance": {"aws_target": "EC2 t4g.small", "sizing": "On-demand", "usd": 12.26},
+    "google_container_cluster": {"aws_target": "EKS + 2x t4g.small", "sizing": "On-demand", "usd": 97.52},
+    "google_sql_database_instance": {"aws_target": "RDS db.t4g.micro", "sizing": "Single-AZ, gp3 20GB", "usd": 14.62},
+    "google_redis_instance": {"aws_target": "ElastiCache cache.t4g.micro", "sizing": "Single-AZ", "usd": 11.52},
+    "google_storage_bucket": {"aws_target": "S3", "sizing": "50GB + 10K GET + 1K PUT", "usd": 1.18},
+    "google_pubsub_topic": {"aws_target": "SQS", "sizing": "1M requests", "usd": 0.40},
+    "google_filestore_instance": {"aws_target": "EFS", "sizing": "10GB standard", "usd": 3.00},
+    "google_spanner_instance": {"aws_target": "Aurora Serverless v2", "sizing": "0.5-1 ACU", "usd": 43.80},
+    "google_bigquery_dataset": {"aws_target": "Deferred", "sizing": "Specialist", "usd": 0.00}
+  },
+  "model_mapping": [
+    {"source_patterns": ["gpt-4o", "gpt-4.1", "gpt-5"], "bedrock_name": "Claude Sonnet 4.6", "bedrock_model_id": "anthropic.claude-sonnet-4-6", "source_input_1m": 2.50, "source_output_1m": 10.00, "bedrock_input_1m": 3.00, "bedrock_output_1m": 15.00},
+    {"source_patterns": ["gpt-4o-mini", "gpt-4.1-mini", "gpt-5-mini"], "bedrock_name": "Claude Haiku 4.5", "bedrock_model_id": "anthropic.claude-haiku-4-5-20251001-v1:0", "source_input_1m": 0.15, "source_output_1m": 0.60, "bedrock_input_1m": 0.80, "bedrock_output_1m": 4.00},
+    {"source_patterns": ["gpt-3.5-turbo", "gpt-4.1-nano", "gpt-5-nano"], "bedrock_name": "Amazon Nova Micro", "bedrock_model_id": "amazon.nova-micro-v1:0", "source_input_1m": 0.50, "source_output_1m": 1.50, "bedrock_input_1m": 0.035, "bedrock_output_1m": 0.14},
+    {"source_patterns": ["o3", "o4-mini"], "bedrock_name": "Claude Sonnet 4.6", "bedrock_model_id": "anthropic.claude-sonnet-4-6", "source_input_1m": 10.00, "source_output_1m": 40.00, "bedrock_input_1m": 3.00, "bedrock_output_1m": 15.00},
+    {"source_patterns": ["gemini-2.5-pro", "gemini-3-pro"], "bedrock_name": "Claude Sonnet 4.6", "bedrock_model_id": "anthropic.claude-sonnet-4-6", "source_input_1m": 1.25, "source_output_1m": 10.00, "bedrock_input_1m": 3.00, "bedrock_output_1m": 15.00},
+    {"source_patterns": ["gemini-2.5-flash", "gemini-2.0-flash"], "bedrock_name": "Claude Haiku 4.5", "bedrock_model_id": "anthropic.claude-haiku-4-5-20251001-v1:0", "source_input_1m": 0.15, "source_output_1m": 0.60, "bedrock_input_1m": 0.80, "bedrock_output_1m": 4.00},
+    {"source_patterns": ["gemini-2.0-flash-lite"], "bedrock_name": "Amazon Nova Lite", "bedrock_model_id": "amazon.nova-lite-v1:0", "source_input_1m": 0.075, "source_output_1m": 0.30, "bedrock_input_1m": 0.06, "bedrock_output_1m": 0.24},
+    {"source_patterns": ["claude-3-5-sonnet", "claude-sonnet"], "bedrock_name": "Claude Sonnet 4.6", "bedrock_model_id": "anthropic.claude-sonnet-4-6", "source_input_1m": 3.00, "source_output_1m": 15.00, "bedrock_input_1m": 3.00, "bedrock_output_1m": 15.00},
+    {"source_patterns": ["claude-3-5-haiku", "claude-haiku"], "bedrock_name": "Claude Haiku 4.5", "bedrock_model_id": "anthropic.claude-haiku-4-5-20251001-v1:0", "source_input_1m": 0.80, "source_output_1m": 4.00, "bedrock_input_1m": 0.80, "bedrock_output_1m": 4.00},
+    {"source_patterns": ["claude-3-opus", "claude-opus"], "bedrock_name": "Claude Opus 4.6", "bedrock_model_id": "anthropic.claude-opus-4-6-v1", "source_input_1m": 15.00, "source_output_1m": 75.00, "bedrock_input_1m": 15.00, "bedrock_output_1m": 75.00},
+    {"source_patterns": ["text-embedding", "embedding"], "bedrock_name": "Amazon Titan Embeddings v2", "bedrock_model_id": "amazon.titan-embed-text-v2:0", "source_input_1m": 0.02, "source_output_1m": null, "bedrock_input_1m": 0.02, "bedrock_output_1m": null},
+    {"source_patterns": ["dall-e", "imagen", "gpt-image"], "bedrock_name": "Amazon Nova Canvas", "bedrock_model_id": "amazon.nova-canvas-v1:0", "source_input_1m": null, "source_output_1m": null, "bedrock_input_1m": null, "bedrock_output_1m": null}
+  ],
+  "default_model_mapping": {"bedrock_name": "Amazon Nova Pro", "bedrock_model_id": "amazon.nova-pro-v1:0", "source_input_1m": null, "source_output_1m": null, "bedrock_input_1m": 0.80, "bedrock_output_1m": 3.20}
+}

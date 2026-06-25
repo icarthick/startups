@@ -152,8 +152,7 @@ gcp-to-aws/
 │   │   ├── discover/
 │   │   │   ├── discover-iac.md                 # Terraform/IaC discovery
 │   │   │   ├── discover-app-code.md            # App code discovery
-│   │   │   ├── discover-billing.md             # Billing data discovery (full)
-│   │   │   ├── discover-billing-lightweight.md # Billing extraction via MCP tool (when IaC present)
+│   │   │   ├── discover-billing.md             # Billing data discovery
 │   │   │   └── discover-preview.md             # Migration preview
 │   │   ├── clarify/
 │   │   │   ├── clarify.md                     # Phase 2: Clarify orchestrator

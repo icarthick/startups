@@ -23,100 +23,25 @@ Verify all pricing via AWS Pricing MCP or `references/shared/pricing-cache.md`. 
 
 ---
 
-## Model Mapping Tables
+## Model Selection
 
-### GPT-5.5 Series (Latest — April 23, 2026)
+For each OpenAI model detected in `ai-workload-profile.json`, call:
 
-GPT-5.5 is the first fully retrained base model since GPT-4.5. Natively omnimodal (text + image + audio + video), 88.7% SWE-Bench Verified, 256K context in ChatGPT / 1M in API. Two variants: standard and Pro. No Mini/Nano variants at launch (expected Q3 2026). Percentages below are blended savings using a 2:1 input-to-output token ratio.
+```
+recommend_bedrock_model(
+  source_model_id=<model_id>,
+  ai_priority=<from preferences.json ai_constraints>,
+  ai_latency=<from preferences.json ai_constraints>,
+  ai_token_volume=<from preferences.json ai_constraints>,
+  capabilities_used=<capabilities_used from the model's profile entry>
+)
+```
 
-| OpenAI Model | Price (in/out per 1M) | Best Bedrock Match   | Bedrock Price  | Winner              |
-| ------------ | --------------------- | -------------------- | -------------- | ------------------- |
-| GPT-5.5      | $5.00 / $30.00        | Claude Opus 4.6      | $5.00 / $25.00 | Bedrock 17% cheaper |
-| GPT-5.5      | $5.00 / $30.00        | Claude Sonnet 4.6    | $3.00 / $15.00 | Bedrock 53% cheaper |
-| GPT-5.5 Pro  | $30.00 / $180.00      | Nova 2 Pro (Preview) | $1.38 / $11.00 | Bedrock 95% cheaper |
+The tool returns the best Bedrock match with pricing, savings %, assessment (strong_migrate / recommend_stay), capability gaps, and warnings. Use the results alongside the decision framework below to form the final recommendation.
 
-> **Token efficiency caveat:** OpenAI reports GPT-5.5 uses ~40% fewer output tokens on Codex-style tasks vs GPT-5.4. Effective cost increase over GPT-5.4 is ~50% (not 100%) for coding workloads. For non-coding workloads, the full 2× price applies.
+**If `capability_gaps` is non-empty:** The tool has identified features the workload uses that Bedrock lacks. Present these honestly and consult the decision framework below.
 
-### GPT-5.4 Series
-
-Percentages below are blended savings using a 2:1 input-to-output token ratio. GPT-5.4 uses breakpoint pricing at 272K input tokens; rates below assume <272K context.
-
-| OpenAI Model | Price (in/out per 1M) | Best Bedrock Match   | Bedrock Price  | Winner              |
-| ------------ | --------------------- | -------------------- | -------------- | ------------------- |
-| GPT-5.4      | $2.50 / $15.00        | Claude Sonnet 4.6    | $3.00 / $15.00 | OpenAI 5% cheaper   |
-| GPT-5.4 Mini | $0.75 / $4.50         | Nova Lite            | $0.06 / $0.24  | Bedrock 94% cheaper |
-| GPT-5.4 Nano | $0.20 / $1.25         | Nova Micro           | $0.035 / $0.14 | Bedrock 87% cheaper |
-| GPT-5.4 Pro  | $30.00 / $180.00      | Nova 2 Pro (Preview) | $1.38 / $11.00 | Bedrock 94% cheaper |
-
-### Flagship (GPT-5/5.2 Series)
-
-Percentages below are blended savings using a 2:1 input-to-output token ratio.
-
-| OpenAI Model    | Price (in/out per 1M) | Best Bedrock Match    | Bedrock Price  | Winner              |
-| --------------- | --------------------- | --------------------- | -------------- | ------------------- |
-| GPT-5.2         | $1.75 / $14.00        | Claude Opus 4.7 / 4.6 | $5.00 / $25.00 | OpenAI 50% cheaper  |
-| GPT-5.1 / GPT-5 | $1.25 / $10.00        | Claude Sonnet 4.6     | $3.00 / $15.00 | OpenAI 40% cheaper  |
-| GPT-5 Mini      | $0.25 / $2.00         | Nova Lite             | $0.06 / $0.24  | Bedrock 86% cheaper |
-| GPT-5 Nano      | $0.05 / $0.40         | Nova Micro            | $0.035 / $0.14 | Bedrock 58% cheaper |
-
-### Pro Models (Extended Reasoning)
-
-> **Lifecycle note:** Nova Premier v1 is **Legacy** (EOL Sep 14, 2026). Nova 2 Pro (Preview) is the Active successor for reasoning-heavy workloads. Pricing differs — see `pricing-cache.md`.
-
-| OpenAI Model | Price (in/out per 1M) | Best Bedrock Match   | Bedrock Price  | Winner              |
-| ------------ | --------------------- | -------------------- | -------------- | ------------------- |
-| GPT-5.5 Pro  | $30.00 / $180.00      | Nova 2 Pro (Preview) | $1.38 / $11.00 | Bedrock 95% cheaper |
-| GPT-5.4 Pro  | $30.00 / $180.00      | Nova 2 Pro (Preview) | $1.38 / $11.00 | Bedrock 94% cheaper |
-| GPT-5.2 Pro  | $21.00 / $168.00      | Nova 2 Pro (Preview) | $1.38 / $11.00 | Bedrock 93% cheaper |
-| GPT-5 Pro    | $15.00 / $120.00      | Nova 2 Pro (Preview) | $1.38 / $11.00 | Bedrock 90% cheaper |
-
-### GPT-4.1 Series
-
-| OpenAI Model | Price (in/out per 1M) | Best Bedrock Match | Bedrock Price  | Winner              |
-| ------------ | --------------------- | ------------------ | -------------- | ------------------- |
-| GPT-4.1      | $2.00 / $8.00         | Claude Sonnet 4.6  | $3.00 / $15.00 | OpenAI 43% cheaper  |
-| GPT-4.1 Mini | $0.40 / $1.60         | Nova Lite          | $0.06 / $0.24  | Bedrock 85% cheaper |
-| GPT-4.1 Nano | $0.10 / $0.40         | Nova Micro         | $0.035 / $0.14 | Bedrock 65% cheaper |
-
-### GPT-4o Series
-
-| OpenAI Model | Price (in/out per 1M) | Best Bedrock Match | Bedrock Price  | Winner              |
-| ------------ | --------------------- | ------------------ | -------------- | ------------------- |
-| GPT-4o       | $2.50 / $10.00        | Claude Sonnet 4.6  | $3.00 / $15.00 | OpenAI 29% cheaper  |
-| GPT-4o Mini  | $0.15 / $0.60         | Nova Lite          | $0.06 / $0.24  | Bedrock 60% cheaper |
-
-### Reasoning Models (o-series)
-
-> **Lifecycle note:** Nova Premier v1 is **Legacy** (EOL Sep 14, 2026). Table below uses Nova 2 Pro (Preview) as the Active replacement.
-
-| OpenAI Model                | Price (in/out per 1M) | Best Bedrock Match   | Bedrock Price  | Winner              |
-| --------------------------- | --------------------- | -------------------- | -------------- | ------------------- |
-| o1-pro                      | $150.00 / $600.00     | Nova 2 Pro (Preview) | $1.38 / $11.00 | Bedrock 98% cheaper |
-| o3-pro                      | $20.00 / $80.00       | Nova 2 Pro (Preview) | $1.38 / $11.00 | Bedrock 87% cheaper |
-| o1                          | $15.00 / $60.00       | Nova 2 Pro (Preview) | $1.38 / $11.00 | Bedrock 83% cheaper |
-| o3                          | $2.00 / $8.00         | DeepSeek-R1          | $1.35 / $5.40  | Bedrock 32% cheaper |
-| o4-mini / o3-mini / o1-mini | $1.10 / $4.40         | Claude Sonnet 4.6    | $3.00 / $15.00 | OpenAI 69% cheaper  |
-
-### Legacy Models
-
-| OpenAI Model  | Price (in/out per 1M) | Best Bedrock Match | Bedrock Price  | Winner                                    |
-| ------------- | --------------------- | ------------------ | -------------- | ----------------------------------------- |
-| GPT-4 Turbo   | $10.00 / $30.00       | Claude Sonnet 4.6  | $3.00 / $15.00 | Bedrock 58% cheaper                       |
-| GPT-4         | $30.00 / $60.00       | Claude Sonnet 4.6  | $3.00 / $15.00 | Bedrock 82% cheaper                       |
-| GPT-3.5 Turbo | $0.50 / $1.50         | Llama 4 Maverick   | $0.24 / $0.97  | Bedrock 42% cheaper + much better quality |
-
-### OpenAI Models on Bedrock (gpt-oss)
-
-OpenAI's open-source models are available directly on Bedrock, enabling migration without switching model families:
-
-| OpenAI Model | Price (in/out per 1M) | Bedrock gpt-oss | Bedrock Price | Notes                                 |
-| ------------ | --------------------- | --------------- | ------------- | ------------------------------------- |
-| GPT-4o Mini  | $0.15 / $0.60         | gpt-oss-120b    | $0.15 / $0.60 | Same cost, runs on AWS infrastructure |
-| GPT-5 Nano   | $0.05 / $0.40         | gpt-oss-20b     | $0.07 / $0.30 | Similar budget tier on AWS            |
-
-This path avoids model-family risk: the application stays on OpenAI-architecture models while consolidating on AWS infrastructure.
-
-_Percentages are blended savings using a 2:1 input-to-output token ratio. Actual savings depend on your input/output ratio._
+**If `unresolved_factors` is non-empty:** The tool couldn't fully assess — use the qualitative factors below to enrich.
 
 ---
 

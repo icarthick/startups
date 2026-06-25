@@ -23,6 +23,10 @@ from migration_orchestrator.tools.detect_ai_signals import detect_ai_signals as 
 from migration_orchestrator.tools.cluster_terraform import cluster_terraform as _cluster_terraform
 from migration_orchestrator.tools.scan_tf_references import scan_tf_references as _scan_tf_references
 from migration_orchestrator.tools.create_ai_profile import create_ai_profile_from_iac as _create_ai_profile_from_iac
+from migration_orchestrator.tools.extract_billing import extract_billing_summary as _extract_billing_summary
+from migration_orchestrator.tools.scan_app_code import scan_app_code as _scan_app_code
+from migration_orchestrator.tools.generate_preview import generate_migration_preview as _generate_migration_preview
+from migration_orchestrator.tools.resolve_design_refs import resolve_design_refs as _resolve_design_refs
 
 # Resolve knowledge directory
 KNOWLEDGE_DIR = default_knowledge_dir()
@@ -228,6 +232,72 @@ def create_ai_profile_from_iac(
     return _create_ai_profile_from_iac(
         ai_source=ai_source, ai_detection=ai_detection,
         vertex_resources=vertex_resources, migration_dir=migration_dir,
+    )
+
+
+@mcp.tool()
+def extract_billing_summary(project_dir: str, output_dir: str | None = None) -> dict:
+    """Extract billing summary from GCP billing export files.
+
+    Scans project directory for billing CSVs/JSONs, parses them, aggregates
+    service-level costs, detects CUD commitments and discounts, flags AI
+    signals, and optionally writes billing-profile.json.
+
+    Args:
+        project_dir: Absolute path to the project root (scanned for billing files).
+        output_dir: If provided, writes billing-profile.json to this directory.
+    """
+    return _extract_billing_summary(project_dir=project_dir, output_dir=output_dir)
+
+
+@mcp.tool()
+def scan_app_code(project_dir: str) -> dict:
+    """Scan application source code for GCP SDK imports, AI signals, and agentic patterns.
+
+    Single-pass scan that detects: GCP service SDK imports (inferred resources),
+    AI/ML framework signals, agentic framework patterns, WebSocket usage,
+    LLM gateway/router patterns. Also excludes auth SDK imports and secret files.
+    Computes AI confidence gate (>= 70% triggers AI workload profiling).
+
+    Args:
+        project_dir: Absolute path to the project root.
+    """
+    return _scan_app_code(project_dir=project_dir, knowledge=_knowledge)
+
+
+@mcp.tool()
+def generate_migration_preview(migration_dir: str) -> dict:
+    """Generate migration-preview.json from discovery artifacts.
+
+    Reads available artifacts (gcp-resource-inventory.json, ai-workload-profile.json,
+    billing-profile.json), computes complexity classification, rough cost estimates,
+    timeline hints, and writes migration-preview.json.
+
+    Args:
+        migration_dir: Path to the migration run directory containing discovery artifacts.
+    """
+    return _generate_migration_preview(migration_dir=migration_dir, knowledge=_knowledge)
+
+
+@mcp.tool()
+def resolve_design_refs(
+    ai_source: str,
+    is_agentic: bool = False,
+    migration_approach: str | None = None,
+) -> dict:
+    """Resolve which design reference files to load for AI workload design.
+
+    Returns a list of file paths the LLM should load and follow for the
+    design phase, based on the detected AI source and agentic context.
+
+    Args:
+        ai_source: AI source type ("gemini", "openai", "anthropic", "both", "other").
+        is_agentic: Whether the workload is agentic.
+        migration_approach: Agentic migration approach ("retarget", "harness", "strands", "undecided").
+    """
+    return _resolve_design_refs(
+        ai_source=ai_source, is_agentic=is_agentic,
+        migration_approach=migration_approach, knowledge=_knowledge,
     )
 
 

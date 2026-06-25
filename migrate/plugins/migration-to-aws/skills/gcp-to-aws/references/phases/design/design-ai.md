@@ -6,7 +6,7 @@
 
 ---
 
-## Step 0: Load Inputs
+## Step 0: Load Inputs and Design References
 
 Read `$MIGRATION_DIR/ai-workload-profile.json`:
 
@@ -15,18 +15,23 @@ Read `$MIGRATION_DIR/ai-workload-profile.json`:
 - `integration` — SDK, frameworks, languages, gateway type, capability summary
 - `infrastructure[]` — Terraform resources related to AI (may be empty)
 - `current_costs` — Present only if billing data was provided
+- `agentic_profile` — Present only if agentic workload detected
 
 Read `$MIGRATION_DIR/preferences.json` → `ai_constraints` (if present). If absent: use defaults (prefer managed Bedrock, no latency constraint, no budget cap).
 
+**Resolve which design reference files to load:**
+
+```
+resolve_design_refs(
+  ai_source=<summary.ai_source>,
+  is_agentic=<agentic_profile.is_agentic or false>,
+  migration_approach=<ai_constraints.agentic.migration_approach or null>
+)
+```
+
+Load and follow the instructions in each returned file. These contain provider-specific model mapping tables, migration patterns, and agentic design guidance.
+
 **Region selection for AI workloads:** If `design_constraints.target_region` was derived from GCP region proximity (not explicitly chosen by the user), verify the selected Bedrock models are available in that region. Use the AWS Documentation MCP server to check model availability. If the target region lacks the selected model, prefer the geographically closest AWS region where it is available.
-
-**Load source-specific design reference based on `ai_source`:**
-
-- `"gemini"` → load `references/design-refs/ai-gemini-to-bedrock.md`
-- `"openai"` → load `references/design-refs/ai-openai-to-bedrock.md`
-- `"anthropic"` → load `references/design-refs/ai-anthropic-to-bedrock.md` (Anthropic SDK → Bedrock Converse API client swap; do NOT use ai-openai-to-bedrock.md for Anthropic SDK users)
-- `"both"` → load both `ai-gemini-to-bedrock.md` and `ai-openai-to-bedrock.md`
-- `"other"` or absent → load `references/design-refs/ai.md` (traditional ML rubric — Vision API, Speech API, Document AI, custom models only; do NOT use for Anthropic SDK users)
 
 ---
 
@@ -50,151 +55,47 @@ Call `get_regional_availability` from the `awsknowledge` MCP server for:
 
 ---
 
-## Step 0.6: Agentic Design Routing
-
-**Skip this step if `agentic_profile` is absent from `ai-workload-profile.json`.**
-
-If `agentic_profile.is_agentic == true`:
-
-1. Load `references/shared/ai-migration-guardrails.md` (shared warnings — load once, do not reload in sub-files)
-2. Read `preferences.json` → `ai_constraints.agentic.migration_approach`
-3. Route based on approach:
-
-| `migration_approach` | Action                                                                                                                                                                                                                                                                                                                                                    |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `"retarget"`         | Continue with standard model-swap design below (Parts 1–6). The existing framework stays; only the model layer changes. Load `references/shared/retarget-gotchas.md` for framework-specific migration pitfalls to include in the code migration plan (Part 5).                                                                                            |
-| `"harness"`          | Load `references/design-refs/design-ref-harness.md`. If file does not exist: continue with standard model-swap design, add note to user summary: "AgentCore Harness design reference not yet available. Proceeding with model-layer migration only. For Harness guidance, see https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/harness.html" |
-| `"strands"`          | Load `references/design-refs/design-ref-agentic-to-agentcore.md`.                                                                                                                                                                                                                                                                                         |
-| `"undecided"`        | Treat as `"retarget"` (safest default). Note in user summary: "No migration approach selected — defaulting to retarget (keep framework, swap model layer). Re-run Clarify to select a different approach."                                                                                                                                                |
-
-**Regardless of approach:** Continue with Parts 1–6 below for model selection and mapping. The agentic design ref (Harness/Strands) adds agent infrastructure on top of the model-layer design — it does not replace it.
-
----
-
 ## Part 1: Bedrock Model Selection
 
 **Multi-workload iteration (when `workloads[]` is present):**
 
-If `preferences.json` contains a non-empty `workloads[]` array (written by Clarify after user confirmation), iterate per workload instead of per model. **Design MUST read workloads from `preferences.json` (not `ai-workload-profile.json`)** because Clarify may have edited, dropped, or re-confirmed rows.
+If `preferences.json` contains a non-empty `workloads[]` array, iterate per workload. **Read workloads from `preferences.json`** (Clarify may have edited rows). Fallback: use `ai-workload-profile.json` workloads if preferences has none.
 
-Fallback: if `preferences.json` has no `workloads[]` field but `ai-workload-profile.json` does, use the profile's `workloads[]` directly (no user edits were made).
+Follow the model selection instructions in the loaded design reference files (from `resolve_design_refs`). Each file instructs you to call `recommend_bedrock_model` per model and provides the qualitative decision framework for enriching the tool's assessment.
 
-For each `workloads[]` entry:
+**For workload-based iteration:** Emit one `design_block` per workload:
 
-1. **Use the workload's `capability` to select the Bedrock target class:**
+```json
+"design_blocks": [
+  {
+    "workload_id": "wl_3a1f2c",
+    "model_id": "gemini-2.5-flash",
+    "target_bedrock_model": "<from tool result>",
+    "capability": "text_generation",
+    "capability_confidence": "medium",
+    "rationale": "<from tool result + qualitative enrichment>",
+    "confidence_warning": null
+  }
+]
+```
 
-   | Capability          | Target Class                                           | Default Model                  |
-   | ------------------- | ------------------------------------------------------ | ------------------------------ |
-   | `text_generation`   | Text/reasoning                                         | Apply override hierarchy below |
-   | `structured_output` | Text/reasoning (same models support structured output) | Apply override hierarchy below |
-   | `image_generation`  | Image generation                                       | Amazon Nova Canvas             |
-   | `embedding`         | Embedding                                              | Amazon Titan Embed Text v2     |
-   | `speech_to_text`    | Speech-to-text                                         | Amazon Transcribe              |
-   | `text_to_speech`    | Text-to-speech                                         | Amazon Polly                   |
-   | `unknown`           | Text/reasoning (default)                               | Apply override hierarchy below |
+**Overall assessment:** Weakest assessment across all models. If any `"recommend_stay"`, flag prominently.
 
-2. **For text/reasoning capabilities:** Apply the existing override hierarchy from `ai_constraints`:
-   - Q17 special features (hard override) > Q16 priority > Q18/Q21 volume and latency > source model baseline
-   - This ensures single-workload sophistication is preserved per workload
-
-3. **Emit one `design_block` per workload** in `aws-design-ai.json`:
-
-   ```json
-   "design_blocks": [
-     {
-       "workload_id": "wl_3a1f2c",
-       "model_id": "gemini-2.5-flash",
-       "target_bedrock_model": "amazon.nova-lite-v1:0",
-       "capability": "text_generation",
-       "capability_confidence": "medium",
-       "rationale": "text_generation + medium confidence + balanced priority → Nova Lite",
-       "confidence_warning": null
-     }
-   ]
-   ```
-
-4. **Confidence warning:** Set `confidence_warning` to a non-null string (identifying the workload and noting manual review required) when `capability_confidence == "low"`. Null for `high` and `medium`.
-
-5. **Preserve input order:** `design_blocks[]` order matches `workloads[]` order.
-
-6. **Empty workloads:** If `workloads[]` is empty, emit `aws-design-ai.json` with `"design_blocks": []` and proceed with the existing `models[]` path below as fallback.
-
-**Fallback (no `workloads[]` or single entry):** If `workloads[]` is absent or has exactly one entry, fall through to the existing per-model logic below (backward compatible).
-
----
-
-For each model in `models[]`, select the best-fit Bedrock model using the loaded design reference mapping tables. Do NOT use a hardcoded mapping — the design-ref files contain tier-organized tables with pricing and competitive analysis.
-
-Treat model mapping as compatibility-guided, not 1:1 parity. Before cutover, require validation of prompts, tool-calling behavior, and eval metrics for the selected Bedrock model.
-
-**If `models[]` is empty:** Skip per-model rows; output a short **placeholder strategy** (one representative Bedrock model family per `ai_source` rubric) and dependency on Clarify answers — do not fabricate `models[]` entries.
-
-**Apply user preference overrides from `ai_constraints`:**
-
-| Preference                | Override                                          |
-| ------------------------- | ------------------------------------------------- |
-| `ai_priority = "cost"`    | Prefer "Winner" column; flag if source is cheaper |
-| `ai_priority = "quality"` | Prefer Claude Sonnet/Opus regardless of cost      |
-| `ai_priority = "speed"`   | Prefer Claude Sonnet (fastest integration)        |
-| `ai_latency = "critical"` | Prefer smaller/faster models (Haiku, Nova Lite)   |
-| `ai_latency = "flexible"` | Any model; flag Batch API for 50% savings         |
-
-**Stay-or-migrate assessment per model:**
-
-- Bedrock cheaper → `"strong_migrate"`
-- Bedrock within 25% of source AND priority != cost → `"moderate_migrate"`
-- Source > 25% cheaper AND priority = cost → `"weak_migrate"` or `"recommend_stay"`
-
-Overall assessment = weakest across all models. If any `"recommend_stay"`, flag prominently.
-
-**Model comparison table** (include in output and user summary): Model, Provider, Max Context, Input/Output Price per 1M, Price Comparison, Streaming, Function Calling, Assessment.
-
-**Quota risk assessment** (per `references/shared/bedrock-quotas.md`):
-
-After selecting models, assess quota risk based on `ai_token_volume` from `preferences.json`:
-
-| `ai_token_volume`         | Selected Model Family              | `quota_risk` | Action                                                                            |
-| ------------------------- | ---------------------------------- | ------------ | --------------------------------------------------------------------------------- |
-| `"high"` or `"very_high"` | Any                                | `"high"`     | Flag: "Request Bedrock quota increase before migration (allow 1–5 business days)" |
-| `"medium"`                | Claude (5× burndown)               | `"medium"`   | Flag: "Monitor TPM usage; quota increase may be needed at peak"                   |
-| `"medium"`                | Nova / Llama / other (1× burndown) | `"low"`      | No action                                                                         |
-| `"low"`                   | Any                                | `"low"`      | No action                                                                         |
-
-Include `quota_risk` in `aws-design-ai.json` → `ai_architecture` alongside `honest_assessment`.
+**Model comparison table** (include in output and user summary): Source model, Bedrock target, Input/Output price, Savings %, Assessment.
 
 ---
 
 ## Part 1B: Volume-Based Strategy
 
-If `ai_token_volume` is `"high"`, generate a `tiered_strategy`:
+If any `recommend_bedrock_model` result includes `tiered_strategy.recommended: true`, present the tiered routing recommendation to the user.
 
-| Tier | Traffic | Model Selection              | Use Cases                                            |
-| ---- | ------- | ---------------------------- | ---------------------------------------------------- |
-| 1    | 60%     | Nova Micro or Llama 4 Scout  | Classification, extraction, short answers, routing   |
-| 2    | 30%     | Llama 4 Maverick or Nova Pro | Summarization, moderate generation, Q&A with context |
-| 3    | 10%     | Claude Sonnet 4.6            | Reasoning, long-form, agentic tasks, tool use        |
-
-Set `tiered_strategy: null` for low/medium volume.
-
-**Intelligent Prompt Routing — automated alternative to manual tiering:**
-If `ai_token_volume` is `"high"` AND the selected models are within the same family
-(e.g., Claude Haiku + Claude Sonnet, or Nova Lite + Nova Pro), note Bedrock Intelligent
-Prompt Routing as an option. It automatically routes each request to the cheapest model
-that can handle it at adequate quality — the AWS-native automation of the tiered strategy above.
-
-> Intelligent Prompt Routing only routes within a single model family. It does NOT replace
-> cross-provider routing (e.g., Claude ↔ GPT-4o). If the startup was using OpenRouter or
-> LiteLLM to route across providers, they still need app-level routing for cross-family calls.
-> One-line caveat: adds a routing-prediction latency hop; verify model support at
-> docs.aws.amazon.com/bedrock/latest/userguide/prompt-routing.html before recommending.
+**Intelligent Prompt Routing:** If high volume AND selected models are within the same family (e.g., Claude Haiku + Claude Sonnet), note Bedrock Intelligent Prompt Routing as an automated alternative. It routes within a single model family only — does not replace cross-provider routing.
 
 ---
 
 ## Part 1C: Multi-Model Coordination Warnings
 
-If `models[]` contains more than one model, check for coordination patterns and generate warnings. These help the user understand that migrating multiple models requires coordinated testing, not independent swaps.
-
-**Check and warn:**
+Collect all `warnings` from `recommend_bedrock_model` results. Additionally check:
 
 1. **Embeddings + generation model detected** — If `models[]` contains both an embeddings model (capabilities_used includes `"embeddings"`) AND a text generation model:
    > ⚠️ "Migrating the embedding model (e.g., text-embedding-3-small → Titan Embeddings v2) requires re-embedding all documents in your vector store. Plan for re-indexing time and temporary storage. Test retrieval quality with the new embeddings before switching generation model."

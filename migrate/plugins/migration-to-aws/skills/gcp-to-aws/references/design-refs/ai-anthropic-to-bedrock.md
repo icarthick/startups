@@ -8,13 +8,19 @@
 
 ## Step 1: Map model IDs to Bedrock
 
-| Anthropic SDK model | Bedrock model ID                           | Tier     | Input/Output per 1M |
-| ------------------- | ------------------------------------------ | -------- | ------------------- |
-| `claude-opus-4-*`   | `anthropic.claude-opus-4-6-v1`             | Premium  | $5 / $25            |
-| `claude-sonnet-4-*` | `anthropic.claude-sonnet-4-6`              | Flagship | $3 / $15            |
-| `claude-haiku-4-*`  | `anthropic.claude-haiku-4-5-20251001-v1:0` | Fast     | $1 / $5             |
+Call `recommend_bedrock_model` for each Anthropic model detected:
 
-Older Claude models — Claude 3.5 Haiku, Claude 3 Sonnet, Claude 3.5 Sonnet (v1/v2), Claude 3 Haiku, and Claude 3.7 Sonnet — are past EOL or within the 90-day exclusion window. Do **not** recommend them as migration targets. See `shared/ai-model-lifecycle.md` for authoritative status (recomputed each run).
+```
+recommend_bedrock_model(
+  source_model_id=<model_id>,
+  ai_priority=<from preferences.json ai_constraints>,
+  ai_latency=<from preferences.json ai_constraints>,
+  ai_token_volume=<from preferences.json ai_constraints>,
+  capabilities_used=<capabilities_used from the model's profile entry>
+)
+```
+
+The tool maps Anthropic models to their Bedrock-hosted equivalents (same models, same quality — client swap only). Use the tool's assessment and any warnings.
 
 **Recommendation:** Migrate to Claude 4.x directly. Converse API call shape is identical across generations.
 

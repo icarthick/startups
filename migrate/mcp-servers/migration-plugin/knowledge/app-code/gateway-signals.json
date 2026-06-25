@@ -1,0 +1,16 @@
+{
+  "description": "LLM gateway/router detection patterns",
+  "import_patterns": [
+    {"id": "litellm", "gateway_type": "llm_router", "patterns": ["from litellm", "litellm"]},
+    {"id": "portkey", "gateway_type": "llm_router", "patterns": ["portkey", "x-portkey-"]},
+    {"id": "helicone", "gateway_type": "llm_router", "patterns": ["helicone", "x-helicone-"]},
+    {"id": "vapi", "gateway_type": "voice_platform", "patterns": ["from vapi_python", "Vapi"]},
+    {"id": "bland", "gateway_type": "voice_platform", "patterns": ["bland"]},
+    {"id": "retell", "gateway_type": "voice_platform", "patterns": ["retell"]}
+  ],
+  "env_var_patterns": [
+    {"id": "openrouter", "gateway_type": "llm_router", "vars": ["OPENROUTER_API_KEY", "OR_API_KEY"]},
+    {"id": "openrouter_base", "gateway_type": "llm_router", "content_match": "openrouter.ai"},
+    {"id": "litellm_proxy", "gateway_type": "llm_router", "vars": ["LITELLM_PROXY_BASE_URL", "LITELLM_API_KEY"]}
+  ]
+}

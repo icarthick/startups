@@ -41,6 +41,7 @@
         "recommend_compute",
         "recommend_networking",
         "recommend_messaging",
+        "recommend_bedrock_model",
         "validate_design"
       ]
     },
@@ -65,7 +66,11 @@
         "detect_ai_signals",
         "scan_tf_references",
         "cluster_terraform",
-        "create_ai_profile_from_iac"
+        "create_ai_profile_from_iac",
+        "extract_billing_summary",
+        "scan_app_code",
+        "generate_migration_preview",
+        "resolve_design_refs"
       ]
     }
   }

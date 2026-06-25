@@ -18,6 +18,7 @@ from migration_knowledge.tools.normalize import normalize_resource as _normalize
 from migration_knowledge.tools.lookup_direct import lookup_direct_mapping as _lookup_direct_mapping
 from migration_knowledge.tools.validate_design import validate_design as _validate_design
 from migration_knowledge.tools.validate_discovery import validate_discovery as _validate_discovery
+from migration_knowledge.tools.recommend_bedrock import recommend_bedrock_model as _recommend_bedrock_model
 
 KNOWLEDGE_DIR = default_knowledge_dir()
 
@@ -274,6 +275,38 @@ def validate_discovery(
         content: The artifact content as a dict.
     """
     return _validate_discovery(artifact_type=artifact_type, content=content)
+
+
+@mcp.tool()
+def recommend_bedrock_model(
+    source_model_id: str,
+    ai_priority: str | None = None,
+    ai_latency: str | None = None,
+    ai_token_volume: str | None = None,
+    capabilities_used: list[str] | None = None,
+) -> dict:
+    """Recommend a Bedrock model for a source AI model migration.
+
+    Given a source model ID, user preferences, and capabilities in use,
+    returns the best Bedrock match with pricing comparison, capability gap
+    analysis, and stay/migrate assessment.
+
+    Args:
+        source_model_id: Source model ID (e.g., "gpt-4o", "gemini-2.5-flash", "claude-3-5-sonnet").
+        ai_priority: User priority ("cost", "quality", "speed", or null).
+        ai_latency: Latency requirement ("critical", "flexible", or null).
+        ai_token_volume: Expected volume ("low", "medium", "high", "very_high", or null).
+        capabilities_used: Capabilities the workload uses (e.g., ["text_generation", "audio", "vision"]).
+            Used to detect feature gaps where Bedrock target lacks a required capability.
+    """
+    return _recommend_bedrock_model(
+        source_model_id=source_model_id,
+        ai_priority=ai_priority,
+        ai_latency=ai_latency,
+        ai_token_volume=ai_token_volume,
+        capabilities_used=capabilities_used,
+        knowledge=_knowledge,
+    )
 
 
 if __name__ == "__main__":
