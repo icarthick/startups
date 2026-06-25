@@ -17,13 +17,6 @@ from migration_tools.tools.recommend_messaging import recommend_messaging_target
 from migration_tools.tools.normalize import normalize_resource as _normalize_resource
 from migration_tools.tools.lookup_direct import lookup_direct_mapping as _lookup_direct_mapping
 from migration_tools.tools.validate_design import validate_design as _validate_design
-from migration_tools.tools.orchestration import (
-    migration_status as _migration_status,
-    migration_init as _migration_init,
-    phase_router as _phase_router,
-    phase_advance as _phase_advance,
-    phase_reset as _phase_reset,
-)
 
 # Resolve knowledge directory — prefer env var (set by .mcp.json), fallback to relative for dev
 import os
@@ -49,7 +42,7 @@ _knowledge = load_knowledge(KNOWLEDGE_DIR)
 logger.info("Knowledge store loaded: %d files", len(_knowledge))
 
 # Create MCP server
-mcp = FastMCP("migration-tools", instructions="Deterministic migration recommendation tools backed by structured knowledge.")
+mcp = FastMCP("migration-knowledge", instructions="Deterministic migration recommendation tools backed by structured knowledge. Source-agnostic: normalizes any cloud source to canonical model, recommends AWS targets.")
 
 
 @mcp.tool()
@@ -259,104 +252,6 @@ def validate_design(
         clusters_source=clusters_source,
         knowledge=_knowledge,
     )
-
-
-@mcp.tool()
-def migration_status(project_dir: str) -> dict:
-    """List existing migration runs in a project.
-
-    Scans .migration/ for existing runs and returns their phase status.
-    Use at the start of a migration conversation to check for resumable runs.
-
-    Args:
-        project_dir: Absolute path to the project root directory.
-    """
-    return _migration_status(project_dir=project_dir)
-
-
-@mcp.tool()
-def migration_init(project_dir: str) -> dict:
-    """Create a new migration run.
-
-    Creates .migration/[MMDD-HHMM]/ with .gitignore and initial .phase-status.json.
-    The discover phase is set to in_progress.
-
-    Args:
-        project_dir: Absolute path to the project root directory.
-    """
-    return _migration_init(project_dir=project_dir)
-
-
-@mcp.tool()
-def phase_router(
-    migration_dir: str,
-    project_dir: str,
-    skill: str = "gcp-to-aws",
-) -> dict:
-    """Determine which phase files to load for the current migration phase.
-
-    Reads the migration status and evaluates route triggers (file globs,
-    artifact existence) to determine which sub-files the LLM should load
-    and execute.
-
-    Args:
-        migration_dir: Path to the migration run directory (e.g., .migration/0624-1430).
-        project_dir: Absolute path to the project root directory.
-        skill: Skill name to load routes for (e.g., gcp-to-aws, heroku-to-aws).
-    """
-    routes_key = f"orchestration/{skill}/routes"
-    routes_config = _knowledge.get(routes_key)
-    if not routes_config:
-        return {"error": f"No routes.json found for skill '{skill}' (expected key: {routes_key})"}
-    return _phase_router(migration_dir=migration_dir, project_dir=project_dir, routes_config=routes_config)
-
-
-@mcp.tool()
-def phase_advance(
-    migration_dir: str,
-    project_dir: str,
-    skill: str = "gcp-to-aws",
-) -> dict:
-    """Validate the current phase gate and advance to the next phase.
-
-    Checks that all required artifacts from active routes exist. If the gate
-    passes, marks the current phase completed and the next phase in_progress.
-
-    Args:
-        migration_dir: Path to the migration run directory.
-        project_dir: Absolute path to the project root directory.
-        skill: Skill name to load routes for.
-    """
-    routes_key = f"orchestration/{skill}/routes"
-    routes_config = _knowledge.get(routes_key)
-    if not routes_config:
-        return {"error": f"No routes.json found for skill '{skill}' (expected key: {routes_key})"}
-    return _phase_advance(migration_dir=migration_dir, project_dir=project_dir, routes_config=routes_config)
-
-
-@mcp.tool()
-def phase_reset(
-    migration_dir: str,
-    project_dir: str,
-    from_phase: str,
-    skill: str = "gcp-to-aws",
-) -> dict:
-    """Reset a phase and all downstream phases for re-entry.
-
-    Use when a user wants to re-run a previously completed phase. Sets the
-    target phase to in_progress and all downstream phases to pending.
-
-    Args:
-        migration_dir: Path to the migration run directory.
-        project_dir: Absolute path to the project root directory.
-        from_phase: Phase to reset from (e.g., "discover"). This phase becomes in_progress.
-        skill: Skill name to load routes for.
-    """
-    routes_key = f"orchestration/{skill}/routes"
-    routes_config = _knowledge.get(routes_key)
-    if not routes_config:
-        return {"error": f"No routes.json found for skill '{skill}' (expected key: {routes_key})"}
-    return _phase_reset(migration_dir=migration_dir, project_dir=project_dir, from_phase=from_phase, routes_config=routes_config)
 
 
 if __name__ == "__main__":
