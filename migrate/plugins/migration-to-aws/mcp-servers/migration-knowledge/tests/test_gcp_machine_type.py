@@ -2,7 +2,7 @@
 
 import pytest
 
-from migration_tools.tools.gcp_machine_type import parse_gcp_machine_type
+from migration_knowledge.tools.gcp_machine_type import parse_gcp_machine_type
 
 
 # --- Standard pattern: family-class-vcpu ---

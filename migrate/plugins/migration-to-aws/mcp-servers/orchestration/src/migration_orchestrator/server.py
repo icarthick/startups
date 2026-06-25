@@ -12,8 +12,8 @@ from pathlib import Path
 
 from fastmcp import FastMCP
 
-from migration_tools.knowledge import load_knowledge
-from migration_tools.tools.orchestration import (
+from migration_orchestrator.knowledge import load_knowledge
+from migration_orchestrator.tools.orchestration import (
     migration_status as _migration_status,
     migration_init as _migration_init,
     phase_router as _phase_router,
@@ -23,12 +23,12 @@ from migration_tools.tools.orchestration import (
 
 # Resolve knowledge directory
 KNOWLEDGE_DIR = Path(os.environ.get(
-    "MIGRATION_TOOLS_KNOWLEDGE_DIR",
-    Path(__file__).resolve().parents[3] / "knowledge"
+    "MIGRATION_ORCHESTRATOR_KNOWLEDGE_DIR",
+    Path(__file__).resolve().parents[2] / "knowledge"
 ))
 
 # Configure logging
-LOG_FILE = Path(__file__).resolve().parents[3] / "server" / "migration-orchestrator.log"
+LOG_FILE = Path(__file__).resolve().parents[2] / "migration-orchestrator.log"
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",

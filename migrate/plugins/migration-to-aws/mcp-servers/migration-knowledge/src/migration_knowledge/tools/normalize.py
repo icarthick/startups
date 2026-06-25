@@ -9,7 +9,7 @@ import logging
 import re
 from typing import Any
 
-from migration_tools.tools.gcp_machine_type import parse_gcp_machine_type
+from migration_knowledge.tools.gcp_machine_type import parse_gcp_machine_type
 
 logger = logging.getLogger("migration_tools.normalize_resource")
 

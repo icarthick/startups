@@ -26,12 +26,12 @@
       "command": "python3",
       "args": [
         "-m",
-        "migration_tools.server"
+        "migration_knowledge.server"
       ],
       "env": {
         "FASTMCP_LOG_LEVEL": "ERROR",
-        "PYTHONPATH": "/Users/carthick/dev/github/startups/migrate/plugins/migration-to-aws/server/src",
-        "MIGRATION_TOOLS_KNOWLEDGE_DIR": "/Users/carthick/dev/github/startups/migrate/plugins/migration-to-aws/knowledge"
+        "PYTHONPATH": "/Users/carthick/dev/github/startups/migrate/plugins/migration-to-aws/mcp-servers/migration-knowledge/src",
+        "MIGRATION_KNOWLEDGE_DIR": "/Users/carthick/dev/github/startups/migrate/plugins/migration-to-aws/mcp-servers/migration-knowledge/knowledge"
       },
       "timeout": 30000,
       "type": "stdio",
@@ -49,12 +49,12 @@
       "command": "python3",
       "args": [
         "-m",
-        "migration_tools.orchestrator_server"
+        "migration_orchestrator.server"
       ],
       "env": {
         "FASTMCP_LOG_LEVEL": "ERROR",
-        "PYTHONPATH": "/Users/carthick/dev/github/startups/migrate/plugins/migration-to-aws/server/src",
-        "MIGRATION_TOOLS_KNOWLEDGE_DIR": "/Users/carthick/dev/github/startups/migrate/plugins/migration-to-aws/knowledge"
+        "PYTHONPATH": "/Users/carthick/dev/github/startups/migrate/plugins/migration-to-aws/mcp-servers/orchestration/src",
+        "MIGRATION_ORCHESTRATOR_KNOWLEDGE_DIR": "/Users/carthick/dev/github/startups/migrate/plugins/migration-to-aws/mcp-servers/orchestration/knowledge"
       },
       "timeout": 30000,
       "type": "stdio",

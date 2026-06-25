@@ -9,10 +9,10 @@ from pathlib import Path
 
 import pytest
 
-from migration_tools.knowledge import load_knowledge
-from migration_tools.tools.recommend_database import recommend_database_target
+from migration_knowledge.knowledge import load_knowledge
+from migration_knowledge.tools.recommend_database import recommend_database_target
 
-KNOWLEDGE_DIR = Path(__file__).resolve().parents[1].parent / "knowledge"
+KNOWLEDGE_DIR = Path(__file__).resolve().parents[1] / "knowledge"
 
 
 @pytest.fixture(scope="module")

@@ -9,24 +9,24 @@ from pathlib import Path
 
 from fastmcp import FastMCP
 
-from migration_tools.knowledge import load_knowledge
-from migration_tools.tools.recommend_database import recommend_database_target
-from migration_tools.tools.recommend_compute import recommend_compute_target
-from migration_tools.tools.recommend_networking import recommend_networking_target
-from migration_tools.tools.recommend_messaging import recommend_messaging_target
-from migration_tools.tools.normalize import normalize_resource as _normalize_resource
-from migration_tools.tools.lookup_direct import lookup_direct_mapping as _lookup_direct_mapping
-from migration_tools.tools.validate_design import validate_design as _validate_design
+from migration_knowledge.knowledge import load_knowledge
+from migration_knowledge.tools.recommend_database import recommend_database_target
+from migration_knowledge.tools.recommend_compute import recommend_compute_target
+from migration_knowledge.tools.recommend_networking import recommend_networking_target
+from migration_knowledge.tools.recommend_messaging import recommend_messaging_target
+from migration_knowledge.tools.normalize import normalize_resource as _normalize_resource
+from migration_knowledge.tools.lookup_direct import lookup_direct_mapping as _lookup_direct_mapping
+from migration_knowledge.tools.validate_design import validate_design as _validate_design
 
-# Resolve knowledge directory — prefer env var (set by .mcp.json), fallback to relative for dev
+# Resolve knowledge directory — prefer env var, fallback to relative for dev
 import os
 KNOWLEDGE_DIR = Path(os.environ.get(
-    "MIGRATION_TOOLS_KNOWLEDGE_DIR",
-    Path(__file__).resolve().parents[3] / "knowledge"
+    "MIGRATION_KNOWLEDGE_DIR",
+    Path(__file__).resolve().parents[2] / "knowledge"
 ))
 
-# Configure logging — writes to a file next to the server for easy inspection
-LOG_FILE = Path(__file__).resolve().parents[3] / "server" / "migration-tools.log"
+# Configure logging
+LOG_FILE = Path(__file__).resolve().parents[2] / "migration-knowledge.log"
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",

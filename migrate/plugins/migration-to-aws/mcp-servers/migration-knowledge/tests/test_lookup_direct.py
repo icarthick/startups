@@ -4,10 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from migration_tools.knowledge import load_knowledge
-from migration_tools.tools.lookup_direct import lookup_direct_mapping
+from migration_knowledge.knowledge import load_knowledge
+from migration_knowledge.tools.lookup_direct import lookup_direct_mapping
 
-KNOWLEDGE_DIR = Path(__file__).resolve().parents[1].parent / "knowledge"
+KNOWLEDGE_DIR = Path(__file__).resolve().parents[1] / "knowledge"
 
 
 @pytest.fixture(scope="module")

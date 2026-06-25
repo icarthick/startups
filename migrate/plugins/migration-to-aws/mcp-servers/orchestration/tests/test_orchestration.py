@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from migration_tools.tools.orchestration import migration_status, migration_init
+from migration_orchestrator.tools.orchestration import migration_status, migration_init
 
 
 # --- migration_status ---
@@ -142,7 +142,7 @@ def test_init_multiple_runs(tmp_path):
 
 # --- phase_router ---
 
-from migration_tools.tools.orchestration import phase_router
+from migration_orchestrator.tools.orchestration import phase_router
 
 
 @pytest.fixture
@@ -306,7 +306,7 @@ def test_router_returns_file_paths(tmp_path, routes_config):
 
 # --- phase_advance ---
 
-from migration_tools.tools.orchestration import phase_advance
+from migration_orchestrator.tools.orchestration import phase_advance
 
 
 def test_advance_gate_passes(tmp_path, routes_config):
@@ -402,7 +402,7 @@ def test_advance_missing_status_file(tmp_path, routes_config):
 
 # --- re-entry warning + phase_reset ---
 
-from migration_tools.tools.orchestration import phase_reset
+from migration_orchestrator.tools.orchestration import phase_reset
 
 
 def test_router_re_entry_warning(tmp_path, routes_config):

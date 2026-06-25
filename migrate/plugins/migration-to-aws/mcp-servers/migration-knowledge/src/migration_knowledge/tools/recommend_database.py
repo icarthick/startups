@@ -182,7 +182,7 @@ def configure(
         rubric.append(f"traffic={traffic} → add {replica_type}")
 
     # Migration tooling
-    from migration_tools.tools.recommend_database import _bucket_data_size
+    from migration_knowledge.tools.recommend_database import _bucket_data_size
     sizing_data = family_config  # not ideal but tooling is in the parent sizing file
     # Access migration_tooling from the engine_entry's parent (sizing.json root)
     # We pass it in via a workaround — see main function
