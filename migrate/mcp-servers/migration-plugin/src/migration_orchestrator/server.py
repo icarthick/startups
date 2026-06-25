@@ -7,12 +7,11 @@ Run via: python -m migration_tools.orchestrator_server
 """
 
 import logging
-import os
 from pathlib import Path
 
 from fastmcp import FastMCP
 
-from migration_orchestrator.knowledge import load_knowledge
+from migration_orchestrator.knowledge import load_knowledge, default_knowledge_dir
 from migration_orchestrator.tools.orchestration import (
     migration_status as _migration_status,
     migration_init as _migration_init,
@@ -26,19 +25,24 @@ from migration_orchestrator.tools.scan_tf_references import scan_tf_references a
 from migration_orchestrator.tools.create_ai_profile import create_ai_profile_from_iac as _create_ai_profile_from_iac
 
 # Resolve knowledge directory
-KNOWLEDGE_DIR = Path(os.environ.get(
-    "MIGRATION_ORCHESTRATOR_KNOWLEDGE_DIR",
-    Path(__file__).resolve().parents[2] / "knowledge"
-))
+KNOWLEDGE_DIR = default_knowledge_dir()
 
 # Configure logging
-LOG_FILE = Path(__file__).resolve().parents[2] / "migration-orchestrator.log"
+import sys
+import tempfile
+
+LOG_FILE = Path(tempfile.gettempdir()) / "migration-orchestrator.log"
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[logging.FileHandler(LOG_FILE, mode="a")],
+    handlers=[
+        logging.FileHandler(LOG_FILE, mode="a"),
+        logging.StreamHandler(sys.stderr),
+    ],
 )
-logger = logging.getLogger("migration_tools.orchestrator")
+logging.getLogger().handlers[1].setLevel(logging.WARNING)
+logger = logging.getLogger("migration_orchestrator.server")
+logger.warning("migration-orchestrator logs: %s", LOG_FILE)
 
 # Load knowledge (only needs orchestration/ subtree, but loads all for simplicity)
 logger.info("Loading knowledge store from: %s", KNOWLEDGE_DIR)

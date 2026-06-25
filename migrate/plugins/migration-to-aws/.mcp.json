@@ -23,15 +23,14 @@
       ]
     },
     "migration-knowledge": {
-      "command": "python3",
+      "command": "uvx",
       "args": [
-        "-m",
-        "migration_knowledge.server"
+        "--from",
+        "git+https://github.com/icarthick/startups.git@feat/migration-mcp-tools#subdirectory=migrate/mcp-servers/migration-knowledge",
+        "migration-knowledge-server"
       ],
       "env": {
-        "FASTMCP_LOG_LEVEL": "ERROR",
-        "PYTHONPATH": "/Users/carthick/dev/github/startups/migrate/plugins/migration-to-aws/mcp-servers/migration-knowledge/src",
-        "MIGRATION_KNOWLEDGE_DIR": "/Users/carthick/dev/github/startups/migrate/plugins/migration-to-aws/mcp-servers/migration-knowledge/knowledge"
+        "FASTMCP_LOG_LEVEL": "ERROR"
       },
       "timeout": 30000,
       "type": "stdio",
@@ -46,15 +45,14 @@
       ]
     },
     "migration-plugin": {
-      "command": "python3",
+      "command": "uvx",
       "args": [
-        "-m",
-        "migration_orchestrator.server"
+        "--from",
+        "git+https://github.com/icarthick/startups.git@feat/migration-mcp-tools#subdirectory=migrate/mcp-servers/migration-plugin",
+        "migration-plugin-server"
       ],
       "env": {
-        "FASTMCP_LOG_LEVEL": "ERROR",
-        "PYTHONPATH": "/Users/carthick/dev/github/startups/migrate/plugins/migration-to-aws/mcp-servers/migration-plugin/src",
-        "MIGRATION_ORCHESTRATOR_KNOWLEDGE_DIR": "/Users/carthick/dev/github/startups/migrate/plugins/migration-to-aws/mcp-servers/migration-plugin/knowledge"
+        "FASTMCP_LOG_LEVEL": "ERROR"
       },
       "timeout": 30000,
       "type": "stdio",

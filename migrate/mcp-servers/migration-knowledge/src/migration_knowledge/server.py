@@ -9,7 +9,7 @@ from pathlib import Path
 
 from fastmcp import FastMCP
 
-from migration_knowledge.knowledge import load_knowledge
+from migration_knowledge.knowledge import load_knowledge, default_knowledge_dir
 from migration_knowledge.tools.recommend_database import recommend_database_target
 from migration_knowledge.tools.recommend_compute import recommend_compute_target
 from migration_knowledge.tools.recommend_networking import recommend_networking_target
@@ -19,23 +19,24 @@ from migration_knowledge.tools.lookup_direct import lookup_direct_mapping as _lo
 from migration_knowledge.tools.validate_design import validate_design as _validate_design
 from migration_knowledge.tools.validate_discovery import validate_discovery as _validate_discovery
 
-# Resolve knowledge directory — prefer env var, fallback to relative for dev
-import os
-KNOWLEDGE_DIR = Path(os.environ.get(
-    "MIGRATION_KNOWLEDGE_DIR",
-    Path(__file__).resolve().parents[2] / "knowledge"
-))
+KNOWLEDGE_DIR = default_knowledge_dir()
 
 # Configure logging
-LOG_FILE = Path(__file__).resolve().parents[2] / "migration-knowledge.log"
+import sys
+import tempfile
+
+LOG_FILE = Path(tempfile.gettempdir()) / "migration-knowledge.log"
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     handlers=[
         logging.FileHandler(LOG_FILE, mode="a"),
+        logging.StreamHandler(sys.stderr),
     ],
 )
-logger = logging.getLogger("migration_tools.server")
+logging.getLogger().handlers[1].setLevel(logging.WARNING)
+logger = logging.getLogger("migration_knowledge.server")
+logger.warning("migration-knowledge logs: %s", LOG_FILE)
 
 # Load knowledge store at startup
 logger.info("Loading knowledge store from: %s", KNOWLEDGE_DIR)
