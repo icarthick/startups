@@ -258,6 +258,18 @@ def phase_router(
         result["no_source_routes"] = True
         result["message"] = "No source files detected for this phase. Provide the required inputs and try again."
 
+    # Check for re-entry (phase already completed + downstream also completed)
+    phases = status.get("phases", {})
+    phases_list_for_reentry = routes_config.get("phases", PHASE_ORDER)
+    if phases.get(current_phase) == "completed":
+        current_idx = phases_list_for_reentry.index(current_phase)
+        stale = [p for p in phases_list_for_reentry[current_idx + 1:] if phases.get(p) == "completed"]
+        if stale:
+            result["re_entry_warning"] = {
+                "message": f"Phase '{current_phase}' already completed. Re-running will invalidate downstream phases.",
+                "stale_phases": stale,
+            }
+
     return result
 
 
@@ -360,4 +372,64 @@ def phase_advance(
         "previous_phase": current_phase,
         "advanced_to": next_phase,
         "artifacts_verified": [a for r in final_routes for a in r.get("produces", []) if a],
+    }
+
+
+def phase_reset(
+    migration_dir: str,
+    project_dir: str,
+    from_phase: str,
+    routes_config: dict,
+) -> dict:
+    """Reset a phase and all downstream phases to pending/in_progress.
+
+    Sets `from_phase` to in_progress and all subsequent phases to pending.
+    Use after user confirms re-entry (re-running a previously completed phase).
+
+    Args:
+        migration_dir: Path to the migration run directory.
+        project_dir: Path to the project root.
+        from_phase: Phase to reset from (this phase becomes in_progress).
+        routes_config: The routes.json content.
+
+    Returns:
+        {"reset": true, "from_phase": str, "phases_reset": [...]}
+        or {"error": str}
+    """
+    migration_path = Path(migration_dir) if Path(migration_dir).is_absolute() else Path(project_dir) / migration_dir
+
+    status_file = migration_path / ".phase-status.json"
+    if not status_file.exists():
+        return {"error": f"No .phase-status.json in {migration_dir}"}
+
+    try:
+        status = json.loads(status_file.read_text())
+    except json.JSONDecodeError:
+        return {"error": "Invalid JSON in .phase-status.json"}
+
+    phases_list = routes_config.get("phases", PHASE_ORDER)
+
+    if from_phase not in phases_list:
+        return {"error": f"Unknown phase: '{from_phase}'"}
+
+    from_idx = phases_list.index(from_phase)
+    phases_reset = []
+
+    # Set from_phase to in_progress, all after to pending
+    status["phases"][from_phase] = "in_progress"
+    status["current_phase"] = from_phase
+    for phase in phases_list[from_idx + 1:]:
+        if status["phases"].get(phase) != "pending":
+            phases_reset.append(phase)
+        status["phases"][phase] = "pending"
+
+    status["last_updated"] = datetime.now().isoformat()
+    status_file.write_text(json.dumps(status, indent=2) + "\n")
+
+    logger.info("phase_reset: from=%s, reset=%s", from_phase, phases_reset)
+
+    return {
+        "reset": True,
+        "from_phase": from_phase,
+        "phases_reset": phases_reset,
     }

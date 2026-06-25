@@ -22,6 +22,7 @@ from migration_tools.tools.orchestration import (
     migration_init as _migration_init,
     phase_router as _phase_router,
     phase_advance as _phase_advance,
+    phase_reset as _phase_reset,
 )
 
 # Resolve knowledge directory — prefer env var (set by .mcp.json), fallback to relative for dev
@@ -331,6 +332,31 @@ def phase_advance(
     if not routes_config:
         return {"error": f"No routes.json found for skill '{skill}' (expected key: {routes_key})"}
     return _phase_advance(migration_dir=migration_dir, project_dir=project_dir, routes_config=routes_config)
+
+
+@mcp.tool()
+def phase_reset(
+    migration_dir: str,
+    project_dir: str,
+    from_phase: str,
+    skill: str = "gcp-to-aws",
+) -> dict:
+    """Reset a phase and all downstream phases for re-entry.
+
+    Use when a user wants to re-run a previously completed phase. Sets the
+    target phase to in_progress and all downstream phases to pending.
+
+    Args:
+        migration_dir: Path to the migration run directory.
+        project_dir: Absolute path to the project root directory.
+        from_phase: Phase to reset from (e.g., "discover"). This phase becomes in_progress.
+        skill: Skill name to load routes for.
+    """
+    routes_key = f"orchestration/{skill}/routes"
+    routes_config = _knowledge.get(routes_key)
+    if not routes_config:
+        return {"error": f"No routes.json found for skill '{skill}' (expected key: {routes_key})"}
+    return _phase_reset(migration_dir=migration_dir, project_dir=project_dir, from_phase=from_phase, routes_config=routes_config)
 
 
 if __name__ == "__main__":

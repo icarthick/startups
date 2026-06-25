@@ -138,7 +138,7 @@ Load and execute `references/phases/discover/discover-preview.md` to compute the
 ## Completion Handoff Gate (Fail Closed)
 
 Load `shared/handoff-gates.md`. **Re-read from disk** every artifact below before checking.
-Wha
+
 **Re-entry guard:** If `preferences.json` exists and `phases.clarify` is `"completed"`: STOP unless the user explicitly confirms re-running Discover. Emit:
 
 ```

@@ -398,3 +398,68 @@ def test_advance_missing_status_file(tmp_path, routes_config):
         migration_dir=str(run_dir), project_dir=str(tmp_path), routes_config=routes_config
     )
     assert "error" in result
+
+
+# --- re-entry warning + phase_reset ---
+
+from migration_tools.tools.orchestration import phase_reset
+
+
+def test_router_re_entry_warning(tmp_path, routes_config):
+    """Phase already completed + downstream completed → re_entry_warning."""
+    run_dir = _write_status(tmp_path, "discover", phases_override={
+        "discover": "completed", "clarify": "completed", "design": "pending",
+    })
+    (tmp_path / "main.tf").touch()
+
+    result = phase_router(
+        migration_dir=str(run_dir), project_dir=str(tmp_path), routes_config=routes_config
+    )
+    assert "re_entry_warning" in result
+    assert "clarify" in result["re_entry_warning"]["stale_phases"]
+
+
+def test_router_no_warning_when_no_downstream(tmp_path, routes_config):
+    """Phase completed but no downstream completed → no warning."""
+    run_dir = _write_status(tmp_path, "discover", phases_override={
+        "discover": "completed", "clarify": "pending", "design": "pending",
+    })
+    (tmp_path / "main.tf").touch()
+
+    result = phase_router(
+        migration_dir=str(run_dir), project_dir=str(tmp_path), routes_config=routes_config
+    )
+    assert "re_entry_warning" not in result
+
+
+def test_phase_reset_resets_downstream(tmp_path, routes_config):
+    """Reset from discover → clarify and design back to pending."""
+    run_dir = _write_status(tmp_path, "discover", phases_override={
+        "discover": "completed", "clarify": "completed", "design": "completed",
+    })
+
+    result = phase_reset(
+        migration_dir=str(run_dir), project_dir=str(tmp_path),
+        from_phase="discover", routes_config=routes_config,
+    )
+    assert result["reset"] is True
+    assert "clarify" in result["phases_reset"]
+    assert "design" in result["phases_reset"]
+
+    # Verify status file
+    status = json.loads((run_dir / ".phase-status.json").read_text())
+    assert status["current_phase"] == "discover"
+    assert status["phases"]["discover"] == "in_progress"
+    assert status["phases"]["clarify"] == "pending"
+    assert status["phases"]["design"] == "pending"
+
+
+def test_phase_reset_unknown_phase(tmp_path, routes_config):
+    """Unknown phase → error."""
+    run_dir = _write_status(tmp_path, "discover")
+
+    result = phase_reset(
+        migration_dir=str(run_dir), project_dir=str(tmp_path),
+        from_phase="bogus", routes_config=routes_config,
+    )
+    assert "error" in result

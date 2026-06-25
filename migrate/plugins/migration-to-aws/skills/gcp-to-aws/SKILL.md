@@ -92,6 +92,9 @@ Migration orchestration is handled by MCP tools. The agent follows this loop:
 4. Call `phase_router(migration_dir, project_dir, skill="gcp-to-aws")`.
    - If error → stop and report (e.g., prerequisite phase not completed).
    - If `no_source_routes: true` → stop and show the tool's `message` to the user.
+   - If `re_entry_warning` present → show warning to user, ask for confirmation.
+     - If user confirms → call `phase_reset(migration_dir, project_dir, from_phase=current_phase)`, then proceed.
+     - If user declines → stop.
    - Otherwise → load and execute each file in `routes[]` (in order).
 5. Execute ALL steps in each loaded file. **Do not skip, optimize, or deviate.**
 6. Call `phase_advance(migration_dir, project_dir, skill="gcp-to-aws")`.
