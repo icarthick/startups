@@ -229,7 +229,7 @@ def test_router_discover_billing_only(tmp_path, routes_config):
 
 
 def test_router_discover_no_files(tmp_path, routes_config):
-    """No source files → only preview (always) is active."""
+    """No source files → only preview (always) is active, no_source_routes flagged."""
     run_dir = _write_status(tmp_path, "discover")
 
     result = phase_router(
@@ -237,6 +237,8 @@ def test_router_discover_no_files(tmp_path, routes_config):
     )
     route_ids = [r["id"] for r in result["routes"]]
     assert route_ids == ["preview"]
+    assert result["no_source_routes"] is True
+    assert "message" in result
 
 
 def test_router_clarify_with_inventory(tmp_path, routes_config):

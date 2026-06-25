@@ -246,11 +246,19 @@ def phase_router(
     logger.info("phase_router: phase=%s, active=%s, skipped=%s",
                 current_phase, [r["id"] for r in final_routes], [r["id"] for r in skipped_routes])
 
-    return {
+    result = {
         "current_phase": current_phase,
         "routes": final_routes,
         "skipped_routes": skipped_routes,
     }
+
+    # Check if any route produces artifacts — if none do, flag it
+    has_producing_routes = any(r.get("produces") for r in final_routes)
+    if not has_producing_routes:
+        result["no_source_routes"] = True
+        result["message"] = "No source files detected for this phase. Provide the required inputs and try again."
+
+    return result
 
 
 def phase_advance(
