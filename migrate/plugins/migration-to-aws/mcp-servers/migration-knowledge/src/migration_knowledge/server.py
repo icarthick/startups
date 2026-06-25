@@ -17,6 +17,7 @@ from migration_knowledge.tools.recommend_messaging import recommend_messaging_ta
 from migration_knowledge.tools.normalize import normalize_resource as _normalize_resource
 from migration_knowledge.tools.lookup_direct import lookup_direct_mapping as _lookup_direct_mapping
 from migration_knowledge.tools.validate_design import validate_design as _validate_design
+from migration_knowledge.tools.validate_discovery import validate_discovery as _validate_discovery
 
 # Resolve knowledge directory — prefer env var, fallback to relative for dev
 import os
@@ -252,6 +253,26 @@ def validate_design(
         clusters_source=clusters_source,
         knowledge=_knowledge,
     )
+
+
+@mcp.tool()
+def validate_discovery(
+    artifact_type: str,
+    content: dict,
+) -> dict:
+    """Validate a discovery phase output artifact against its schema.
+
+    Checks structural correctness of discovery outputs. Each sub-discovery
+    file should call this after producing its artifact.
+
+    Args:
+        artifact_type: Which artifact to validate — "iac", "ai-profile", or "billing".
+            For "iac": content must be {"inventory": <inventory json>, "clusters": <clusters json>}.
+            For "ai-profile": content is the ai-workload-profile.json.
+            For "billing": content is the billing-profile.json.
+        content: The artifact content as a dict.
+    """
+    return _validate_discovery(artifact_type=artifact_type, content=content)
 
 
 if __name__ == "__main__":
