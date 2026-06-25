@@ -21,6 +21,26 @@
         "get_pricing_attribute_values",
         "get_pricing"
       ]
+    },
+    "orchestrator": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/icarthick/startups.git@feat/heroku-mcp-refactor#subdirectory=migrate/mcp-servers/orchestrator",
+        "orchestrator-server"
+      ],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "timeout": 30000,
+      "type": "stdio",
+      "autoApprove": [
+        "migration_status",
+        "migration_init",
+        "phase_router",
+        "phase_advance",
+        "phase_reset"
+      ]
     }
   }
 }

@@ -2,8 +2,6 @@
 
 **Phase 2 of 6** — Ask adaptive questions before design begins, then interpret answers into ready-to-apply design constraints.
 
-> **HARD GATE — Clarify before Design:** Do not load `references/phases/design/design.md` (or any later phase) until this phase finishes **and** `$MIGRATION_DIR/.phase-status.json` records `phases.clarify` as `"completed"`. Writing `preferences.json` without updating phase status is a protocol violation. If the user asks to skip questions, use documented defaults and still complete this phase (including phase status).
-
 The output — `preferences.json` — is consumed directly by Design and Estimate without any further interpretation.
 
 Questions are organized into **three batches** (≤7 per batch) presented sequentially. A standalone **fast-path** mode exists for simple stacks (< 5 apps, no Private Spaces, no Kafka).
@@ -893,35 +891,9 @@ Before handing off to Design:
 
 ---
 
-## Completion Handoff Gate (Fail Closed)
+## Completion
 
-Load `shared/handoff-gates.md`. **Re-read from disk** before checking.
-
-**Re-entry guard:** If `aws-design.json` exists and `phases.design` is `"completed"`: STOP unless the user explicitly confirms re-running Clarify. Emit `GATE_FAIL | phase=clarify | field=aws-design.json | reason=stale_downstream`.
-
-**Checks (all must PASS):**
-
-1. `preferences.json` exists and parses as valid JSON.
-2. All Validation Checklist items pass.
-3. If `heroku-resource-inventory.json` contains Postgres add-ons → `data.database_ha` is set (non-null).
-4. If `heroku-resource-inventory.json` contains Postgres add-ons → `global.migration_approach` is set (non-null).
-5. If `global.migration_approach` is `interim_cutover_data_first` → `global.target_exit_date` is non-null and a valid future date.
-6. If Fir-generation apps detected → `global.fir_intent` is set (non-null).
-7. If Private Space peering detected and subnet IDs were required → `network.subnet_ids` is non-empty array.
-
-**On any FAIL:** Emit `GATE_FAIL | phase=clarify | field=<path> | reason=missing`. **Do NOT modify artifacts to pass the gate.** **Do NOT update `.phase-status.json`.** Tell the user to answer the missing question or re-run Clarify.
-
-**On PASS:** Emit `HANDOFF_OK | phase=clarify | artifacts=preferences.json`.
-
----
-
-## Step 5: Update Phase Status
-
-Only after `HANDOFF_OK`. In the **same turn** as the output message below, use the Phase Status Update Protocol (read-merge-write) to update `.phase-status.json`:
-
-- Set `phases.clarify` to `"completed"`
-- Set `current_phase` to `"design"`
-- Update `last_updated` to current ISO timestamp
+After writing `preferences.json` to `$MIGRATION_DIR`, the SKILL.md flow calls `phase_advance` which validates the artifact exists and advances to the Design phase.
 
 Output to user: "Clarification complete. Proceeding to Phase 3: Design AWS Architecture."
 

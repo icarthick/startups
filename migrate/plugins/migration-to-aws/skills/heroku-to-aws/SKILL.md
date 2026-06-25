@@ -65,96 +65,56 @@ If no Terraform files with `heroku_*` resources are found, stop and ask user to 
 
 ## State Machine
 
-This is the execution controller. After completing each phase, consult this table to determine the next action.
+Phase orchestration is managed by the `orchestrator` MCP server. On each turn:
 
-| Current State | Condition                                                             | Next Action                                                                            |
-| ------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `discover`    | `phases.discover != "completed"`                                      | Load `references/phases/discover/discover.md`                                          |
-| `clarify`     | `phases.discover == "completed"` AND `phases.clarify != "completed"`  | Load `references/phases/clarify/clarify.md`                                            |
-| `design`      | `phases.clarify == "completed"` AND `phases.design != "completed"`    | Load `references/phases/design/design.md`                                              |
-| `estimate`    | `phases.design == "completed"` AND `phases.estimate != "completed"`   | Load `references/phases/estimate/estimate.md`                                          |
-| `generate`    | `phases.estimate == "completed"` AND `phases.generate != "completed"` | Load `references/phases/generate/generate.md`                                          |
-| `complete`    | `phases.generate == "completed"` AND `phases.feedback == "pending"`   | Set `phases.feedback` to `"completed"` (user had two chances), then migration complete |
-| `complete`    | `phases.generate == "completed"` AND `phases.feedback == "completed"` | Migration planning complete                                                            |
+1. **Check for existing runs:**
+   ```
+   migration_status(project_dir=<project root>)
+   ```
+   If multiple runs exist, ask user which to resume or whether to start fresh.
 
-**How to determine current state (deterministic):**
+2. **Initialize (if no run exists):**
+   ```
+   migration_init(project_dir=<project root>, skill="heroku-to-aws")
+   ```
+   This creates `.migration/[MMDD-HHMM]/` with `.gitignore` and initial `.phase-status.json`.
 
-1. Read `$MIGRATION_DIR/.phase-status.json`
-2. If `current_phase` exists, use it (must match one of: discover, clarify, design, estimate, generate, complete)
-3. Otherwise use ordered phase evaluation: `discover` → `clarify` → `design` → `estimate` → `generate`
-4. Pick the **first** phase in that order where `phases.<phase> != "completed"`; if none, state is `complete`
+3. **Route the current phase:**
+   ```
+   phase_router(migration_dir=$MIGRATION_DIR, project_dir=<project root>, skill="heroku-to-aws")
+   ```
+   Returns the list of reference files to load for the current phase. Load and follow each file.
 
-**Phase gate checks**: If prior phase incomplete, do not advance (e.g., cannot enter estimate without completed design).
+4. **Advance after phase work completes:**
+   ```
+   phase_advance(migration_dir=$MIGRATION_DIR, project_dir=<project root>, skill="heroku-to-aws")
+   ```
+   Validates that required artifacts exist (gate check). If gate passes, advances to next phase. If gate fails, reports missing artifacts — do not proceed.
 
-**Clarify is mandatory:** Do not load `references/phases/design/design.md`, `references/phases/estimate/estimate.md`, or `references/phases/generate/generate.md` unless `$MIGRATION_DIR/.phase-status.json` exists and `phases.clarify` is exactly `"completed"`. A `preferences.json` file alone is **not** sufficient proof that Clarify ran. If the user asks to skip Clarify or jump straight to Design, cost estimate, or artifact generation, refuse briefly, then load `references/phases/clarify/clarify.md` and run Phase 2. There is no exception for "quick" or "obvious" migrations.
+5. **Reset (if user wants to re-run a phase):**
+   ```
+   phase_reset(migration_dir=$MIGRATION_DIR, from_phase=<phase>, skill="heroku-to-aws")
+   ```
 
-**Feedback checkpoints**: Feedback is offered once after Estimate (combined with plan sharing). See the **Feedback Checkpoints** section below for details.
+**Clarify is mandatory:** Do not load design, estimate, or generate phase files unless `phase_router` returns them (it enforces `requires_phase` gates). If the user asks to skip Clarify, refuse briefly, then load the clarify reference file.
 
 ### Handoff Gate Orchestration (Fail Closed)
 
 Load `references/shared/handoff-gates.md` when executing any phase completion step.
 
-1. **Single `$MIGRATION_DIR`**: Use one run directory for the entire migration. Do not mix artifacts across `.migration/*/` sessions.
-2. **Re-read from disk**: Before each phase (and before each handoff gate), Read required artifacts from `$MIGRATION_DIR/`. Do not rely on chat memory.
-3. **Advance only on `HANDOFF_OK`**: A phase is complete only when its orchestrator emits `HANDOFF_OK | phase=<name> | artifacts=...`. Do not load the next phase without it.
-4. **On `GATE_FAIL`**: Output the failure line(s) to the user in plain language. **Do NOT modify artifacts** to pass the gate. **Do NOT continue** to the next phase. Tell the user which phase to re-run.
-5. **Re-entry**: Re-running an earlier phase after downstream phases completed requires explicit user confirmation; downstream phases must be reset to `"pending"`. See `handoff-gates.md` re-entry table.
-
-Generate phase additionally loads `references/shared/validate-artifacts.md` before writing `migration-report.html`.
-
----
-
-## State Validation
-
-When reading `$MIGRATION_DIR/.phase-status.json`, validate before proceeding:
-
-1. **Multiple sessions**: If multiple directories exist under `.migration/`, list them with their phase status and ask: [A] Resume latest, [B] Start fresh, [C] Cancel.
-2. **Invalid JSON**: If `.phase-status.json` fails to parse, STOP. Output: "State file corrupted (invalid JSON). Delete the file and restart the current phase."
-3. **Unrecognized phase**: If `phases` object contains a phase not in {discover, clarify, design, estimate, generate, feedback}, STOP. Output: "Unrecognized phase: [value]. Valid phases: discover, clarify, design, estimate, generate, feedback."
-4. **Unrecognized status**: If any `phases.*` value is not in {pending, in_progress, completed}, STOP. Output: "Unrecognized status: [value]. Valid values: pending, in_progress, completed."
-5. **Invalid `current_phase`** (if present): If `current_phase` is not in {discover, clarify, design, estimate, generate, complete}, STOP. Output: "Unrecognized current_phase: [value]. Valid values: discover, clarify, design, estimate, generate, complete."
-6. **Out-of-order completion**: For ordered phases [discover, clarify, design, estimate, generate], if any later phase is `"completed"` while an earlier phase is not `"completed"`, STOP. Output: "Inconsistent phase ordering detected. Reconcile `.phase-status.json` before resuming."
-7. **Multiple active phases**: Across core phases {discover, clarify, design, estimate, generate}, at most one phase may be `"in_progress"`. If >1, STOP. Output: "Multiple phases are in_progress. Keep only one active phase before resuming."
+1. **Single `$MIGRATION_DIR`**: Use one run directory for the entire migration.
+2. **Re-read from disk**: Before each phase, read required artifacts from `$MIGRATION_DIR/`.
+3. **Advance only via `phase_advance`**: Do not manually update `.phase-status.json`. The tool handles validation and advancement.
+4. **On gate failure**: `phase_advance` returns `status: "gate_failed"` with `missing_artifacts`. Report to user in plain language. Do NOT modify artifacts to pass. Do NOT continue.
+5. **Re-entry**: Use `phase_reset` for re-running earlier phases. Requires explicit user confirmation.
 
 ---
 
 ## State Management
 
-Migration state lives in `$MIGRATION_DIR` (`.migration/[MMDD-HHMM]/`), created by Phase 1 and persisted across invocations.
+Migration state lives in `$MIGRATION_DIR` (`.migration/[MMDD-HHMM]/`), created by `migration_init` and managed by orchestrator tools.
 
-**.phase-status.json schema:**
-
-```json
-{
-  "migration_id": "0315-1030",
-  "last_updated": "2026-03-15T10:30:00Z",
-  "current_phase": "discover",
-  "phases": {
-    "discover": "in_progress",
-    "clarify": "pending",
-    "design": "pending",
-    "estimate": "pending",
-    "generate": "pending",
-    "feedback": "pending"
-  }
-}
-```
-
-**Status values:** `"pending"` → `"in_progress"` → `"completed"`. Never goes backward.
-For core phases (discover, clarify, design, estimate, generate), at most one phase may be `"in_progress"` at any time.
-`current_phase` is optional but recommended; when present it is authoritative.
-
-The `.migration/` directory is automatically protected by a `.gitignore` file created in Phase 1.
-
-### Phase Status Update Protocol
-
-Use **read-merge-write** updates for `.phase-status.json`:
-
-1. Read the current file before every update.
-2. Change only the phase keys being advanced and `last_updated`.
-3. Keep prior completed phases unchanged.
-4. Set `current_phase` to the next deterministic phase (or `complete` after generate).
-5. Write the full file in the same turn as your final phase work message.
+The `.migration/` directory is automatically protected by a `.gitignore` file created during init.
 
 ---
 
@@ -172,6 +132,12 @@ Use **read-merge-write** updates for `.phase-status.json`:
 ---
 
 ## MCP Servers
+
+**orchestrator** (phase management and routing):
+
+- Provides `migration_status`, `migration_init`, `phase_router`, `phase_advance`, `phase_reset` tools
+- Used at every phase boundary for state management and routing
+- Routes are defined in `heroku-to-aws/routes.json` within the server's knowledge directory
 
 **awspricing** (for cost estimation):
 
