@@ -59,7 +59,7 @@ User choices:
 
 - **retry** — reset the per-batch attempt counter to 0, grant 3 more attempts, continue. The cumulative `attempts` field in `validation-report.json` is NOT reset (it keeps incrementing).
 - **skip** — set `validation_status = "skipped_user_continue"`, emit warning, proceed to Stage E. Phase Completion is allowed.
-- **abort** — set `validation_status = "skipped_user_abort"`, write `validation-report.json` with that status, STOP. **Do NOT write to `.phase-status.json`.** The caller (generate.md) relies on seeing no completion signal.
+- **abort** — set `validation_status = "skipped_user_abort"`, write `validation-report.json` with that status, STOP. **Do NOT call `phase_advance`.** The caller relies on seeing no completion signal.
 
 ### Stage E — Emit validation-report.json
 
@@ -166,7 +166,7 @@ END FUNCTION
 
 - The cumulative `attempts` counter in `validation-report.json` counts every rerun across all batches, including after a user `retry`. It never resets.
 - The per-batch counter (triggering the user prompt) resets to 0 on `retry`.
-- On `abort`, the function terminates the whole run without touching `.phase-status.json`. The calling phase (`generate.md`) must see the absence of a completion write and NOT advance the state machine.
+- On `abort`, the function terminates the whole run without calling `phase_advance`. The calling phase must see the absence of a completion signal and NOT advance the state machine.
 - "Progress" vs "same error recurring": progress is when `exit_code == 0` OR when `last_batch_errors \ new_errors_set ≠ ∅` (at least one error disappeared). A fully-overlapping error set across consecutive attempts triggers the warning but does not change control flow.
 
 ## Report Schema

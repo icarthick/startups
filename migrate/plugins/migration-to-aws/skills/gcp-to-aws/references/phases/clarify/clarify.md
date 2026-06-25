@@ -2,7 +2,7 @@
 
 **Phase 2 of 6** — Ask adaptive questions before design begins, then interpret answers into ready-to-apply design constraints.
 
-> **HARD GATE — Clarify before Design:** Do not load `references/phases/design/design.md` (or any later phase) until this phase finishes **and** `$MIGRATION_DIR/.phase-status.json` records `phases.clarify` as `"completed"`. Writing `preferences.json` without updating phase status is a protocol violation. If the user asks to skip questions, use documented defaults and still complete this phase (including phase status).
+> **HARD GATE — Clarify before Design:** `phase_router` will not return Design routes until this phase is completed and `.phase-status.json` records `phases.clarify` as `"completed"`. Writing `preferences.json` without calling `phase_advance` is a protocol violation. If the user asks to skip questions, use documented defaults and still complete this phase.
 
 The output — `preferences.json` — is consumed directly by Design and Estimate without any further interpretation.
 

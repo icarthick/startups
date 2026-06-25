@@ -29,7 +29,7 @@ Each phase loads reference files on demand. To keep per-turn context manageable 
 - **Budget:** Each phase should load no more than ~800 lines of instructions (excluding user artifacts like JSON profiles and MCP tool results).
 - **Conditional loading:** Reference files with trigger conditions (e.g., `agentic_profile.is_agentic == true`) MUST NOT be loaded unless the condition is met. Do not speculatively load files.
 - **No duplication:** Model mapping tables, pricing data, and shared warnings exist in one canonical file. Other files reference them; they do not copy them inline.
-- **Progressive depth:** Phase orchestrators (`design.md`, `generate.md`) contain short routing logic that points to detailed sub-files. Load the sub-file only when its path is selected.
+- **Progressive depth:** `phase_router` determines which sub-files to load based on `routes.json` triggers. The LLM loads only the returned files — no intermediate orchestrator files.
 
 **Conditional reference files (load ONLY when condition is true):**
 
@@ -120,14 +120,14 @@ Migration orchestration is handled by MCP tools. The agent follows this loop:
 
 ## Phase Summary Table
 
-| Phase        | Inputs                                                                                                                                                                   | Outputs                                                                                                                                                                                                                                       | Reference                                |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| **Discover** | `.tf` files, app source code, and/or billing exports (at least one required)                                                                                             | `gcp-resource-inventory.json`, `gcp-resource-clusters.json`, `ai-workload-profile.json`, `billing-profile.json`, `.phase-status.json` updated (outputs vary by input)                                                                         | `references/phases/discover/discover.md` |
-| **Clarify**  | Discovery artifacts (`gcp-resource-inventory.json`, `gcp-resource-clusters.json`, `ai-workload-profile.json`, `billing-profile.json` — whichever exist)                  | `preferences.json`, `.phase-status.json` updated                                                                                                                                                                                              | `references/phases/clarify/clarify.md`   |
-| **Design**   | `preferences.json` + discovery artifacts                                                                                                                                 | `aws-design.json` (infra), `aws-design-ai.json` (AI), `aws-design-billing.json` (billing-only)                                                                                                                                                | `references/phases/design/design.md`     |
-| **Estimate** | `aws-design.json` or `aws-design-billing.json` or `aws-design-ai.json`, `preferences.json`                                                                               | `estimation-infra.json` or `estimation-ai.json` or `estimation-billing.json`, `.phase-status.json` updated                                                                                                                                    | `references/phases/estimate/estimate.md` |
-| **Generate** | `estimation-infra.json` or `estimation-ai.json` or `estimation-billing.json`, `aws-design.json` or `aws-design-billing.json` or `aws-design-ai.json`, `preferences.json` | `generation-infra.json` or `generation-ai.json` or `generation-billing.json` + `terraform/`, `scripts/`, `ai-migration/`, `validation-report.json` (when infra route active), `MIGRATION_GUIDE.md`, `README.md`, `.phase-status.json` updated | `references/phases/generate/generate.md` |
-| **Feedback** | `.phase-status.json` (discover completed minimum), all existing migration artifacts                                                                                      | `feedback.json`, `trace.json`, `.phase-status.json` updated                                                                                                                                                                                   | `references/phases/feedback/feedback.md` |
+| Phase        | Inputs                                                                                                                                                                   | Outputs                                                                                                                                                                                                                                       |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Discover** | `.tf` files, app source code, and/or billing exports (at least one required)                                                                                             | `gcp-resource-inventory.json`, `gcp-resource-clusters.json`, `ai-workload-profile.json`, `billing-profile.json`, `.phase-status.json` updated (outputs vary by input)                                                                         |
+| **Clarify**  | Discovery artifacts (`gcp-resource-inventory.json`, `gcp-resource-clusters.json`, `ai-workload-profile.json`, `billing-profile.json` — whichever exist)                  | `preferences.json`, `.phase-status.json` updated                                                                                                                                                                                              |
+| **Design**   | `preferences.json` + discovery artifacts                                                                                                                                 | `aws-design.json` (infra), `aws-design-ai.json` (AI), `aws-design-billing.json` (billing-only)                                                                                                                                                |
+| **Estimate** | `aws-design.json` or `aws-design-billing.json` or `aws-design-ai.json`, `preferences.json`                                                                               | `estimation-infra.json` or `estimation-ai.json` or `estimation-billing.json`, `.phase-status.json` updated                                                                                                                                    |
+| **Generate** | `estimation-infra.json` or `estimation-ai.json` or `estimation-billing.json`, `aws-design.json` or `aws-design-billing.json` or `aws-design-ai.json`, `preferences.json` | `generation-infra.json` or `generation-ai.json` or `generation-billing.json` + `terraform/`, `scripts/`, `ai-migration/`, `validation-report.json` (when infra route active), `MIGRATION_GUIDE.md`, `README.md`, `.phase-status.json` updated |
+| **Feedback** | `.phase-status.json` (discover completed minimum), all existing migration artifacts                                                                                      | `feedback.json`, `trace.json`, `.phase-status.json` updated                                                                                                                                                                                   |
 
 ---
 
@@ -150,10 +150,11 @@ gcp-to-aws/
 ├── references/
 │   ├── phases/
 │   │   ├── discover/
-│   │   │   ├── discover.md                     # Phase 1: Discover orchestrator
 │   │   │   ├── discover-iac.md                 # Terraform/IaC discovery
 │   │   │   ├── discover-app-code.md            # App code discovery
-│   │   │   └── discover-billing.md             # Billing data discovery
+│   │   │   ├── discover-billing.md             # Billing data discovery (full)
+│   │   │   ├── discover-billing-lightweight.md # Billing extraction via MCP tool (when IaC present)
+│   │   │   └── discover-preview.md             # Migration preview
 │   │   ├── clarify/
 │   │   │   ├── clarify.md                     # Phase 2: Clarify orchestrator
 │   │   │   ├── clarify-global.md              # Category A: Global/Strategic (Q1-Q7)
@@ -162,17 +163,14 @@ gcp-to-aws/
 │   │   │   ├── clarify-ai.md                  # Category F: AI/Bedrock (Q14-Q22)
 │   │   │   └── clarify-ai-only.md             # Standalone AI-only migration flow
 │   │   ├── design/
-│   │   │   ├── design.md                       # Phase 3: Design orchestrator
 │   │   │   ├── design-infra.md                 # Infrastructure design (IaC-based)
 │   │   │   ├── design-ai.md                    # AI workload design (Bedrock)
 │   │   │   └── design-billing.md               # Billing-only design (fallback)
 │   │   ├── estimate/
-│   │   │   ├── estimate.md                     # Phase 4: Estimate orchestrator
 │   │   │   ├── estimate-infra.md               # Infrastructure cost analysis
 │   │   │   ├── estimate-ai.md                  # AI workload cost analysis
 │   │   │   └── estimate-billing.md             # Billing-only cost analysis
 │   │   ├── generate/
-│   │   │   ├── generate.md                     # Phase 5: Generate orchestrator
 │   │   │   ├── generate-infra.md               # Infrastructure migration plan
 │   │   │   ├── generate-ai.md                  # AI migration plan
 │   │   │   ├── generate-billing.md             # Billing-only migration plan
@@ -182,7 +180,7 @@ gcp-to-aws/
 │   │   │   ├── generate-artifacts-billing.md   # Skeleton Terraform
 │   │   │   └── generate-artifacts-docs.md      # MIGRATION_GUIDE.md + README.md
 │   │   └── feedback/
-│   │       ├── feedback.md                     # Phase 6: Feedback orchestrator
+│   │       ├── feedback.md                     # Phase 6: Feedback
 │   │       └── feedback-trace.md               # Anonymized trace builder
 │   │
 │   ├── design-refs/

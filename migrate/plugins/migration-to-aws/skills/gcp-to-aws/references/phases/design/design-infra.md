@@ -1,6 +1,6 @@
 # Design Phase: Infrastructure Mapping
 
-> Loaded by `design.md` when `gcp-resource-inventory.json` and `gcp-resource-clusters.json` exist.
+> Loaded by `phase_router` when `gcp-resource-inventory.json` and `gcp-resource-clusters.json` exist.
 
 **Execute ALL steps in order. Do not skip or optimize.**
 
@@ -184,7 +184,7 @@ validate_design(design=<aws-design.json content>, clusters_source=<gcp-resource-
 
 ## Completion Handoff Gate (Fail Closed)
 
-Before returning control to `design.md`, require:
+Before calling `phase_advance`, require:
 
 - `aws-design.json` exists and `validate_design` returned `valid: true`.
 
