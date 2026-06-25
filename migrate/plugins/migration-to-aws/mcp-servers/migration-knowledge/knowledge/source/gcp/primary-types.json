@@ -1,0 +1,30 @@
+{
+  "kind": "primary-types",
+  "scope": "source:gcp",
+  "version": "1",
+  "description": "GCP resource types classified as PRIMARY workload-bearing resources.",
+  "entries": [
+    { "type": "google_cloud_run_service", "tier": "compute" },
+    { "type": "google_cloud_run_v2_service", "tier": "compute" },
+    { "type": "google_container_cluster", "tier": "compute" },
+    { "type": "google_container_node_pool", "tier": "compute" },
+    { "type": "google_compute_instance", "tier": "compute" },
+    { "type": "google_cloudfunctions_function", "tier": "compute" },
+    { "type": "google_cloudfunctions2_function", "tier": "compute" },
+    { "type": "google_app_engine_application", "tier": "compute" },
+    { "type": "google_sql_database_instance", "tier": "database" },
+    { "type": "google_spanner_instance", "tier": "database" },
+    { "type": "google_firestore_database", "tier": "database" },
+    { "type": "google_bigtable_instance", "tier": "database" },
+    { "type": "google_redis_instance", "tier": "database" },
+    { "type": "google_storage_bucket", "tier": "storage" },
+    { "type": "google_filestore_instance", "tier": "storage" },
+    { "type": "google_bigquery_dataset", "tier": "storage" },
+    { "type": "google_pubsub_topic", "tier": "messaging" },
+    { "type": "google_cloud_tasks_queue", "tier": "messaging" },
+    { "type": "google_compute_network", "tier": "networking" },
+    { "type": "google_compute_security_policy", "tier": "networking" },
+    { "type": "google_dns_managed_zone", "tier": "networking" },
+    { "type": "google_monitoring_alert_policy", "tier": "monitoring" }
+  ]
+}

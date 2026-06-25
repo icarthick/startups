@@ -1,0 +1,10 @@
+{
+  "kind": "excluded-types",
+  "scope": "source:gcp",
+  "version": "1",
+  "description": "Resource types excluded from classification and clustering entirely. These are not migrated.",
+  "entries": [
+    { "pattern": "google_identity_platform_*", "reason": "Auth provider — keep existing solution, do not migrate" },
+    { "pattern": "google_firebase_auth_*", "reason": "Auth provider — keep existing solution, do not migrate" }
+  ]
+}
