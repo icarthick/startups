@@ -43,33 +43,9 @@
       "requires_phase": "discover",
       "routes": [
         {
-          "id": "global",
-          "trigger": { "artifact_exists": ["gcp-resource-inventory.json"] },
-          "file": "references/phases/clarify/clarify-global.md",
-          "produces": ["preferences.json"]
-        },
-        {
-          "id": "compute",
-          "trigger": { "artifact_exists": ["gcp-resource-inventory.json"] },
-          "file": "references/phases/clarify/clarify-compute.md",
-          "produces": ["preferences.json"]
-        },
-        {
-          "id": "database",
-          "trigger": { "artifact_exists": ["gcp-resource-inventory.json"] },
-          "file": "references/phases/clarify/clarify-database.md",
-          "produces": ["preferences.json"]
-        },
-        {
-          "id": "ai",
-          "trigger": { "artifact_exists": ["ai-workload-profile.json"] },
-          "file": "references/phases/clarify/clarify-ai.md",
-          "produces": ["preferences.json"]
-        },
-        {
-          "id": "ai-only",
-          "trigger": { "artifact_exists": ["ai-workload-profile.json"], "artifact_absent": ["gcp-resource-inventory.json"] },
-          "file": "references/phases/clarify/clarify-ai-only.md",
+          "id": "clarify",
+          "trigger": { "always": true },
+          "file": "references/phases/clarify/clarify.md",
           "produces": ["preferences.json"]
         }
       ]
