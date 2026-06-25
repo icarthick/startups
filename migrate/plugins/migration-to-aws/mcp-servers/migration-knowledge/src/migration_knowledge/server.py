@@ -20,6 +20,7 @@ from migration_knowledge.tools.validate_design import validate_design as _valida
 from migration_knowledge.tools.validate_discovery import validate_discovery as _validate_discovery
 from migration_knowledge.tools.detect_ai_signals import detect_ai_signals as _detect_ai_signals
 from migration_knowledge.tools.cluster_terraform import cluster_terraform as _cluster_terraform
+from migration_knowledge.tools.create_ai_profile import create_ai_profile_from_iac as _create_ai_profile_from_iac
 
 # Resolve knowledge directory — prefer env var, fallback to relative for dev
 import os
@@ -322,6 +323,34 @@ def cluster_terraform(
         ai_detection=ai_detection,
         metadata=metadata,
         knowledge=_knowledge,
+    )
+
+
+@mcp.tool()
+def create_ai_profile_from_iac(
+    ai_source: str,
+    ai_detection: dict,
+    vertex_resources: list[dict],
+    migration_dir: str,
+) -> dict:
+    """Write ai-workload-profile.json from IaC-inferred Vertex AI signals.
+
+    Creates a minimal AI workload profile when Vertex AI resources are detected
+    in Terraform. Call after detect_ai_signals confirms Vertex AI presence and
+    the LLM determines ai_source (generative vs traditional ML).
+
+    Args:
+        ai_source: "gemini" (generative AI resources detected) or "other" (traditional ML only).
+        ai_detection: Output from detect_ai_signals tool.
+        vertex_resources: Vertex AI resources from the extracted resource list
+            (filtered to google_vertex_ai_* types).
+        migration_dir: Path to write ai-workload-profile.json.
+    """
+    return _create_ai_profile_from_iac(
+        ai_source=ai_source,
+        ai_detection=ai_detection,
+        vertex_resources=vertex_resources,
+        migration_dir=migration_dir,
     )
 
 

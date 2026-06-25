@@ -108,7 +108,7 @@ Run **only** when all of the following are true:
 2. **Vertex-strong:** at least one of:
    - `ai_detection.ai_services` includes `vertex_ai`, **or**
    - Any entry in `ai_detection.signals_found` references a Terraform resource type matching `google_vertex_ai_*` (see Step 2 pattern table)
-
+St
 Do **not** run this step for AI signals that are **only** BigQuery ML, Document AI, Vision, etc., with **no** Vertex AI service or `google_vertex_ai_*` signal — Category F is scoped to strong Vertex evidence here.
 
 **If Vertex-strong:** Load `references/shared/schema-discover-ai.md` and write `$MIGRATION_DIR/ai-workload-profile.json` with a **minimal IaC-inferred** profile:

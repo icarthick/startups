@@ -1,5 +1,6 @@
 """Unit tests for detect_ai_signals and cluster_terraform."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -192,3 +193,45 @@ def test_no_files_without_migration_dir(knowledge):
     assert "files_written" not in result
     assert "resources" in result
     assert "clusters" in result
+
+
+# --- create_ai_profile_from_iac ---
+
+from migration_knowledge.tools.create_ai_profile import create_ai_profile_from_iac
+
+
+def test_creates_ai_profile_gemini(tmp_path):
+    """Writes ai-workload-profile.json with ai_source=gemini."""
+    ai_detection = {"confidence": 0.95, "confidence_level": "very_high", "signals_found": [{"resource": "google_vertex_ai_endpoint.x", "pattern": "google_vertex_ai_*", "confidence": 0.95}], "ai_services": ["vertex_ai"]}
+    vertex_resources = [{"address": "google_vertex_ai_endpoint.x", "type": "google_vertex_ai_endpoint", "config": {}}]
+
+    result = create_ai_profile_from_iac(
+        ai_source="gemini", ai_detection=ai_detection,
+        vertex_resources=vertex_resources, migration_dir=str(tmp_path),
+    )
+    assert result["status"] == "written"
+    assert (tmp_path / "ai-workload-profile.json").exists()
+
+    import json
+    profile = json.loads((tmp_path / "ai-workload-profile.json").read_text())
+    assert profile["metadata"]["profile_source"] == "iac_vertex"
+    assert profile["summary"]["ai_source"] == "gemini"
+    assert profile["summary"]["overall_confidence"] == 0.95
+    assert profile["summary"]["inferred_from_iac"] is True
+    assert len(profile["infrastructure"]) == 1
+    assert len(profile["detection_signals"]) == 1
+
+
+def test_creates_ai_profile_other(tmp_path):
+    """Writes ai-workload-profile.json with ai_source=other for traditional ML."""
+    ai_detection = {"confidence": 0.95, "confidence_level": "very_high", "signals_found": [{"resource": "google_vertex_ai_custom_job.train", "pattern": "google_vertex_ai_*", "confidence": 0.95}], "ai_services": ["vertex_ai"]}
+    vertex_resources = [{"address": "google_vertex_ai_custom_job.train", "type": "google_vertex_ai_custom_job", "config": {}}]
+
+    result = create_ai_profile_from_iac(
+        ai_source="other", ai_detection=ai_detection,
+        vertex_resources=vertex_resources, migration_dir=str(tmp_path),
+    )
+    profile = json.loads((tmp_path / "ai-workload-profile.json").read_text())
+    assert profile["summary"]["ai_source"] == "other"
+    assert profile["models"] == []
+    assert profile["integration"]["primary_sdk"] is None
