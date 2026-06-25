@@ -243,6 +243,41 @@ def test_external_edges_used(knowledge):
     assert "google_cloud_run_service.api" in res_map["google_service_account.api_sa"].get("serves", [])
 
 
+def test_shared_infra_cluster(knowledge):
+    """Monitoring and project_service go to shared-infra, not a random cluster."""
+    resources = [
+        {"address": "google_cloud_run_service.api", "type": "google_cloud_run_service", "name": "api",
+         "config": {}, "depends_on": []},
+        {"address": "google_monitoring_alert_policy.high_cpu", "type": "google_monitoring_alert_policy", "name": "high_cpu",
+         "config": {}, "depends_on": []},
+        {"address": "google_project_service.apis", "type": "google_project_service", "name": "apis",
+         "config": {}, "depends_on": []},
+    ]
+    result = cluster_terraform(resources, knowledge=knowledge)
+    res_map = {r["address"]: r for r in result["resources"]}
+    monitoring_cluster = res_map["google_monitoring_alert_policy.high_cpu"]["cluster_id"]
+    apis_cluster = res_map["google_project_service.apis"]["cluster_id"]
+    assert "shared" in monitoring_cluster
+    assert monitoring_cluster == apis_cluster
+
+
+def test_file_proximity_fallback(knowledge):
+    """Unattached secondary joins cluster whose primary shares same file."""
+    resources = [
+        {"address": "google_sql_database_instance.db", "type": "google_sql_database_instance", "name": "db",
+         "config": {}, "depends_on": []},
+        {"address": "google_sql_database.app", "type": "google_sql_database", "name": "app",
+         "config": {}, "depends_on": []},
+    ]
+    file_map = {
+        "google_sql_database_instance.db": "database.tf",
+        "google_sql_database.app": "database.tf",
+    }
+    result = cluster_terraform(resources, file_map=file_map, knowledge=knowledge)
+    res_map = {r["address"]: r for r in result["resources"]}
+    assert res_map["google_sql_database.app"]["cluster_id"] == res_map["google_sql_database_instance.db"]["cluster_id"]
+
+
 # --- create_ai_profile_from_iac ---
 
 from migration_orchestrator.tools.create_ai_profile import create_ai_profile_from_iac

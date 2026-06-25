@@ -192,7 +192,7 @@ def _compute_depth(resources: list[dict], edges: list[dict]) -> None:
 
 # ─── CLUSTERING ───────────────────────────────────────────────────────────────
 
-def _cluster(resources: list[dict], edges: list[dict]) -> list[dict]:
+def _cluster(resources: list[dict], edges: list[dict], file_map: dict[str, str] | None = None) -> list[dict]:
     """Apply clustering rules. Returns cluster list."""
     primaries = [r for r in resources if r.get("classification") == "PRIMARY"]
     secondaries = [r for r in resources if r.get("classification") == "SECONDARY"]
@@ -208,23 +208,28 @@ def _cluster(resources: list[dict], edges: list[dict]) -> list[dict]:
         seq = region_counters[tier][f"{service}_{region}"]
         return f"{tier}_{service}_{region}_{seq:03d}"
 
+    # Shared infra types — always shared unless they have a specific serves
+    _SHARED_INFRA_PREFIXES = ("google_monitoring_", "google_logging_", "google_project_service", "random_")
+
+    def _is_shared_infra(res):
+        return (any(res["type"].startswith(p) for p in _SHARED_INFRA_PREFIXES)
+                and not res.get("serves"))
+
     # Rule 1: Networking cluster — group all networking primaries together
     net_primaries = [r for r in primaries if r.get("tier") == "networking"]
     if net_primaries:
-        net_addresses = {r["address"] for r in net_primaries}
         net_secondaries = [r for r in secondaries if r.get("secondary_role") == "network_path"]
         all_net = net_primaries + net_secondaries
         for r in all_net:
             assigned.add(r["address"])
 
-        region = "global"
-        cluster_id = f"networking_vpc_{region}_001"
+        cluster_id = "networking_vpc_global_001"
         for r in all_net:
             r["cluster_id"] = cluster_id
 
         clusters.append({
             "cluster_id": cluster_id,
-            "gcp_region": region,
+            "gcp_region": "global",
             "primary_resources": [r["address"] for r in net_primaries],
             "secondary_resources": [r["address"] for r in net_secondaries],
             "creation_order_depth": min(r.get("depth", 0) for r in net_primaries),
@@ -237,7 +242,6 @@ def _cluster(resources: list[dict], edges: list[dict]) -> list[dict]:
             type_groups[r["type"]].append(r)
 
     for res_type, group in type_groups.items():
-        # Find secondaries that serve any resource in this group
         group_addresses = {r["address"] for r in group}
         group_secondaries = [
             r for r in secondaries
@@ -246,7 +250,7 @@ def _cluster(resources: list[dict], edges: list[dict]) -> list[dict]:
         ]
 
         tier = group[0].get("tier", "other")
-        region = "us-central1"  # default; could extract from config
+        region = "us-central1"
         cluster_id = make_cluster_id(tier, res_type, region)
 
         for r in group + group_secondaries:
@@ -261,21 +265,53 @@ def _cluster(resources: list[dict], edges: list[dict]) -> list[dict]:
             "creation_order_depth": min(r.get("depth", 0) for r in group),
         })
 
-    # Assign any remaining unassigned secondaries to nearest cluster
+    # Rule 3: Assign remaining secondaries — serves, file proximity, then shared-infra
+    shared_infra_secondaries = []
     for r in secondaries:
-        if r["address"] not in assigned:
-            # Attach to first cluster that contains a resource it serves
-            placed = False
+        if r["address"] in assigned:
+            continue
+
+        # 3a: Attach via serves
+        placed = False
+        for cl in clusters:
+            if any(s in cl["primary_resources"] for s in r.get("serves", [])):
+                cl["secondary_resources"].append(r["address"])
+                r["cluster_id"] = cl["cluster_id"]
+                assigned.add(r["address"])
+                placed = True
+                break
+        if placed:
+            continue
+
+        # 3b: File proximity — same .tf file as a primary in a cluster
+        if file_map and r["address"] in file_map:
+            res_file = file_map[r["address"]]
             for cl in clusters:
-                if any(s in cl["primary_resources"] for s in r.get("serves", [])):
+                if any(file_map.get(p) == res_file for p in cl["primary_resources"]):
                     cl["secondary_resources"].append(r["address"])
                     r["cluster_id"] = cl["cluster_id"]
+                    assigned.add(r["address"])
                     placed = True
                     break
-            if not placed and clusters:
-                # Fallback: attach to last cluster
-                clusters[-1]["secondary_resources"].append(r["address"])
-                r["cluster_id"] = clusters[-1]["cluster_id"]
+        if placed:
+            continue
+
+        # 3c: Shared infrastructure or final fallback
+        shared_infra_secondaries.append(r)
+        assigned.add(r["address"])
+
+    # Create shared infrastructure cluster for all remaining
+    if shared_infra_secondaries:
+        cluster_id = "shared_infrastructure_global_001"
+        for r in shared_infra_secondaries:
+            r["cluster_id"] = cluster_id
+        clusters.append({
+            "cluster_id": cluster_id,
+            "gcp_region": "global",
+            "primary_resources": [],
+            "secondary_resources": [r["address"] for r in shared_infra_secondaries],
+            "creation_order_depth": 0,
+        })
 
     # Sort clusters by creation_order_depth
     clusters.sort(key=lambda c: c["creation_order_depth"])
@@ -332,7 +368,7 @@ def cluster_terraform(
     _compute_depth(classified, computed_edges)
 
     # Cluster
-    clusters = _cluster(classified, computed_edges)
+    clusters = _cluster(classified, computed_edges, file_map=file_map)
     logger.info("  clusters: %d", len(clusters))
 
     summary = {
