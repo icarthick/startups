@@ -88,7 +88,7 @@ def phase_router(
         project_dir: Absolute path to the project root directory.
         skill: Skill name to load routes for (e.g., gcp-to-aws, heroku-to-aws).
     """
-    routes_key = f"orchestration/{skill}/routes"
+    routes_key = f"{skill}/routes"
     routes_config = _knowledge.get(routes_key)
     if not routes_config:
         return {"error": f"No routes.json found for skill '{skill}' (expected key: {routes_key})"}
@@ -111,7 +111,7 @@ def phase_advance(
         project_dir: Absolute path to the project root directory.
         skill: Skill name to load routes for.
     """
-    routes_key = f"orchestration/{skill}/routes"
+    routes_key = f"{skill}/routes"
     routes_config = _knowledge.get(routes_key)
     if not routes_config:
         return {"error": f"No routes.json found for skill '{skill}' (expected key: {routes_key})"}
@@ -136,7 +136,7 @@ def phase_reset(
         from_phase: Phase to reset from (e.g., "discover"). This phase becomes in_progress.
         skill: Skill name to load routes for.
     """
-    routes_key = f"orchestration/{skill}/routes"
+    routes_key = f"{skill}/routes"
     routes_config = _knowledge.get(routes_key)
     if not routes_config:
         return {"error": f"No routes.json found for skill '{skill}' (expected key: {routes_key})"}
