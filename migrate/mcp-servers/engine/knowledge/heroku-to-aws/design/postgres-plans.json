@@ -1,40 +1,166 @@
 {
   "description": "Heroku Postgres plan → RDS/Aurora instance class mapping",
   "plans": {
-    "essential-0": {"rds": "db.t4g.micro", "aurora": "db.t4g.medium", "storage_gb": 1, "ha": false, "pooling": false},
-    "essential-1": {"rds": "db.t4g.micro", "aurora": "db.t4g.medium", "storage_gb": 10, "ha": false, "pooling": false},
-    "essential-2": {"rds": "db.t4g.micro", "aurora": "db.t4g.medium", "storage_gb": 32, "ha": false, "pooling": false},
-    "hobby-dev": {"rds": "db.t4g.micro", "aurora": "db.t4g.medium", "storage_gb": 1, "ha": false, "pooling": false},
-    "hobby-basic": {"rds": "db.t4g.micro", "aurora": "db.t4g.medium", "storage_gb": 10, "ha": false, "pooling": false},
-    "standard-0": {"rds": "db.t4g.medium", "aurora": "db.t4g.medium", "storage_gb": 64, "ha": false, "pooling": true},
-    "standard-2": {"rds": "db.m6g.large", "aurora": "db.r6g.large", "storage_gb": 256, "ha": true, "pooling": true},
-    "standard-3": {"rds": "db.m6g.xlarge", "aurora": "db.r6g.xlarge", "storage_gb": 512, "ha": true, "pooling": true},
-    "standard-4": {"rds": "db.m6g.2xlarge", "aurora": "db.r6g.2xlarge", "storage_gb": 1024, "ha": true, "pooling": true},
-    "standard-5": {"rds": "db.m6g.4xlarge", "aurora": "db.r6g.4xlarge", "storage_gb": 1024, "ha": true, "pooling": true},
-    "standard-6": {"rds": "db.m6g.8xlarge", "aurora": "db.r6g.8xlarge", "storage_gb": 1536, "ha": true, "pooling": true},
-    "standard-7": {"rds": "db.m6g.16xlarge", "aurora": "db.r6g.16xlarge", "storage_gb": 2048, "ha": true, "pooling": true},
-    "premium-0": {"rds": "db.t4g.medium", "aurora": "db.t4g.medium", "storage_gb": 64, "ha": true, "pooling": true},
-    "premium-2": {"rds": "db.m6g.large", "aurora": "db.r6g.large", "storage_gb": 256, "ha": true, "pooling": true},
-    "premium-3": {"rds": "db.m6g.xlarge", "aurora": "db.r6g.xlarge", "storage_gb": 512, "ha": true, "pooling": true},
-    "premium-4": {"rds": "db.m6g.2xlarge", "aurora": "db.r6g.2xlarge", "storage_gb": 1024, "ha": true, "pooling": true},
-    "premium-5": {"rds": "db.m6g.4xlarge", "aurora": "db.r6g.4xlarge", "storage_gb": 1024, "ha": true, "pooling": true},
-    "premium-6": {"rds": "db.m6g.8xlarge", "aurora": "db.r6g.8xlarge", "storage_gb": 1536, "ha": true, "pooling": true},
-    "premium-7": {"rds": "db.m6g.16xlarge", "aurora": "db.r6g.16xlarge", "storage_gb": 2048, "ha": true, "pooling": true},
-    "premium-8": {"rds": "db.r6g.16xlarge", "aurora": "db.r6g.16xlarge", "storage_gb": 3072, "ha": true, "pooling": true},
-    "premium-9": {"rds": "db.x2g.16xlarge", "aurora": "db.r6g.16xlarge", "storage_gb": 4096, "ha": true, "pooling": true},
-    "private-0": {"rds": "db.t4g.medium", "aurora": "db.t4g.medium", "storage_gb": 64, "ha": true, "pooling": true},
-    "private-2": {"rds": "db.m6g.large", "aurora": "db.r6g.large", "storage_gb": 256, "ha": true, "pooling": true},
-    "private-3": {"rds": "db.m6g.xlarge", "aurora": "db.r6g.xlarge", "storage_gb": 512, "ha": true, "pooling": true},
-    "private-4": {"rds": "db.m6g.2xlarge", "aurora": "db.r6g.2xlarge", "storage_gb": 1024, "ha": true, "pooling": true},
-    "private-5": {"rds": "db.m6g.4xlarge", "aurora": "db.r6g.4xlarge", "storage_gb": 1024, "ha": true, "pooling": true},
-    "private-6": {"rds": "db.m6g.8xlarge", "aurora": "db.r6g.8xlarge", "storage_gb": 1536, "ha": true, "pooling": true},
-    "private-7": {"rds": "db.m6g.16xlarge", "aurora": "db.r6g.16xlarge", "storage_gb": 2048, "ha": true, "pooling": true},
-    "shield-0": {"rds": "db.t4g.medium", "aurora": "db.t4g.medium", "storage_gb": 64, "ha": true, "pooling": true},
-    "shield-2": {"rds": "db.m6g.large", "aurora": "db.r6g.large", "storage_gb": 256, "ha": true, "pooling": true},
-    "shield-3": {"rds": "db.m6g.xlarge", "aurora": "db.r6g.xlarge", "storage_gb": 512, "ha": true, "pooling": true},
-    "shield-4": {"rds": "db.m6g.2xlarge", "aurora": "db.r6g.2xlarge", "storage_gb": 1024, "ha": true, "pooling": true},
-    "shield-5": {"rds": "db.m6g.4xlarge", "aurora": "db.r6g.4xlarge", "storage_gb": 1024, "ha": true, "pooling": true},
-    "shield-6": {"rds": "db.m6g.8xlarge", "aurora": "db.r6g.8xlarge", "storage_gb": 1536, "ha": true, "pooling": true},
-    "shield-7": {"rds": "db.m6g.16xlarge", "aurora": "db.r6g.16xlarge", "storage_gb": 2048, "ha": true, "pooling": true}
+    "essential-0": { "rds": "db.t4g.micro", "aurora": "db.t4g.medium", "storage_gb": 1, "ha": false, "pooling": false },
+    "essential-1": {
+      "rds": "db.t4g.micro",
+      "aurora": "db.t4g.medium",
+      "storage_gb": 10,
+      "ha": false,
+      "pooling": false
+    },
+    "essential-2": {
+      "rds": "db.t4g.micro",
+      "aurora": "db.t4g.medium",
+      "storage_gb": 32,
+      "ha": false,
+      "pooling": false
+    },
+    "hobby-dev": { "rds": "db.t4g.micro", "aurora": "db.t4g.medium", "storage_gb": 1, "ha": false, "pooling": false },
+    "hobby-basic": {
+      "rds": "db.t4g.micro",
+      "aurora": "db.t4g.medium",
+      "storage_gb": 10,
+      "ha": false,
+      "pooling": false
+    },
+    "standard-0": { "rds": "db.t4g.medium", "aurora": "db.t4g.medium", "storage_gb": 64, "ha": false, "pooling": true },
+    "standard-2": { "rds": "db.m6g.large", "aurora": "db.r6g.large", "storage_gb": 256, "ha": true, "pooling": true },
+    "standard-3": { "rds": "db.m6g.xlarge", "aurora": "db.r6g.xlarge", "storage_gb": 512, "ha": true, "pooling": true },
+    "standard-4": {
+      "rds": "db.m6g.2xlarge",
+      "aurora": "db.r6g.2xlarge",
+      "storage_gb": 1024,
+      "ha": true,
+      "pooling": true
+    },
+    "standard-5": {
+      "rds": "db.m6g.4xlarge",
+      "aurora": "db.r6g.4xlarge",
+      "storage_gb": 1024,
+      "ha": true,
+      "pooling": true
+    },
+    "standard-6": {
+      "rds": "db.m6g.8xlarge",
+      "aurora": "db.r6g.8xlarge",
+      "storage_gb": 1536,
+      "ha": true,
+      "pooling": true
+    },
+    "standard-7": {
+      "rds": "db.m6g.16xlarge",
+      "aurora": "db.r6g.16xlarge",
+      "storage_gb": 2048,
+      "ha": true,
+      "pooling": true
+    },
+    "premium-0": { "rds": "db.t4g.medium", "aurora": "db.t4g.medium", "storage_gb": 64, "ha": true, "pooling": true },
+    "premium-2": { "rds": "db.m6g.large", "aurora": "db.r6g.large", "storage_gb": 256, "ha": true, "pooling": true },
+    "premium-3": { "rds": "db.m6g.xlarge", "aurora": "db.r6g.xlarge", "storage_gb": 512, "ha": true, "pooling": true },
+    "premium-4": {
+      "rds": "db.m6g.2xlarge",
+      "aurora": "db.r6g.2xlarge",
+      "storage_gb": 1024,
+      "ha": true,
+      "pooling": true
+    },
+    "premium-5": {
+      "rds": "db.m6g.4xlarge",
+      "aurora": "db.r6g.4xlarge",
+      "storage_gb": 1024,
+      "ha": true,
+      "pooling": true
+    },
+    "premium-6": {
+      "rds": "db.m6g.8xlarge",
+      "aurora": "db.r6g.8xlarge",
+      "storage_gb": 1536,
+      "ha": true,
+      "pooling": true
+    },
+    "premium-7": {
+      "rds": "db.m6g.16xlarge",
+      "aurora": "db.r6g.16xlarge",
+      "storage_gb": 2048,
+      "ha": true,
+      "pooling": true
+    },
+    "premium-8": {
+      "rds": "db.r6g.16xlarge",
+      "aurora": "db.r6g.16xlarge",
+      "storage_gb": 3072,
+      "ha": true,
+      "pooling": true
+    },
+    "premium-9": {
+      "rds": "db.x2g.16xlarge",
+      "aurora": "db.r6g.16xlarge",
+      "storage_gb": 4096,
+      "ha": true,
+      "pooling": true
+    },
+    "private-0": { "rds": "db.t4g.medium", "aurora": "db.t4g.medium", "storage_gb": 64, "ha": true, "pooling": true },
+    "private-2": { "rds": "db.m6g.large", "aurora": "db.r6g.large", "storage_gb": 256, "ha": true, "pooling": true },
+    "private-3": { "rds": "db.m6g.xlarge", "aurora": "db.r6g.xlarge", "storage_gb": 512, "ha": true, "pooling": true },
+    "private-4": {
+      "rds": "db.m6g.2xlarge",
+      "aurora": "db.r6g.2xlarge",
+      "storage_gb": 1024,
+      "ha": true,
+      "pooling": true
+    },
+    "private-5": {
+      "rds": "db.m6g.4xlarge",
+      "aurora": "db.r6g.4xlarge",
+      "storage_gb": 1024,
+      "ha": true,
+      "pooling": true
+    },
+    "private-6": {
+      "rds": "db.m6g.8xlarge",
+      "aurora": "db.r6g.8xlarge",
+      "storage_gb": 1536,
+      "ha": true,
+      "pooling": true
+    },
+    "private-7": {
+      "rds": "db.m6g.16xlarge",
+      "aurora": "db.r6g.16xlarge",
+      "storage_gb": 2048,
+      "ha": true,
+      "pooling": true
+    },
+    "shield-0": { "rds": "db.t4g.medium", "aurora": "db.t4g.medium", "storage_gb": 64, "ha": true, "pooling": true },
+    "shield-2": { "rds": "db.m6g.large", "aurora": "db.r6g.large", "storage_gb": 256, "ha": true, "pooling": true },
+    "shield-3": { "rds": "db.m6g.xlarge", "aurora": "db.r6g.xlarge", "storage_gb": 512, "ha": true, "pooling": true },
+    "shield-4": {
+      "rds": "db.m6g.2xlarge",
+      "aurora": "db.r6g.2xlarge",
+      "storage_gb": 1024,
+      "ha": true,
+      "pooling": true
+    },
+    "shield-5": {
+      "rds": "db.m6g.4xlarge",
+      "aurora": "db.r6g.4xlarge",
+      "storage_gb": 1024,
+      "ha": true,
+      "pooling": true
+    },
+    "shield-6": {
+      "rds": "db.m6g.8xlarge",
+      "aurora": "db.r6g.8xlarge",
+      "storage_gb": 1536,
+      "ha": true,
+      "pooling": true
+    },
+    "shield-7": {
+      "rds": "db.m6g.16xlarge",
+      "aurora": "db.r6g.16xlarge",
+      "storage_gb": 2048,
+      "ha": true,
+      "pooling": true
+    }
   }
 }

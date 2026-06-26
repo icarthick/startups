@@ -1,0 +1,15 @@
+# Bandit configuration scoped to the engine MCP server only.
+# Loaded explicitly via `bandit -c` in mise.toml and .github/workflows/security-scanners.yml,
+# so these skips apply only when scanning files under this package directory.
+# Python elsewhere in the repo is scanned separately with full strictness.
+#
+# Why each rule is skipped:
+#   B101 - pytest uses the assert statement as its assertion mechanism. The test
+#          suites (tests/*.py) are full of asserts; these are test assertions,
+#          not production guard logic that could be stripped under -O.
+#   B103 - generate/docs.py emits migration shell scripts (migrate-postgres.sh,
+#          migrate-redis.sh) and chmods them 0o755 so the user can run them.
+#          These are generated developer artifacts, not security-sensitive files.
+skips:
+  - B101
+  - B103

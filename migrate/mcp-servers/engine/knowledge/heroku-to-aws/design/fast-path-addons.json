@@ -1,19 +1,19 @@
 {
   "description": "Heroku add-on → AWS service fast-path mappings",
   "mappings": {
-    "papertrail": {"aws_services": ["CloudWatch Logs"], "type": "single"},
-    "sendgrid": {"aws_services": ["Amazon SES"], "type": "single"},
-    "heroku scheduler": {"aws_services": ["EventBridge Scheduler"], "type": "single"},
-    "memcachier": {"aws_services": ["ElastiCache Memcached"], "type": "single"},
-    "bucketeer": {"aws_services": ["S3"], "type": "single"},
-    "cloudamqp": {"aws_services": ["Amazon MQ"], "type": "single"},
-    "bonsai elasticsearch": {"aws_services": ["Amazon OpenSearch"], "type": "single"},
-    "scout apm": {"aws_services": ["CloudWatch", "X-Ray"], "type": "composite"},
-    "rollbar": {"aws_services": ["CloudWatch"], "type": "single"},
-    "new relic": {"aws_services": ["CloudWatch", "X-Ray"], "type": "composite"},
-    "twilio": {"aws_services": ["Amazon SNS"], "type": "single"},
-    "cloudinary": {"aws_services": ["S3", "CloudFront"], "type": "composite"},
-    "sentry": {"aws_services": ["CloudWatch"], "type": "single"}
+    "papertrail": { "aws_services": ["CloudWatch Logs"], "type": "single" },
+    "sendgrid": { "aws_services": ["Amazon SES"], "type": "single" },
+    "heroku scheduler": { "aws_services": ["EventBridge Scheduler"], "type": "single" },
+    "memcachier": { "aws_services": ["ElastiCache Memcached"], "type": "single" },
+    "bucketeer": { "aws_services": ["S3"], "type": "single" },
+    "cloudamqp": { "aws_services": ["Amazon MQ"], "type": "single" },
+    "bonsai elasticsearch": { "aws_services": ["Amazon OpenSearch"], "type": "single" },
+    "scout apm": { "aws_services": ["CloudWatch", "X-Ray"], "type": "composite" },
+    "rollbar": { "aws_services": ["CloudWatch"], "type": "single" },
+    "new relic": { "aws_services": ["CloudWatch", "X-Ray"], "type": "composite" },
+    "twilio": { "aws_services": ["Amazon SNS"], "type": "single" },
+    "cloudinary": { "aws_services": ["S3", "CloudFront"], "type": "composite" },
+    "sentry": { "aws_services": ["CloudWatch"], "type": "single" }
   },
   "prefix_aliases": {
     "bonsai": "bonsai elasticsearch",

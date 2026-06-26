@@ -14,6 +14,7 @@ heroku_discover_billing(project_dir=<project root>, migration_dir=$MIGRATION_DIR
 ```
 
 This tool:
+
 - Finds billing files (`*billing*.csv`, `*invoice*.csv`, `*billing*.json`, `*invoice*.json`)
 - Auto-detects format (Enterprise CSV, Dashboard invoice, API JSON)
 - Parses per-app cost breakdown (dyno, addon, platform categories)
@@ -30,6 +31,7 @@ Report to user: "Parsed billing data: $X/month across Y line items (format: [sou
 **This sub-file covers billing data parsing ONLY.**
 
 FORBIDDEN — Do NOT include ANY of:
+
 - AWS service names, recommendations, or equivalents
 - Cost estimates or projections for AWS
 - Cost comparisons between Heroku and AWS

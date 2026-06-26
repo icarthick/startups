@@ -14,6 +14,7 @@ heroku_design(migration_dir=$MIGRATION_DIR)
 ```
 
 This tool reads `heroku-resource-inventory.json` and `preferences.json`, then:
+
 - Maps formations → Fargate (dyno type table) + ALB for web processes
 - Maps heroku-postgresql → RDS/Aurora (postgres plan table + availability preference)
 - Maps heroku-redis → ElastiCache (redis plan table)
@@ -43,6 +44,7 @@ From the tool's summary, report:
 **This phase covers AWS architecture design ONLY.**
 
 FORBIDDEN — Do NOT include ANY of:
+
 - Cost estimates or pricing
 - Terraform code generation
 - Migration timelines or execution plans

@@ -1,0 +1,144 @@
+{
+  "description": "Heroku dyno type → EKS pod resource requests/limits + recommended EC2 node instance type. Consulted only when preferences.json → design_constraints.kubernetes.value is 'eks-managed' or 'eks-or-ecs'. Ported from PR #85 eks-mapping-table.md. CPU requests ≈ documented dyno CPU shares; memory requests = documented dyno memory; CPU limits = 2× requests (burst headroom); memory limits = requests (prevents OOM). RAM-optimized (*-l-ram) types use r6i nodes.",
+  "types": {
+    "standard-1x": {
+      "requests": { "cpu": "250m", "memory": "512Mi" },
+      "limits": { "cpu": "500m", "memory": "512Mi" },
+      "node_type": "m6i.large"
+    },
+    "standard-2x": {
+      "requests": { "cpu": "500m", "memory": "1024Mi" },
+      "limits": { "cpu": "1000m", "memory": "1024Mi" },
+      "node_type": "m6i.large"
+    },
+    "performance-m": {
+      "requests": { "cpu": "1000m", "memory": "2560Mi" },
+      "limits": { "cpu": "2000m", "memory": "2560Mi" },
+      "node_type": "m6i.xlarge"
+    },
+    "performance-l": {
+      "requests": { "cpu": "4000m", "memory": "14336Mi" },
+      "limits": { "cpu": "8000m", "memory": "14336Mi" },
+      "node_type": "m6i.4xlarge"
+    },
+    "performance-l-ram": {
+      "requests": { "cpu": "4000m", "memory": "30720Mi" },
+      "limits": { "cpu": "8000m", "memory": "30720Mi" },
+      "node_type": "r6i.4xlarge"
+    },
+    "performance-xl": {
+      "requests": { "cpu": "8000m", "memory": "63488Mi" },
+      "limits": { "cpu": "16000m", "memory": "63488Mi" },
+      "node_type": "m6i.8xlarge"
+    },
+    "performance-2xl": {
+      "requests": { "cpu": "16000m", "memory": "129024Mi" },
+      "limits": { "cpu": "32000m", "memory": "129024Mi" },
+      "node_type": "m6i.16xlarge"
+    },
+    "private-s": {
+      "requests": { "cpu": "500m", "memory": "1024Mi" },
+      "limits": { "cpu": "1000m", "memory": "1024Mi" },
+      "node_type": "m6i.large"
+    },
+    "private-m": {
+      "requests": { "cpu": "1000m", "memory": "2560Mi" },
+      "limits": { "cpu": "2000m", "memory": "2560Mi" },
+      "node_type": "m6i.xlarge"
+    },
+    "private-l": {
+      "requests": { "cpu": "4000m", "memory": "14336Mi" },
+      "limits": { "cpu": "8000m", "memory": "14336Mi" },
+      "node_type": "m6i.4xlarge"
+    },
+    "private-l-ram": {
+      "requests": { "cpu": "4000m", "memory": "30720Mi" },
+      "limits": { "cpu": "8000m", "memory": "30720Mi" },
+      "node_type": "r6i.4xlarge"
+    },
+    "private-xl": {
+      "requests": { "cpu": "8000m", "memory": "63488Mi" },
+      "limits": { "cpu": "16000m", "memory": "63488Mi" },
+      "node_type": "m6i.8xlarge"
+    },
+    "private-2xl": {
+      "requests": { "cpu": "16000m", "memory": "129024Mi" },
+      "limits": { "cpu": "32000m", "memory": "129024Mi" },
+      "node_type": "m6i.16xlarge"
+    },
+    "shield-s": {
+      "requests": { "cpu": "500m", "memory": "1024Mi" },
+      "limits": { "cpu": "1000m", "memory": "1024Mi" },
+      "node_type": "m6i.large"
+    },
+    "shield-m": {
+      "requests": { "cpu": "1000m", "memory": "2560Mi" },
+      "limits": { "cpu": "2000m", "memory": "2560Mi" },
+      "node_type": "m6i.xlarge"
+    },
+    "shield-l": {
+      "requests": { "cpu": "4000m", "memory": "14336Mi" },
+      "limits": { "cpu": "8000m", "memory": "14336Mi" },
+      "node_type": "m6i.4xlarge"
+    },
+    "shield-l-ram": {
+      "requests": { "cpu": "4000m", "memory": "30720Mi" },
+      "limits": { "cpu": "8000m", "memory": "30720Mi" },
+      "node_type": "r6i.4xlarge"
+    },
+    "shield-xl": {
+      "requests": { "cpu": "8000m", "memory": "63488Mi" },
+      "limits": { "cpu": "16000m", "memory": "63488Mi" },
+      "node_type": "m6i.8xlarge"
+    },
+    "shield-2xl": {
+      "requests": { "cpu": "16000m", "memory": "129024Mi" },
+      "limits": { "cpu": "32000m", "memory": "129024Mi" },
+      "node_type": "m6i.16xlarge"
+    }
+  },
+  "node_capacity": {
+    "description": "Allocatable capacity per recommended node type after ~500m CPU / 512Mi system overhead. Used for largest-pod-class-wins node sizing (fits ≥4 pods of the matched dyno class).",
+    "m6i.large": {
+      "vcpu_millicores": 2000,
+      "memory_mi": 8192,
+      "allocatable_cpu_millicores": 1500,
+      "allocatable_memory_mi": 7680
+    },
+    "m6i.xlarge": {
+      "vcpu_millicores": 4000,
+      "memory_mi": 16384,
+      "allocatable_cpu_millicores": 3500,
+      "allocatable_memory_mi": 15872
+    },
+    "m6i.4xlarge": {
+      "vcpu_millicores": 16000,
+      "memory_mi": 65536,
+      "allocatable_cpu_millicores": 15500,
+      "allocatable_memory_mi": 65024
+    },
+    "r6i.4xlarge": {
+      "vcpu_millicores": 16000,
+      "memory_mi": 131072,
+      "allocatable_cpu_millicores": 15500,
+      "allocatable_memory_mi": 130560
+    },
+    "m6i.8xlarge": {
+      "vcpu_millicores": 32000,
+      "memory_mi": 131072,
+      "allocatable_cpu_millicores": 31500,
+      "allocatable_memory_mi": 130560
+    },
+    "m6i.16xlarge": {
+      "vcpu_millicores": 64000,
+      "memory_mi": 262144,
+      "allocatable_cpu_millicores": 63500,
+      "allocatable_memory_mi": 261632
+    }
+  },
+  "system_overhead_per_node": { "cpu_millicores": 500, "memory_mi": 512 },
+  "matching_rules": {
+    "case_insensitive": true,
+    "on_unknown_type": "reject mapping with error naming the unsupported dyno type"
+  }
+}

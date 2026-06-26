@@ -14,6 +14,7 @@ heroku_generate_terraform(migration_dir=$MIGRATION_DIR)
 ```
 
 This tool reads `aws-design.json` and `preferences.json`, then:
+
 - Renders `main.tf` (provider config with default tags)
 - Renders `variables.tf` (region, project name, VPC CIDR)
 - Renders `vpc.tf` (new VPC with subnets or existing VPC reference)
@@ -31,6 +32,7 @@ All files use HCL templates from `knowledge/heroku-to-aws/templates/`.
 ## Step 2: Review Output
 
 Check the tool's return:
+
 - `files_written` — list of generated .tf files
 - If any expected file is missing (e.g., `database.tf` when postgres is in design), investigate
 
@@ -41,6 +43,7 @@ Verify no placeholder values remain: search `terraform/*.tf` for `__` (double un
 ## Scope Boundary
 
 FORBIDDEN — Do NOT:
+
 - Modify the design (Phase 3 is final)
 - Add resources not in `aws-design.json`
 - Generate cost estimates (Phase 4 did that)

@@ -132,3 +132,107 @@ class TestVpcDesign:
         design = json.loads((migration_dir / "aws-design.json").read_text())
         assert design["vpc_design"]["mode"] == "new_vpc"
         assert len(design["vpc_design"]["subnets"]) == 4
+
+
+class TestComputeMode:
+    def test_default_is_fargate(self, migration_dir, knowledge):
+        """No design_constraints -> Fargate path, no eks_cluster key."""
+        result = design_heroku_migration(str(migration_dir), knowledge)
+        design = json.loads((migration_dir / "aws-design.json").read_text())
+        assert result["summary"]["compute_mode"] == "fargate"
+        assert "eks_cluster" not in design
+        assert any(s["aws_service"] == "Fargate" for s in design["services"])
+
+    def test_explicit_fargate(self, tmp_path, knowledge):
+        inventory = {"resources": [{"resource_id": "formation:x:web", "resource_type": "formation", "heroku_app": "x", "config": {"process_type": "web", "dyno_type": "standard-2x", "quantity": 1}}], "apps": [], "metadata": {"discovery_sources": ["terraform"]}}
+        prefs = {"global": {}, "design_constraints": {"kubernetes": {"value": "ecs-fargate"}}}
+        (tmp_path / "heroku-resource-inventory.json").write_text(json.dumps(inventory))
+        (tmp_path / "preferences.json").write_text(json.dumps(prefs))
+        result = design_heroku_migration(str(tmp_path), knowledge)
+        assert result["summary"]["compute_mode"] == "fargate"
+
+
+class TestEksMapping:
+    @pytest.fixture
+    def eks_dir(self, tmp_path):
+        inventory = {
+            "resources": [
+                {"resource_id": "formation:web-app:web", "resource_type": "formation", "heroku_app": "web-app", "config": {"process_type": "web", "dyno_type": "standard-2x", "quantity": 3}},
+                {"resource_id": "formation:web-app:worker", "resource_type": "formation", "heroku_app": "web-app", "config": {"process_type": "worker", "dyno_type": "standard-1x", "quantity": 2}},
+                {"resource_id": "formation:api:web", "resource_type": "formation", "heroku_app": "api", "config": {"process_type": "web", "dyno_type": "performance-l", "quantity": 2}},
+                {"resource_id": "addon:web-app:heroku-postgresql:standard-0", "resource_type": "addon", "heroku_app": "web-app", "config": {"addon_service": "heroku-postgresql", "plan": "standard-0"}},
+            ],
+            "apps": [{"app_name": "web-app", "heroku_generation": "cedar"}, {"app_name": "api", "heroku_generation": "cedar"}],
+            "metadata": {"discovery_sources": ["terraform"]},
+        }
+        prefs = {"global": {"target_region": "us-east-1", "availability": "multi-az"}, "design_constraints": {"kubernetes": {"value": "eks-managed"}}}
+        (tmp_path / "heroku-resource-inventory.json").write_text(json.dumps(inventory))
+        (tmp_path / "preferences.json").write_text(json.dumps(prefs))
+        return tmp_path
+
+    def test_compute_mode_eks(self, eks_dir, knowledge):
+        result = design_heroku_migration(str(eks_dir), knowledge)
+        assert result["summary"]["compute_mode"] == "eks"
+
+    def test_all_formations_map_to_eks(self, eks_dir, knowledge):
+        design_heroku_migration(str(eks_dir), knowledge)
+        design = json.loads((eks_dir / "aws-design.json").read_text())
+        eks = [s for s in design["services"] if s["aws_service"] == "EKS"]
+        assert len(eks) == 3  # all 3 formations
+        assert not any(s["aws_service"] == "Fargate" for s in design["services"])  # all-or-nothing
+
+    def test_eks_pod_resources_from_table(self, eks_dir, knowledge):
+        design_heroku_migration(str(eks_dir), knowledge)
+        design = json.loads((eks_dir / "aws-design.json").read_text())
+        web = next(s for s in design["services"] if s["service_id"] == "eks:api:web")
+        res = web["aws_config"]["resources"]
+        assert res["requests"]["cpu"] == "4000m"  # performance-l
+        assert res["limits"]["cpu"] == "8000m"  # 2x
+        assert web["aws_config"]["replicas"] == 2
+        assert web["aws_config"]["load_balancer"] is True
+
+    def test_alb_for_eks_web_only(self, eks_dir, knowledge):
+        design_heroku_migration(str(eks_dir), knowledge)
+        design = json.loads((eks_dir / "aws-design.json").read_text())
+        albs = [s for s in design["services"] if s["aws_service"] == "ALB"]
+        assert len(albs) == 2  # web-app:web + api:web (not worker)
+
+    def test_eks_cluster_sizing(self, eks_dir, knowledge):
+        design_heroku_migration(str(eks_dir), knowledge)
+        design = json.loads((eks_dir / "aws-design.json").read_text())
+        cluster = design["eks_cluster"]
+        ng = cluster["node_groups"][0]
+        # total pods = 3+2+2 = 7 -> desired = ceil(7/4) = 2
+        assert ng["desired_size"] == 2
+        assert ng["min_size"] == 2
+        assert ng["max_size"] == 4
+        # largest dyno = performance-l -> m6i.4xlarge
+        assert ng["instance_types"] == ["m6i.4xlarge"]
+
+    def test_node_group_type_self_managed_for_eks_managed(self, eks_dir, knowledge):
+        design_heroku_migration(str(eks_dir), knowledge)
+        design = json.loads((eks_dir / "aws-design.json").read_text())
+        assert design["eks_cluster"]["node_group_type"] == "self-managed"
+
+    def test_node_group_type_managed_for_eks_or_ecs(self, eks_dir, knowledge):
+        prefs = json.loads((eks_dir / "preferences.json").read_text())
+        prefs["design_constraints"]["kubernetes"]["value"] = "eks-or-ecs"
+        (eks_dir / "preferences.json").write_text(json.dumps(prefs))
+        design_heroku_migration(str(eks_dir), knowledge)
+        design = json.loads((eks_dir / "aws-design.json").read_text())
+        assert design["eks_cluster"]["node_group_type"] == "managed"
+
+    def test_non_formation_resources_unchanged(self, eks_dir, knowledge):
+        design_heroku_migration(str(eks_dir), knowledge)
+        design = json.loads((eks_dir / "aws-design.json").read_text())
+        assert any(s["aws_service"] == "RDS PostgreSQL" for s in design["services"])
+
+    def test_unknown_dyno_rejected_in_eks(self, tmp_path, knowledge):
+        inventory = {"resources": [{"resource_id": "formation:x:web", "resource_type": "formation", "heroku_app": "x", "config": {"process_type": "web", "dyno_type": "mega-xl", "quantity": 1}}], "apps": [], "metadata": {"discovery_sources": ["terraform"]}}
+        prefs = {"global": {}, "design_constraints": {"kubernetes": {"value": "eks-managed"}}}
+        (tmp_path / "heroku-resource-inventory.json").write_text(json.dumps(inventory))
+        (tmp_path / "preferences.json").write_text(json.dumps(prefs))
+        design_heroku_migration(str(tmp_path), knowledge)
+        design = json.loads((tmp_path / "aws-design.json").read_text())
+        assert any("mega-xl" in w for w in design["warnings"])
+        assert "eks_cluster" not in design  # no formations mapped

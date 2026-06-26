@@ -63,9 +63,11 @@ If no Terraform files with `heroku_*` resources are found, stop and ask user to 
 Phase orchestration is managed by the `engine` MCP server. On each turn:
 
 1. **Check for existing runs:**
+
    ```
    migration_status(project_dir=<project root>)
    ```
+
    **If runs exist** (one or more), present options to the user:
    - `[A] Resume` — Continue the most recent run from its current phase
    - `[B] Start fresh` — Create a new migration run
@@ -76,24 +78,31 @@ Phase orchestration is managed by the `engine` MCP server. On each turn:
    **If no runs exist**, proceed to step 2.
 
 2. **Initialize (if no run exists):**
+
    ```
    migration_init(project_dir=<project root>, skill="heroku-to-aws")
    ```
+
    This creates `.migration/[MMDD-HHMM]/` with `.gitignore` and initial `.phase-status.json`.
 
 3. **Route the current phase:**
+
    ```
    phase_router(migration_dir=$MIGRATION_DIR, project_dir=<project root>, skill="heroku-to-aws")
    ```
+
    Returns the list of reference files to load for the current phase. Load and follow each file.
 
 4. **Advance after phase work completes:**
+
    ```
    phase_advance(migration_dir=$MIGRATION_DIR, project_dir=<project root>, skill="heroku-to-aws")
    ```
+
    Validates that required artifacts exist (gate check). If gate passes, advances to next phase. If gate fails, reports missing artifacts — do not proceed.
 
 5. **Reset (if user wants to re-run a phase):**
+
    ```
    phase_reset(migration_dir=$MIGRATION_DIR, from_phase=<phase>, skill="heroku-to-aws")
    ```
@@ -120,14 +129,14 @@ The `.migration/` directory is automatically protected by a `.gitignore` file cr
 
 ## Phase Summary Table
 
-| Phase        | Inputs                                                                                           | Outputs                                                                                          | Routed via `phase_router`                           |
-| ------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | --------------------------------------------------- |
-| **Discover** | Terraform files with `heroku_*` resources, Procfile, app.json, and/or billing exports            | `heroku-resource-inventory.json`                                                                 | `discover-terraform.md`, `discover-billing.md`, `discover-assemble.md` |
-| **Clarify**  | `heroku-resource-inventory.json`                                                                 | `preferences.json`                                                                               | `clarify.md`                                        |
-| **Design**   | `heroku-resource-inventory.json`, `preferences.json`                                             | `aws-design.json`                                                                                | `design.md`                                         |
-| **Estimate** | `aws-design.json`, `preferences.json`, optional billing profile                                  | `estimation-infra.json`                                                                          | `estimate.md`                                       |
-| **Generate** | `aws-design.json`, `estimation-infra.json`, `preferences.json`, `heroku-resource-inventory.json` | `terraform/`, `MIGRATION_GUIDE.md`, `README.md`, scripts                                         | `generate-terraform.md`, `generate-docs.md`, `generate-validate.md` |
-| **Feedback** | All existing migration artifacts                                                                 | `feedback.json`                                                                                  | `feedback.md`                                       |
+| Phase        | Inputs                                                                                           | Outputs                                                  | Routed via `phase_router`                                              |
+| ------------ | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------- | ---------------------------------------------------------------------- |
+| **Discover** | Terraform files with `heroku_*` resources, Procfile, app.json, and/or billing exports            | `heroku-resource-inventory.json`                         | `discover-terraform.md`, `discover-billing.md`, `discover-assemble.md` |
+| **Clarify**  | `heroku-resource-inventory.json`                                                                 | `preferences.json`                                       | `clarify.md`                                                           |
+| **Design**   | `heroku-resource-inventory.json`, `preferences.json`                                             | `aws-design.json`                                        | `design.md`                                                            |
+| **Estimate** | `aws-design.json`, `preferences.json`, optional billing profile                                  | `estimation-infra.json`                                  | `estimate.md`                                                          |
+| **Generate** | `aws-design.json`, `estimation-infra.json`, `preferences.json`, `heroku-resource-inventory.json` | `terraform/`, `MIGRATION_GUIDE.md`, `README.md`, scripts | `generate-terraform.md`, `generate-docs.md`, `generate-validate.md`    |
+| **Feedback** | All existing migration artifacts                                                                 | `feedback.json`                                          | `feedback.md`                                                          |
 
 ---
 
@@ -184,7 +193,7 @@ heroku-to-aws/
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | No Terraform files with `heroku_*` resources found       | Stop. Output: "No Terraform files with heroku_* resources found. Heroku Terraform is required for discovery. Procfile and app.json alone are not sufficient." |
 | `.phase-status.json` missing phase gate                  | Stop. Output: "Cannot enter Phase X: Phase Y-1 not completed. Start from Phase Y or resume Phase Y-1."                                                        |
-| awspricing unavailable after 3 attempts                  | Display user warning about ±5-10% accuracy. Use cached pricing from engine tool. Add `pricing_source: "cached_fallback"` to `estimation-infra.json`.                       |
+| awspricing unavailable after 3 attempts                  | Display user warning about ±5-10% accuracy. Use cached pricing from engine tool. Add `pricing_source: "cached_fallback"` to `estimation-infra.json`.          |
 | User skips questions or says "use defaults for the rest" | Apply documented defaults for remaining questions. Phase 2 completes either way.                                                                              |
 | Dyno type not in Dyno Type Table                         | Reject mapping for that formation. Output: "Unsupported dyno type: {type}. Cannot map to Fargate."                                                            |
 | Add-on not in Fast-Path Table                            | Mark as "Deferred — specialist engagement". No automated mapping produced.                                                                                    |

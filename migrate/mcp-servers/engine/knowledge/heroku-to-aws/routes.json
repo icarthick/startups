@@ -7,19 +7,19 @@
       "routes": [
         {
           "id": "terraform",
-          "trigger": {"glob": ["**/*.tf", "**/*.tfvars"]},
+          "trigger": { "glob": ["**/*.tf", "**/*.tfvars"] },
           "file": "references/phases/discover/discover-terraform.md",
           "produces": ["_terraform-discovery.json"]
         },
         {
           "id": "billing",
-          "trigger": {"glob": ["**/*billing*.csv", "**/*billing*.json", "**/*cost*.csv", "**/*invoice*.csv"]},
+          "trigger": { "glob": ["**/*billing*.csv", "**/*billing*.json", "**/*cost*.csv", "**/*invoice*.csv"] },
           "file": "references/phases/discover/discover-billing.md",
           "produces": ["_billing-discovery.json"]
         },
         {
           "id": "assemble",
-          "trigger": {"always": true},
+          "trigger": { "always": true },
           "file": "references/phases/discover/discover-assemble.md",
           "produces": ["heroku-resource-inventory.json"]
         }
@@ -30,7 +30,7 @@
       "routes": [
         {
           "id": "clarify",
-          "trigger": {"always": true},
+          "trigger": { "always": true },
           "file": "references/phases/clarify/clarify.md",
           "produces": ["preferences.json"]
         }
@@ -41,7 +41,7 @@
       "routes": [
         {
           "id": "design",
-          "trigger": {"artifact_exists": ["heroku-resource-inventory.json"]},
+          "trigger": { "artifact_exists": ["heroku-resource-inventory.json"] },
           "file": "references/phases/design/design.md",
           "produces": ["aws-design.json"]
         }
@@ -52,7 +52,7 @@
       "routes": [
         {
           "id": "estimate",
-          "trigger": {"artifact_exists": ["aws-design.json"]},
+          "trigger": { "artifact_exists": ["aws-design.json"] },
           "file": "references/phases/estimate/estimate.md",
           "produces": ["estimation-infra.json"]
         }
@@ -63,19 +63,19 @@
       "routes": [
         {
           "id": "terraform",
-          "trigger": {"artifact_exists": ["aws-design.json"]},
+          "trigger": { "artifact_exists": ["aws-design.json"] },
           "file": "references/phases/generate/generate-terraform.md",
           "produces": ["terraform/"]
         },
         {
           "id": "docs",
-          "trigger": {"artifact_exists": ["aws-design.json"]},
+          "trigger": { "artifact_exists": ["aws-design.json"] },
           "file": "references/phases/generate/generate-docs.md",
           "produces": ["MIGRATION_GUIDE.md"]
         },
         {
           "id": "validate",
-          "trigger": {"always": true},
+          "trigger": { "always": true },
           "file": "references/phases/generate/generate-validate.md",
           "produces": []
         }
@@ -86,7 +86,7 @@
       "routes": [
         {
           "id": "feedback",
-          "trigger": {"always": true},
+          "trigger": { "always": true },
           "file": "references/phases/feedback/feedback.md",
           "produces": []
         }

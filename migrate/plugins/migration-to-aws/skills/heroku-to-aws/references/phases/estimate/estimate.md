@@ -14,6 +14,7 @@ heroku_estimate(migration_dir=$MIGRATION_DIR)
 ```
 
 This tool reads `aws-design.json`, `preferences.json`, and `heroku-resource-inventory.json`, then:
+
 - Calculates per-service monthly cost using cached AWS pricing
 - Generates 3 tiers: Premium (1.3x), Balanced (baseline), Optimized (0.7x)
 - Computes observability costs (CloudWatch logs, metrics, alarms)
@@ -30,6 +31,7 @@ This tool reads `aws-design.json`, `preferences.json`, and `heroku-resource-inve
 If the tool returns `unpriced_services` (non-empty list), those services had no cached pricing.
 
 For each unpriced service, call the `awspricing` MCP server:
+
 ```
 get_pricing(service_code=<service>, filters=[...])
 ```
@@ -55,6 +57,7 @@ Present the estimate summary:
 **This phase covers cost estimation ONLY.**
 
 FORBIDDEN — Do NOT include ANY of:
+
 - Terraform code generation
 - Migration execution plans or runbooks
 - Architecture changes (design is locked)

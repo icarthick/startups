@@ -34,7 +34,121 @@ def _detect_services(design: dict) -> dict:
         "has_kafka": "Amazon MSK" in aws_types,
         "has_fargate": "Fargate" in aws_types,
         "has_alb": "ALB" in aws_types,
+        "has_eks": "EKS" in aws_types or bool(design.get("eks_cluster")),
     }
+
+
+def _build_k8s_manifests(design: dict) -> dict[str, str]:
+    """Build Kubernetes manifests for EKS formations. Returns {relative_path: content}.
+
+    One namespace.yaml per unique app, one Deployment per EKS service, one
+    LoadBalancer Service per web process.
+    """
+    eks_services = [s for s in design.get("services", []) if s.get("aws_service") == "EKS"]
+    if not eks_services:
+        return {}
+
+    manifests: dict[str, str] = {}
+    apps = sorted({s.get("heroku_app", "app") for s in eks_services})
+
+    for app in apps:
+        manifests[f"kubernetes/{app}-namespace.yaml"] = (
+            "apiVersion: v1\n"
+            "kind: Namespace\n"
+            "metadata:\n"
+            f"  name: {app}\n"
+            "  labels:\n"
+            "    app.kubernetes.io/managed-by: heroku-migration\n"
+        )
+
+    for svc in eks_services:
+        cfg = svc.get("aws_config", {})
+        app = svc.get("heroku_app", "app")
+        proc = cfg.get("deployment_name", cfg.get("process_type", "web"))
+        replicas = cfg.get("replicas", 1)
+        req = cfg.get("resources", {}).get("requests", {"cpu": "250m", "memory": "512Mi"})
+        lim = cfg.get("resources", {}).get("limits", {"cpu": "500m", "memory": "512Mi"})
+        image = cfg.get("container_image", f"placeholder:{app}-{proc}")
+        is_web = cfg.get("process_type") == "web" or proc == "web"
+
+        ports_block = ""
+        if is_web:
+            ports_block = (
+                "        ports:\n"
+                "        - containerPort: 8080  # Matches PORT env var; web processes only\n"
+            )
+
+        deployment = (
+            "apiVersion: apps/v1\n"
+            "kind: Deployment\n"
+            "metadata:\n"
+            f"  name: {proc}\n"
+            f"  namespace: {app}\n"
+            "  labels:\n"
+            f"    app: {proc}\n"
+            f"    app.kubernetes.io/name: {proc}\n"
+            f"    app.kubernetes.io/part-of: {app}\n"
+            "spec:\n"
+            f"  replicas: {replicas}\n"
+            "  selector:\n"
+            "    matchLabels:\n"
+            f"      app: {proc}\n"
+            "  template:\n"
+            "    metadata:\n"
+            "      labels:\n"
+            f"        app: {proc}\n"
+            "    spec:\n"
+            "      containers:\n"
+            f"      - name: {proc}\n"
+            f"        image: {image}\n"
+            "        resources:\n"
+            "          requests:\n"
+            f'            cpu: "{req.get("cpu", "250m")}"\n'
+            f'            memory: "{req.get("memory", "512Mi")}"\n'
+            "          limits:\n"
+            f'            cpu: "{lim.get("cpu", "500m")}"\n'
+            f'            memory: "{lim.get("memory", "512Mi")}"\n'
+            "        env:\n"
+            "        - name: PORT\n"
+            '          value: "8080"  # Heroku injects $PORT; 8080 is the default here.\n'
+            "        - name: DATABASE_URL\n"
+            "          valueFrom:\n"
+            "            secretKeyRef:\n"
+            f"              name: {app}-config\n"
+            "              key: DATABASE_URL\n"
+            "              optional: true\n"
+            "        - name: REDIS_URL\n"
+            "          valueFrom:\n"
+            "            secretKeyRef:\n"
+            f"              name: {app}-config\n"
+            "              key: REDIS_URL\n"
+            "              optional: true\n"
+            + ports_block
+        )
+        manifests[f"kubernetes/{app}-{proc}-deployment.yaml"] = deployment
+
+        if is_web:
+            manifests[f"kubernetes/{app}-{proc}-service.yaml"] = (
+                "apiVersion: v1\n"
+                "kind: Service\n"
+                "metadata:\n"
+                f"  name: {proc}\n"
+                f"  namespace: {app}\n"
+                "  annotations:\n"
+                '    service.beta.kubernetes.io/aws-load-balancer-type: "external"\n'
+                '    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"\n'
+                '    service.beta.kubernetes.io/aws-load-balancer-target-type: "ip"\n'
+                "spec:\n"
+                "  type: LoadBalancer\n"
+                "  selector:\n"
+                f"    app: {proc}\n"
+                "  ports:\n"
+                "  - port: 80\n"
+                "    targetPort: 8080\n"
+                "    protocol: TCP\n"
+            )
+
+    return manifests
 
 
 def _build_migration_guide(design: dict, preferences: dict, inventory: dict, svc_flags: dict) -> str:
@@ -154,29 +268,99 @@ def _build_migration_guide(design: dict, preferences: dict, inventory: dict, svc
             ])
 
     # Phase 3: Application Deployment
+    if svc_flags["has_eks"]:
+        eks_cluster = design.get("eks_cluster", {})
+        cluster_name = eks_cluster.get("cluster_name", "heroku-migration-cluster")
+        lines.extend([
+            "## Phase 3: Application Deployment",
+            "",
+            "### EKS Cluster Setup",
+            "",
+            "1. Apply EKS Terraform (included in Phase 1 `terraform apply`).",
+            "2. Configure kubectl access:",
+            "```bash",
+            f"aws eks update-kubeconfig --name {cluster_name} --region {region}",
+            "```",
+            "3. Verify node group readiness:",
+            "```bash",
+            "kubectl get nodes  # All nodes should show STATUS: Ready",
+            "```",
+            "4. Verify AWS Load Balancer Controller:",
+            "```bash",
+            "kubectl get deployment -n kube-system aws-load-balancer-controller",
+            "```",
+            "",
+            "### Build and Push Container Images",
+            "",
+            "```bash",
+            f"aws ecr get-login-password --region {region} | docker login --username AWS --password-stdin {{{{AWS_ACCOUNT_ID}}}}.dkr.ecr.{region}.amazonaws.com",
+            "docker build -t {{AWS_ACCOUNT_ID}}.dkr.ecr." + region + ".amazonaws.com/{{app_name}}:latest .",
+            "docker push {{AWS_ACCOUNT_ID}}.dkr.ecr." + region + ".amazonaws.com/{{app_name}}:latest",
+            "```",
+            "",
+            "> Update the `image:` field in each `kubernetes/*-deployment.yaml` to the pushed ECR image.",
+            "",
+            "### Deploy Workloads to EKS",
+            "",
+            "```bash",
+            "kubectl apply -f kubernetes/  # namespaces, deployments, services",
+            "kubectl get pods --all-namespaces   # all pods should reach STATUS: Running",
+            "kubectl get svc --all-namespaces    # web services get an EXTERNAL-IP in 2-5 min",
+            "```",
+            "",
+            "> **Recommended next steps (not auto-generated):**",
+            ">",
+            "> - Add **liveness and readiness probes** to each Deployment. Heroku health-checks",
+            ">   automatically; Kubernetes needs explicit probes for reliable restarts/routing.",
+            "> - Consider a **Horizontal Pod Autoscaler (HPA)**. Manifests use fixed `replicas`",
+            ">   matching your Heroku formation; HPA enables traffic-driven scaling.",
+            "> - Review **resource limits** — limits allow 2x CPU bursting. Tune after observing prod usage.",
+            "",
+        ])
+        if svc_flags["has_postgres"] or svc_flags["has_redis"] or svc_flags["has_kafka"]:
+            lines.extend([
+                "### Configure Pod-to-Service Access",
+                "",
+                "Data stores coexist with EKS. Wire pods to them via Kubernetes Secrets and IRSA:",
+                "",
+                "```bash",
+                "# Store connection strings as a Secret (per app namespace):",
+                "kubectl create secret generic <app>-config -n <app> \\",
+                "  --from-literal=DATABASE_URL='postgres://user:pass@<rds-endpoint>:5432/db' \\",
+                "  --from-literal=REDIS_URL='redis://<elasticache-endpoint>:6379'",
+                "```",
+                "",
+                "Security group rules for pod-to-store access (ports 5432/6379/9092) are created by",
+                "Terraform on the self-managed node path. On the managed node-group path, add ingress",
+                "from the EKS-managed node security group to each data-store security group.",
+                "",
+            ])
+    else:
+        lines.extend([
+            "## Phase 3: Application Deployment",
+            "",
+            "### Build and Push Container Image",
+            "",
+            "```bash",
+            "# Build container image",
+            "docker build -t {{AWS_ACCOUNT_ID}}.dkr.ecr.{}.amazonaws.com/{{app_name}}:latest .".format(region),
+            "",
+            "# Authenticate to ECR",
+            f"aws ecr get-login-password --region {region} | docker login --username AWS --password-stdin {{{{AWS_ACCOUNT_ID}}}}.dkr.ecr.{region}.amazonaws.com",
+            "",
+            "# Push image",
+            "docker push {{AWS_ACCOUNT_ID}}.dkr.ecr.{}.amazonaws.com/{{app_name}}:latest".format(region),
+            "```",
+            "",
+            "### Deploy to Fargate",
+            "",
+            "```bash",
+            "# Update ECS service with new task definition",
+            "aws ecs update-service --cluster $(terraform output -raw ecs_cluster_name) --service {{app_name}}-web --force-new-deployment",
+            "```",
+            "",
+        ])
     lines.extend([
-        "## Phase 3: Application Deployment",
-        "",
-        "### Build and Push Container Image",
-        "",
-        "```bash",
-        "# Build container image",
-        "docker build -t {{AWS_ACCOUNT_ID}}.dkr.ecr.{}.amazonaws.com/{{app_name}}:latest .".format(region),
-        "",
-        "# Authenticate to ECR",
-        f"aws ecr get-login-password --region {region} | docker login --username AWS --password-stdin {{{{AWS_ACCOUNT_ID}}}}.dkr.ecr.{region}.amazonaws.com",
-        "",
-        "# Push image",
-        "docker push {{AWS_ACCOUNT_ID}}.dkr.ecr.{}.amazonaws.com/{{app_name}}:latest".format(region),
-        "```",
-        "",
-        "### Deploy to Fargate",
-        "",
-        "```bash",
-        "# Update ECS service with new task definition",
-        "aws ecs update-service --cluster $(terraform output -raw ecs_cluster_name) --service {{app_name}}-web --force-new-deployment",
-        "```",
-        "",
         "## Phase 4: Verification",
         "",
         "- [ ] ALB health check passing",
@@ -238,6 +422,9 @@ def _build_readme(design: dict, migration_dir: Path, svc_flags: dict) -> str:
 
     if svc_flags["has_fargate"]:
         lines.append("| `terraform/compute.tf` | ECS cluster, task definitions, services, ALBs |")
+    if svc_flags["has_eks"]:
+        lines.append("| `terraform/eks.tf` | EKS cluster, node group, IAM, OIDC, LB controller |")
+        lines.append("| `kubernetes/` | K8s manifests: namespaces, Deployments, LoadBalancer Services |")
     if svc_flags["has_postgres"]:
         lines.append("| `terraform/database.tf` | RDS/Aurora PostgreSQL |")
     if svc_flags["has_redis"]:
@@ -420,6 +607,15 @@ def generate_docs(migration_dir: str, knowledge: dict) -> dict[str, Any]:
         redis_path.write_text(redis_script)
         os.chmod(redis_path, 0o755)
         files_written.append("scripts/migrate-redis.sh")
+
+    # Kubernetes manifests (EKS designs only)
+    k8s_manifests = _build_k8s_manifests(design)
+    if k8s_manifests:
+        k8s_dir = mdir / "kubernetes"
+        k8s_dir.mkdir(exist_ok=True)
+        for rel_path, content in k8s_manifests.items():
+            (mdir / rel_path).write_text(content)
+            files_written.append(rel_path)
 
     logger.info("Generated %d doc/script files in %s", len(files_written), mdir)
 

@@ -14,6 +14,7 @@ heroku_discover_assemble(migration_dir=$MIGRATION_DIR)
 ```
 
 This tool:
+
 - Reads `_terraform-discovery.json` and `_billing-discovery.json` from `$MIGRATION_DIR`
 - Merges resources, apps, metadata, terraform_metadata, and billing_profile
 - Validates required fields and checks for forbidden clustering fields

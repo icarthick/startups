@@ -14,6 +14,7 @@ heroku_discover_terraform(project_dir=<project root>, migration_dir=$MIGRATION_D
 ```
 
 This tool:
+
 - Finds all `.tf` files and extracts `heroku_*` resource blocks
 - Resolves cross-references (e.g., `heroku_app.web.id` → app name)
 - Parses Procfile (supplements formations with commands)
@@ -44,6 +45,7 @@ If no gaps (`unresolved_references` is empty and `parse_warnings` is 0), no acti
 **This phase covers Heroku Discovery ONLY.**
 
 FORBIDDEN — Do NOT include ANY of:
+
 - AWS service names, recommendations, or equivalents
 - Migration strategies or timelines
 - Cost estimates or comparisons

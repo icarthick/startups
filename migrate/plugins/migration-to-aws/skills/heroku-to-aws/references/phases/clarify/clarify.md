@@ -132,7 +132,7 @@ Before generating questions, scan the inventory to determine which questions app
 
 ### Batch Planning
 
-After determining active questions, organize into **three batches** (≤5 each):
+After determining active questions, organize into **three batches** (≤7 each):
 
 | Batch | Name                      | Questions            | Content                                                                                                     |
 | ----- | ------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------- |

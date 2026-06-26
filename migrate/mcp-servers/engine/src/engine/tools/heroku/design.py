@@ -7,6 +7,7 @@ fast-path addons), generates VPC design, and writes aws-design.json.
 
 import json
 import logging
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -47,6 +48,85 @@ def _make_service(service_id: str, aws_service: str, app: str, rid: str, target_
 def _make_deferred(addon_name: str, plan: str, provider: str, reason: str) -> dict:
     """Build a standard deferred entry."""
     return {"addon_name": addon_name, "addon_plan": plan, "provider": provider, "reason": reason, "recommendation": "Engage AWS account team"}
+
+
+# --- EKS Helpers ---
+
+# Default EKS Kubernetes version. PR #85 says "query latest stable via aws eks
+# describe-addon-versions"; the engine cannot make AWS calls at design time, so we
+# default to a known-stable floor and document it. Bump as EKS deprecates versions.
+DEFAULT_EKS_K8S_VERSION = "1.31"
+EKS_ADDONS = ["vpc-cni", "coredns", "kube-proxy", "aws-load-balancer-controller"]
+
+
+def _cpu_millicores(cpu_str: str) -> int:
+    """Parse a millicore CPU string (e.g. '4000m') to an int. Bare cores ('2') -> 2000."""
+    s = str(cpu_str).strip()
+    if s.endswith("m"):
+        return int(s[:-1])
+    return int(float(s) * 1000)
+
+
+def _mem_mi(mem_str: str) -> int:
+    """Parse a Mi memory string (e.g. '14336Mi') to an int."""
+    return int(str(mem_str).strip().rstrip("Mi"))
+
+
+def _make_eks_service(app: str, process_type: str, rid: str, target_region: str, quantity: int, sizing: dict, node_group_type: str) -> dict:
+    """Build an EKS Deployment service entry from an eks-mapping table row."""
+    return _make_service(
+        f"eks:{app}:{process_type}", "EKS", app, rid, target_region,
+        {
+            "cluster_name": "heroku-migration-cluster",
+            "namespace": app,
+            "deployment_name": process_type,
+            "replicas": quantity,
+            "container_image": f"placeholder:{app}-{process_type}",
+            "process_type": process_type,
+            "resources": {"requests": dict(sizing["requests"]), "limits": dict(sizing["limits"])},
+            "load_balancer": process_type == "web",
+            "node_group_type": node_group_type,
+        },
+    )
+
+
+def _build_eks_cluster(formations: list[dict], eks_map: dict, kube_pref: str) -> dict:
+    """Build the single eks_cluster entry: node sizing via largest-pod-class-wins.
+
+    Args:
+        formations: list of {"dyno": <type>, "quantity": <int>} for mapped formations.
+        eks_map: the heroku-to-aws/design/eks-mapping knowledge dict.
+        kube_pref: "eks-managed" or "eks-or-ecs".
+    """
+    types = eks_map.get("types", {})
+    # self-managed for eks-managed (more control); managed for eks-or-ecs (less burden)
+    node_group_type = "self-managed" if kube_pref == "eks-managed" else "managed"
+
+    # Largest-pod-class-wins: rank present dyno types by request CPU, then memory.
+    present = [f["dyno"] for f in formations if f["dyno"] in types]
+    largest = max(
+        present,
+        key=lambda d: (_cpu_millicores(types[d]["requests"]["cpu"]), _mem_mi(types[d]["requests"]["memory"])),
+    )
+    instance_type = types[largest]["node_type"]
+
+    total_pods = sum(f["quantity"] for f in formations)
+    desired = max(1, math.ceil(total_pods / 4))
+    return {
+        "cluster_name": "heroku-migration-cluster",
+        "kubernetes_version": DEFAULT_EKS_K8S_VERSION,
+        "node_group_type": node_group_type,
+        "node_groups": [
+            {
+                "name": "general",
+                "instance_types": [instance_type],
+                "min_size": 2,
+                "max_size": desired + 2,
+                "desired_size": desired,
+            }
+        ],
+        "addons": list(EKS_ADDONS),
+    }
 
 
 # --- Addon Mappers ---
@@ -142,12 +222,21 @@ def design_heroku_migration(migration_dir: str, knowledge: dict) -> dict[str, An
 
     # Load knowledge
     dyno_types = knowledge.get("heroku-to-aws/design/dyno-types", {}).get("types", {})
+    eks_map = knowledge.get("heroku-to-aws/design/eks-mapping", {})
     target_region = preferences.get("global", {}).get("target_region", "us-east-1")
+
+    # Compute orchestration mode (all-or-nothing for formations). Derived purely from
+    # design_constraints.kubernetes — Fir intent never flips this, so the #85 Fir-precedence
+    # rule (global kube pref wins over Fir intent for non-Fir formations) holds structurally.
+    kube_pref = preferences.get("design_constraints", {}).get("kubernetes", {}).get("value", "ecs-fargate")
+    eks_mode = kube_pref in ("eks-managed", "eks-or-ecs")
+    eks_node_group_type = "self-managed" if kube_pref == "eks-managed" else "managed"
 
     services = []
     deferred = []
     warnings = []
     spaces = []
+    eks_formations = []  # collected when eks_mode, for post-loop cluster sizing
 
     for res in inventory.get("resources", []):
         rtype = res.get("resource_type")
@@ -157,12 +246,27 @@ def design_heroku_migration(migration_dir: str, knowledge: dict) -> dict[str, An
 
         if rtype == "formation":
             dyno = config.get("dyno_type", "").lower()
+            process_type = config.get("process_type", "web")
+            quantity = max(0, min(config.get("quantity", 1), 100))
+
+            if eks_mode:
+                sizing = eks_map.get("types", {}).get(dyno)
+                if not sizing:
+                    warnings.append(f"Unsupported dyno type: '{dyno}'. Cannot map to EKS.")
+                    continue
+                services.append(_make_eks_service(app, process_type, rid, target_region, quantity, sizing, eks_node_group_type))
+                eks_formations.append({"dyno": dyno, "quantity": quantity})
+                if process_type == "web":
+                    services.append(_make_service(
+                        f"alb:{app}:{process_type}", "ALB", app, rid, target_region,
+                        {"scheme": "internet-facing", "target_group": f"eks:{app}:{process_type}"},
+                    ))
+                continue
+
             sizing = dyno_types.get(dyno)
             if not sizing:
                 warnings.append(f"Unsupported dyno type: '{dyno}'. Cannot map to Fargate.")
                 continue
-            process_type = config.get("process_type", "web")
-            quantity = max(0, min(config.get("quantity", 1), 100))
             services.append(_make_service(
                 f"fargate:{app}:{process_type}", "Fargate", app, rid, target_region,
                 {"task_cpu": sizing["cpu"], "task_memory": sizing["memory"], "desired_count": quantity, "process_type": process_type, "load_balancer": process_type == "web"},
@@ -221,6 +325,11 @@ def design_heroku_migration(migration_dir: str, knowledge: dict) -> dict[str, An
     if fir_apps:
         warnings.append(f"Fir-generation workloads deferred: {', '.join(fir_apps)}")
 
+    # EKS cluster (single, sized from all formations) — only in EKS mode with mapped formations
+    eks_cluster = None
+    if eks_mode and eks_formations:
+        eks_cluster = _build_eks_cluster(eks_formations, eks_map, kube_pref)
+
     # Assemble output
     unique_apps = {s["heroku_app"] for s in services if s["heroku_app"] != "unknown"}
     design = {
@@ -238,6 +347,8 @@ def design_heroku_migration(migration_dir: str, knowledge: dict) -> dict[str, An
         "warnings": warnings,
         "vpc_design": vpc_design,
     }
+    if eks_cluster:
+        design["eks_cluster"] = eks_cluster
 
     out_path = mdir / "aws-design.json"
     with open(out_path, "w") as f:
@@ -253,5 +364,7 @@ def design_heroku_migration(migration_dir: str, knowledge: dict) -> dict[str, An
             "deferred_count": len(deferred),
             "warnings_count": len(warnings),
             "vpc_mode": vpc_design["mode"],
+            "compute_mode": "eks" if eks_mode else "fargate",
+            "eks_cluster": eks_cluster["node_groups"][0] if eks_cluster else None,
         },
     }

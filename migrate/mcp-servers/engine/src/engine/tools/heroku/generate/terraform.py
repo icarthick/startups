@@ -74,15 +74,13 @@ def generate_terraform(migration_dir: str, knowledge: dict) -> dict[str, Any]:
         with open(prefs_path) as f:
             preferences = json.load(f)
 
-    # Resolve template directory from knowledge dir
-    # Try dev layout first, then bundled
-    engine_root = Path(__file__).resolve().parents[3]  # src/engine/tools/ → engine root
-    templates_dir = engine_root / "knowledge" / "heroku-to-aws" / "templates"
-    if not templates_dir.is_dir():
-        # Bundled location (installed package)
-        templates_dir = Path(__file__).resolve().parent.parent / "knowledge" / "heroku-to-aws" / "templates"
-
-    if not templates_dir.is_dir():
+    # Resolve template directory. Search upward from this file for the knowledge dir
+    # (dev layout: <engine>/knowledge/...) and also check the bundled package location
+    # (<engine_pkg>/knowledge/...). Robust to how deeply this module is nested.
+    rel = Path("knowledge") / "heroku-to-aws" / "templates"
+    candidates = [parent / rel for parent in Path(__file__).resolve().parents]
+    templates_dir = next((c for c in candidates if c.is_dir()), None)
+    if templates_dir is None:
         return {"status": "error", "reason": "Templates directory not found"}
 
     # Setup output dir
@@ -233,6 +231,54 @@ def generate_terraform(migration_dir: str, knowledge: dict) -> dict[str, Any]:
             rendered.append(_substitute(msg_block, vals))
         (tf_dir / "messaging.tf").write_text("\n".join(rendered))
         files_written.append("messaging.tf")
+
+    # 8b. eks.tf (EKS cluster + node group + LB controller), only in EKS-mode designs
+    eks_cluster = design.get("eks_cluster")
+    if eks_cluster:
+        eks_tmpl = (templates_dir / "eks.tf.tmpl").read_text()
+        static_part = _render_static(eks_tmpl)
+        ng = (eks_cluster.get("node_groups") or [{}])[0]
+        node_group_type = eks_cluster.get("node_group_type", "managed")
+        instance_types = ng.get("instance_types", [])
+        common = {
+            "cluster_name": eks_cluster.get("cluster_name", "heroku-migration-cluster"),
+            "kubernetes_version": eks_cluster.get("kubernetes_version", "1.31"),
+            "vpc_id": vpc_id_ref,
+            "vpc_cidr": vpc_cidr,
+            "subnet_ids": private_subnets_ref,
+            "private_subnets": private_subnets_ref,
+            "instance_types": instance_types,
+            "node_instance_type": instance_types[0] if instance_types else "m6i.large",
+            "desired_size": ng.get("desired_size", 2),
+            "max_size": ng.get("max_size", 4),
+            "min_size": ng.get("min_size", 2),
+        }
+        # Select exactly one node-group block (never emit both).
+        if node_group_type == "self-managed":
+            ng_block = _extract_repeat_block(eks_tmpl, "node_group_selfmanaged")
+        else:
+            ng_block = _extract_repeat_block(eks_tmpl, "node_group_managed")
+        ng_out = _substitute(ng_block, common)
+
+        # Data-store SG rules (pod -> RDS/ElastiCache/MSK). The self-managed path creates
+        # aws_security_group.eks_nodes; the managed path lets EKS manage the node SG, so
+        # these explicit rules are emitted only for self-managed. (Managed-path access is
+        # covered as a MIGRATION_GUIDE step.)
+        datastore_out = ""
+        if node_group_type == "self-managed":
+            ds_block = _extract_repeat_block(eks_tmpl, "datastore_sg")
+            stores = []
+            if any(s.get("aws_service") in ("RDS PostgreSQL", "Aurora PostgreSQL") for s in services):
+                stores.append({"store_key": "database", "store_port": 5432, "store_sg": "database", "store_label": "RDS/Aurora PostgreSQL"})
+            if any(s.get("aws_service") == "ElastiCache Redis" for s in services):
+                stores.append({"store_key": "cache", "store_port": 6379, "store_sg": "cache", "store_label": "ElastiCache Redis"})
+            if any(s.get("aws_service") == "Amazon MSK" for s in services):
+                stores.append({"store_key": "messaging", "store_port": 9092, "store_sg": "messaging", "store_label": "Amazon MSK"})
+            datastore_out = "\n".join(_substitute(ds_block, st) for st in stores)
+
+        eks_out = _substitute(static_part, common) + ng_out + ("\n" + datastore_out if datastore_out else "")
+        (tf_dir / "eks.tf").write_text(eks_out)
+        files_written.append("eks.tf")
 
     # 9. outputs.tf
     outputs_tmpl = (templates_dir / "outputs.tf.tmpl").read_text()

@@ -80,6 +80,11 @@ def _calc_service_cost(service: dict, pricing: dict) -> tuple[float, str]:
 
     if aws_svc == "Fargate":
         return _calc_fargate(config, pricing), "cached"
+    if aws_svc == "EKS":
+        # EKS Deployment entries carry no standalone cost — compute is billed via the
+        # cluster control plane + EC2 nodes (added once, post-loop). Sentinel "eks_pod"
+        # tells the caller to omit this entry from the breakdown entirely.
+        return 0.0, "eks_pod"
     if aws_svc == "ALB":
         return _calc_alb(pricing), "cached"
     if aws_svc == "RDS PostgreSQL":
@@ -106,6 +111,18 @@ def _calc_service_cost(service: dict, pricing: dict) -> tuple[float, str]:
         return 1.0, "cached"
 
     return 0.0, "unpriced"
+
+
+def _calc_eks_cluster(eks_cluster: dict, pricing: dict) -> tuple[float, float]:
+    """Return (control_plane_monthly, nodes_monthly) for an eks_cluster design entry."""
+    control_plane = pricing.get("eks_control_plane_monthly", 73.00)
+    node_rates = pricing.get("ec2_nodes", {})
+    nodes_monthly = 0.0
+    for ng in eks_cluster.get("node_groups", []):
+        instance_types = ng.get("instance_types", [])
+        rate = node_rates.get(instance_types[0], 0.0) if instance_types else 0.0
+        nodes_monthly += rate * HOURS_PER_MONTH * ng.get("desired_size", 0)
+    return control_plane, nodes_monthly
 
 
 def _calc_observability(services: list[dict], log_retention_days: int, pricing: dict) -> dict:
@@ -208,6 +225,9 @@ def estimate_heroku_migration(migration_dir: str, knowledge: dict) -> dict[str, 
 
     for svc in services:
         cost, source = _calc_service_cost(svc, pricing)
+        if source == "eks_pod":
+            # Omit EKS Deployment lines from the breakdown — cost attributed to the cluster.
+            continue
         entry = {"service_id": svc["service_id"], "aws_service": svc["aws_service"], "monthly_cost": round(cost, 2), "pricing_source": source}
         breakdown.append(entry)
         if source == "unpriced":
@@ -226,6 +246,21 @@ def estimate_heroku_migration(migration_dir: str, knowledge: dict) -> dict[str, 
         nat_cost = pricing.get("nat_gateway", {}).get("fixed_monthly", 32.85)
         breakdown.append({"service_id": "nat_gateway", "aws_service": "NAT Gateway", "monthly_cost": nat_cost, "pricing_source": "cached"})
         balanced_total += nat_cost
+
+    # EKS cluster (control plane + EC2 nodes), added once when design is EKS-mode.
+    notes = []
+    eks_cluster = design.get("eks_cluster")
+    if eks_cluster:
+        control_plane, nodes_monthly = _calc_eks_cluster(eks_cluster, pricing)
+        breakdown.append({"service_id": "eks_control_plane", "aws_service": "EKS Control Plane", "monthly_cost": round(control_plane, 2), "pricing_source": "cached"})
+        breakdown.append({"service_id": "eks_nodes", "aws_service": "EKS EC2 Nodes", "monthly_cost": round(nodes_monthly, 2), "pricing_source": "cached"})
+        balanced_total += control_plane + nodes_monthly
+        notes.append(
+            "EKS with EC2 nodes is typically cheaper than Fargate for sustained workloads "
+            "(>60% utilization) because there is no per-pod Fargate surcharge. However, EKS has "
+            "a higher base cost ($73/month control plane + minimum 2 nodes) and requires "
+            "Kubernetes operational expertise."
+        )
 
     balanced_total = round(balanced_total, 2)
     premium_total = round(balanced_total * 1.3, 2)
@@ -271,6 +306,7 @@ def estimate_heroku_migration(migration_dir: str, knowledge: dict) -> dict[str, 
             "breakdown": breakdown,
         },
         "cost_comparison": comparison,
+        "notes": notes,
         "optimization_opportunities": optimizations,
         "complexity_tier": complexity["tier"],
         "complexity_timeline": complexity["timeline"],
