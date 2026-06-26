@@ -19,10 +19,10 @@ def _sanitize(name: str) -> str:
 
 
 def _substitute(template: str, values: dict) -> str:
-    """Replace __key__ placeholders with values."""
+    """Replace {{key}} placeholders with values."""
     result = template
     for key, val in values.items():
-        placeholder = f"__{key}__"
+        placeholder = "{{" + key + "}}"
         if isinstance(val, bool):
             result = result.replace(placeholder, "true" if val else "false")
         elif isinstance(val, (int, float)):

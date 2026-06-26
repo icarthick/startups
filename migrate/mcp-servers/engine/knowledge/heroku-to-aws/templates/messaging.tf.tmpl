@@ -1,17 +1,17 @@
 # --- REPEAT_START msk ---
-resource "aws_msk_cluster" "__app_sanitized___kafka" {
-  cluster_name           = "${var.project_name}-__heroku_app__-kafka"
+resource "aws_msk_cluster" "{{app_sanitized}}_kafka" {
+  cluster_name           = "${var.project_name}-{{heroku_app}}-kafka"
   kafka_version          = "3.5.1"
-  number_of_broker_nodes = __broker_count__
+  number_of_broker_nodes = {{broker_count}}
 
   broker_node_group_info {
-    instance_type   = "__broker_instance_type__"
-    client_subnets  = __private_subnets__
+    instance_type   = "{{broker_instance_type}}"
+    client_subnets  = {{private_subnets}}
     security_groups = [aws_security_group.messaging.id]
 
     storage_info {
       ebs_storage_info {
-        volume_size = __storage_per_broker_gb__
+        volume_size = {{storage_per_broker_gb}}
       }
     }
   }
@@ -23,6 +23,6 @@ resource "aws_msk_cluster" "__app_sanitized___kafka" {
     }
   }
 
-  tags = { HerokuApp = "__heroku_app__", Source = "heroku-kafka:__plan__" }
+  tags = { HerokuApp = "{{heroku_app}}", Source = "heroku-kafka:{{plan}}" }
 }
 # --- REPEAT_END msk ---

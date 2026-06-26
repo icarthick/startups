@@ -42,6 +42,7 @@
         "phase_reset",
         "scan_heroku_terraform",
         "extract_heroku_billing",
+        "assemble_heroku_inventory",
         "design_heroku_migration",
         "estimate_heroku_migration",
         "generate_terraform",

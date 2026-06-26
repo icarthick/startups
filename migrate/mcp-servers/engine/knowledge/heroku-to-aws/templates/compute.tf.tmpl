@@ -8,75 +8,75 @@ resource "aws_ecs_cluster" "main" {
 }
 
 # --- REPEAT_START fargate ---
-resource "aws_cloudwatch_log_group" "__app_sanitized___process_type__" {
-  name              = "/ecs/${var.project_name}-${var.environment}/__process_type__"
-  retention_in_days = __log_retention__
-  tags = { HerokuApp = "__heroku_app__", ProcessType = "__process_type__" }
+resource "aws_cloudwatch_log_group" "{{app_sanitized}}_{{process_type}}" {
+  name              = "/ecs/${var.project_name}-${var.environment}/{{process_type}}"
+  retention_in_days = {{log_retention}}
+  tags = { HerokuApp = "{{heroku_app}}", ProcessType = "{{process_type}}" }
 }
 
-resource "aws_ecs_task_definition" "__app_sanitized___process_type__" {
-  family                   = "${var.project_name}-${var.environment}-__process_type__"
+resource "aws_ecs_task_definition" "{{app_sanitized}}_{{process_type}}" {
+  family                   = "${var.project_name}-${var.environment}-{{process_type}}"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = __task_cpu__
-  memory                   = __task_memory__
+  cpu                      = {{task_cpu}}
+  memory                   = {{task_memory}}
   execution_role_arn       = aws_iam_role.ecs_execution.arn
   task_role_arn            = aws_iam_role.ecs_task.arn
 
   container_definitions = jsonencode([{
-    name      = "__process_type__"
-    image     = "__container_image__"
-    cpu       = __task_cpu__
-    memory    = __task_memory__
+    name      = "{{process_type}}"
+    image     = "{{container_image}}"
+    cpu       = {{task_cpu}}
+    memory    = {{task_memory}}
     essential = true
     logConfiguration = {
       logDriver = "awslogs"
       options = {
-        "awslogs-group"         = aws_cloudwatch_log_group.__app_sanitized___process_type__.name
+        "awslogs-group"         = aws_cloudwatch_log_group.{{app_sanitized}}_{{process_type}}.name
         "awslogs-region"        = var.aws_region
         "awslogs-stream-prefix" = "ecs"
       }
     }
-    portMappings = __port_mappings__
+    portMappings = {{port_mappings}}
   }])
 
-  tags = { HerokuApp = "__heroku_app__", ProcessType = "__process_type__" }
+  tags = { HerokuApp = "{{heroku_app}}", ProcessType = "{{process_type}}" }
 }
 
-resource "aws_ecs_service" "__app_sanitized___process_type__" {
-  name            = "${var.project_name}-__process_type__"
+resource "aws_ecs_service" "{{app_sanitized}}_{{process_type}}" {
+  name            = "${var.project_name}-{{process_type}}"
   cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.__app_sanitized___process_type__.arn
-  desired_count   = __desired_count__
+  task_definition = aws_ecs_task_definition.{{app_sanitized}}_{{process_type}}.arn
+  desired_count   = {{desired_count}}
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets          = __subnets__
+    subnets          = {{subnets}}
     security_groups  = [aws_security_group.app.id]
     assign_public_ip = false
   }
 
-  __load_balancer_block__
+  {{load_balancer_block}}
 
-  tags = { HerokuApp = "__heroku_app__", ProcessType = "__process_type__" }
+  tags = { HerokuApp = "{{heroku_app}}", ProcessType = "{{process_type}}" }
 }
 # --- REPEAT_END fargate ---
 
 # --- REPEAT_START alb ---
-resource "aws_lb" "__app_sanitized__" {
-  name               = "${var.project_name}-__heroku_app__-alb"
+resource "aws_lb" "{{app_sanitized}}" {
+  name               = "${var.project_name}-{{heroku_app}}-alb"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
-  subnets            = __public_subnets__
-  tags = { HerokuApp = "__heroku_app__" }
+  subnets            = {{public_subnets}}
+  tags = { HerokuApp = "{{heroku_app}}" }
 }
 
-resource "aws_lb_target_group" "__app_sanitized___process_type__" {
-  name        = "${var.project_name}-__process_type__-tg"
+resource "aws_lb_target_group" "{{app_sanitized}}_{{process_type}}" {
+  name        = "${var.project_name}-{{process_type}}-tg"
   port        = 8080
   protocol    = "HTTP"
-  vpc_id      = __vpc_id__
+  vpc_id      = {{vpc_id}}
   target_type = "ip"
 
   health_check {
@@ -87,8 +87,8 @@ resource "aws_lb_target_group" "__app_sanitized___process_type__" {
   }
 }
 
-resource "aws_lb_listener" "__app_sanitized___https" {
-  load_balancer_arn = aws_lb.__app_sanitized__.arn
+resource "aws_lb_listener" "{{app_sanitized}}_https" {
+  load_balancer_arn = aws_lb.{{app_sanitized}}.arn
   port              = 443
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
@@ -96,7 +96,7 @@ resource "aws_lb_listener" "__app_sanitized___https" {
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.__app_sanitized___process_type__.arn
+    target_group_arn = aws_lb_target_group.{{app_sanitized}}_{{process_type}}.arn
   }
 }
 # --- REPEAT_END alb ---

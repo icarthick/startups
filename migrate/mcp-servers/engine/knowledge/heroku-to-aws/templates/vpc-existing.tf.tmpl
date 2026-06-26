@@ -1,5 +1,5 @@
 data "aws_vpc" "existing" {
-  id = "__vpc_id__"
+  id = "{{vpc_id}}"
 }
 
 data "aws_subnets" "private" {

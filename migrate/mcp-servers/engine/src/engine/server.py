@@ -20,6 +20,7 @@ from engine.tools.orchestration import (
 )
 from engine.tools.scan_heroku_terraform import scan_heroku_terraform as _scan_heroku_terraform
 from engine.tools.extract_heroku_billing import extract_heroku_billing as _extract_heroku_billing
+from engine.tools.assemble_inventory import assemble_heroku_inventory as _assemble_heroku_inventory
 from engine.tools.design_heroku import design_heroku_migration as _design_heroku_migration
 from engine.tools.estimate_heroku import estimate_heroku_migration as _estimate_heroku_migration
 from engine.tools.generate_terraform import generate_terraform as _generate_terraform
@@ -146,6 +147,19 @@ def extract_heroku_billing(project_dir: str, migration_dir: str | None = None) -
         migration_dir: If provided, writes _billing-discovery.json here.
     """
     return _extract_heroku_billing(project_dir=project_dir, migration_dir=migration_dir)
+
+
+@mcp.tool()
+def assemble_heroku_inventory(migration_dir: str) -> dict:
+    """Assemble heroku-resource-inventory.json from intermediate discovery files.
+
+    Reads _terraform-discovery.json and _billing-discovery.json, merges
+    into the final inventory with metadata, validation, and schema enforcement.
+
+    Args:
+        migration_dir: Path to the migration run directory.
+    """
+    return _assemble_heroku_inventory(migration_dir=migration_dir)
 
 
 @mcp.tool()

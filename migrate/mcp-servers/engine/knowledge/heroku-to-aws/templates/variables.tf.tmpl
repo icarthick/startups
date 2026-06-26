@@ -1,13 +1,13 @@
 variable "aws_region" {
   description = "AWS region for deployment"
   type        = string
-  default     = "__region__"
+  default     = "{{region}}"
 }
 
 variable "project_name" {
   description = "Project name used for resource naming"
   type        = string
-  default     = "__project_name__"
+  default     = "{{project_name}}"
 }
 
 variable "environment" {
@@ -19,5 +19,5 @@ variable "environment" {
 variable "vpc_cidr" {
   description = "CIDR block for VPC"
   type        = string
-  default     = "__vpc_cidr__"
+  default     = "{{vpc_cidr}}"
 }
