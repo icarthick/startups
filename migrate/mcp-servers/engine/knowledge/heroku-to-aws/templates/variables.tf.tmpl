@@ -1,0 +1,23 @@
+variable "aws_region" {
+  description = "AWS region for deployment"
+  type        = string
+  default     = "__region__"
+}
+
+variable "project_name" {
+  description = "Project name used for resource naming"
+  type        = string
+  default     = "__project_name__"
+}
+
+variable "environment" {
+  description = "Environment (dev, staging, production)"
+  type        = string
+  default     = "production"
+}
+
+variable "vpc_cidr" {
+  description = "CIDR block for VPC"
+  type        = string
+  default     = "__vpc_cidr__"
+}

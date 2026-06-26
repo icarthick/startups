@@ -34,18 +34,13 @@ Each phase loads reference files on demand. To keep per-turn context manageable 
 - **Budget:** Each phase should load no more than ~800 lines of instructions (excluding user artifacts like JSON profiles and MCP tool results).
 - **Conditional loading:** Reference files with trigger conditions MUST NOT be loaded unless the condition is met. Do not speculatively load files.
 - **No duplication:** Mapping tables, pricing data, and shared warnings exist in one canonical file. Other files reference them; they do not copy them inline.
-- **Progressive depth:** Phase orchestrators (`design.md`, `generate.md`) contain short routing logic that points to detailed sub-files. Load the sub-file only when its path is selected.
+- **Progressive depth:** `phase_router` determines which sub-files to load based on `routes.json` triggers. Load only the returned files.
 
 **Conditional reference files (load ONLY when condition is true):**
 
 | File                                       | Condition                                                    |
 | ------------------------------------------ | ------------------------------------------------------------ |
-| `design-refs/postgres-plan-table.md`       | Inventory contains `addon:*:heroku-postgresql:*` resources   |
-| `design-refs/redis-plan-table.md`          | Inventory contains `addon:*:heroku-redis:*` resources        |
-| `design-refs/kafka-plan-table.md`          | Inventory contains `addon:*:heroku-kafka:*` resources        |
 | `references/phases/clarify/clarify.md` Q11 | `heroku_generation == "fir"` detected in any inventory entry |
-
-When adding new reference files, verify the phase's total loaded instructions remain under budget. If a new file would exceed ~800 lines when combined with other loaded refs, split it or make it conditional.
 
 ---
 
@@ -65,7 +60,7 @@ If no Terraform files with `heroku_*` resources are found, stop and ask user to 
 
 ## State Machine
 
-Phase orchestration is managed by the `orchestrator` MCP server. On each turn:
+Phase orchestration is managed by the `engine` MCP server. On each turn:
 
 1. **Check for existing runs:**
    ```
@@ -100,8 +95,6 @@ Phase orchestration is managed by the `orchestrator` MCP server. On each turn:
 
 ### Handoff Gate Orchestration (Fail Closed)
 
-Load `references/shared/handoff-gates.md` when executing any phase completion step.
-
 1. **Single `$MIGRATION_DIR`**: Use one run directory for the entire migration.
 2. **Re-read from disk**: Before each phase, read required artifacts from `$MIGRATION_DIR/`.
 3. **Advance only via `phase_advance`**: Do not manually update `.phase-status.json`. The tool handles validation and advancement.
@@ -112,7 +105,7 @@ Load `references/shared/handoff-gates.md` when executing any phase completion st
 
 ## State Management
 
-Migration state lives in `$MIGRATION_DIR` (`.migration/[MMDD-HHMM]/`), created by `migration_init` and managed by orchestrator tools.
+Migration state lives in `$MIGRATION_DIR` (`.migration/[MMDD-HHMM]/`), created by `migration_init` and managed by engine tools.
 
 The `.migration/` directory is automatically protected by a `.gitignore` file created during init.
 
@@ -120,30 +113,34 @@ The `.migration/` directory is automatically protected by a `.gitignore` file cr
 
 ## Phase Summary Table
 
-| Phase        | Inputs                                                                                           | Outputs                                                                                                                                               | Reference                                |
-| ------------ | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| **Discover** | Terraform files with `heroku_*` resources, Procfile, app.json, and/or billing exports            | `heroku-resource-inventory.json`, `.phase-status.json` updated                                                                                        | `references/phases/discover/discover.md` |
-| **Clarify**  | `heroku-resource-inventory.json`                                                                 | `preferences.json`, `.phase-status.json` updated                                                                                                      | `references/phases/clarify/clarify.md`   |
-| **Design**   | `heroku-resource-inventory.json`, `preferences.json`                                             | `aws-design.json`                                                                                                                                     | `references/phases/design/design.md`     |
-| **Estimate** | `aws-design.json`, `preferences.json`, optional billing profile                                  | `estimation-infra.json`, `.phase-status.json` updated                                                                                                 | `references/phases/estimate/estimate.md` |
-| **Generate** | `aws-design.json`, `estimation-infra.json`, `preferences.json`, `heroku-resource-inventory.json` | `terraform/`, `MIGRATION_GUIDE.md`, `README.md`, database migration scripts, `generation-warnings.json` (if applicable), `.phase-status.json` updated | `references/phases/generate/generate.md` |
-| **Feedback** | `.phase-status.json` (discover completed minimum), all existing migration artifacts              | `feedback.json`, `.phase-status.json` updated                                                                                                         | `references/phases/feedback/feedback.md` |
+| Phase        | Inputs                                                                                           | Outputs                                                                                          | Routed via `phase_router`                           |
+| ------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | --------------------------------------------------- |
+| **Discover** | Terraform files with `heroku_*` resources, Procfile, app.json, and/or billing exports            | `heroku-resource-inventory.json`                                                                 | `discover-terraform.md`, `discover-billing.md`, `discover-assemble.md` |
+| **Clarify**  | `heroku-resource-inventory.json`                                                                 | `preferences.json`                                                                               | `clarify.md`                                        |
+| **Design**   | `heroku-resource-inventory.json`, `preferences.json`                                             | `aws-design.json`                                                                                | `design.md`                                         |
+| **Estimate** | `aws-design.json`, `preferences.json`, optional billing profile                                  | `estimation-infra.json`                                                                          | `estimate.md`                                       |
+| **Generate** | `aws-design.json`, `estimation-infra.json`, `preferences.json`, `heroku-resource-inventory.json` | `terraform/`, `MIGRATION_GUIDE.md`, `README.md`, scripts                                         | `generate-terraform.md`, `generate-docs.md`, `generate-validate.md` |
+| **Feedback** | All existing migration artifacts                                                                 | `feedback.json`                                                                                  | `feedback.md`                                       |
 
 ---
 
 ## MCP Servers
 
-**orchestrator** (phase management and routing):
+**engine** (phase management, discovery, design, estimate, generate):
 
-- Provides `migration_status`, `migration_init`, `phase_router`, `phase_advance`, `phase_reset` tools
-- Used at every phase boundary for state management and routing
+- Provides `migration_status`, `migration_init`, `phase_router`, `phase_advance`, `phase_reset` (orchestration)
+- Provides `scan_heroku_terraform`, `extract_heroku_billing` (discovery)
+- Provides `design_heroku_migration` (design)
+- Provides `estimate_heroku_migration` (estimate)
+- Provides `generate_terraform`, `generate_docs` (generate)
+- Used at every phase boundary and for deterministic computation
 - Routes are defined in `heroku-to-aws/routes.json` within the server's knowledge directory
 
 **awspricing** (for cost estimation):
 
 - Provides `get_pricing`, `get_pricing_service_codes`, `get_pricing_service_attributes` tools
 - Only needed during Estimate phase. Discover and Design do not require it.
-- Primary pricing source: `references/shared/pricing-cache.md` (cached rates, ±5-10% for infrastructure). MCP is secondary — used only for services not found in the cache.
+- Primary pricing source: engine tool's cached rates (±5-10% for infrastructure). awspricing MCP is secondary — used only for services not covered by the tool.
 
 ---
 
@@ -151,49 +148,36 @@ The `.migration/` directory is automatically protected by a `.gitignore` file cr
 
 ```
 heroku-to-aws/
-├── SKILL.md                                    ← You are here (orchestrator + state machine)
+├── SKILL.md                                    ← You are here (execution controller)
 │
 ├── references/
 │   ├── phases/
 │   │   ├── discover/
-│   │   │   ├── discover.md                     # Phase 1: Discover orchestrator
-│   │   │   ├── discover-terraform.md           # Terraform discovery (primary)
-│   │   │   └── discover-billing.md             # Billing data parsing
+│   │   │   ├── discover-terraform.md           # Terraform discovery (calls scan_heroku_terraform tool)
+│   │   │   ├── discover-billing.md             # Billing data parsing (calls extract_heroku_billing tool)
+│   │   │   └── discover-assemble.md            # Assembles heroku-resource-inventory.json
 │   │   ├── clarify/
 │   │   │   └── clarify.md                      # Phase 2: Adaptive questions (12–15, batched ≤5)
 │   │   ├── design/
-│   │   │   └── design.md                       # Phase 3: Design orchestrator (flat single-pass mapping)
+│   │   │   └── design.md                       # Phase 3: Calls design_heroku_migration tool
 │   │   ├── estimate/
-│   │   │   └── estimate.md                     # Phase 4: Cost projection
+│   │   │   └── estimate.md                     # Phase 4: Calls estimate_heroku_migration tool
 │   │   ├── generate/
-│   │   │   ├── generate.md                     # Phase 5: Generate orchestrator
-│   │   │   ├── generate-terraform.md           # Terraform configurations
-│   │   │   └── generate-docs.md                # MIGRATION_GUIDE.md + README.md
+│   │   │   ├── generate-terraform.md           # Calls generate_terraform tool
+│   │   │   ├── generate-docs.md                # Calls generate_docs tool
+│   │   │   └── generate-validate.md            # Cross-reference validation
 │   │   └── feedback/
-│   │       └── feedback.md                     # Phase 6: Feedback collection (reuses shared)
+│   │       └── feedback.md                     # Phase 6: Feedback collection
 │   │
-│   ├── design-refs/
-│   │   ├── fast-path-table.md                  # Add-on → AWS deterministic mappings (13+ entries)
-│   │   ├── dyno-type-table.md                  # Dyno type → Fargate CPU/memory
-│   │   ├── postgres-plan-table.md              # Postgres plan → RDS/Aurora sizing
-│   │   ├── redis-plan-table.md                 # Redis plan → ElastiCache sizing
-│   │   └── kafka-plan-table.md                 # Kafka plan → MSK sizing
-│   │
-│   └── shared/                                 # References shared plugin infrastructure
-│       └── (path reference to ../gcp-to-aws/references/shared/)
-│           ├── handoff-gates.md                # Fail-closed phase handoff protocol
-│           ├── schema-phase-status.md          # .phase-status.json schema
-│           ├── migration-complexity.md         # Complexity tier definitions (Small/Medium/Large)
-│           ├── pricing-cache.md                # Cached AWS pricing (primary source)
-│           ├── schema-estimate-infra.md        # estimation-infra.json schema
-│           └── validate-artifacts.md           # Pre-report validation
+│   └── shared/
+│       └── schema-discover-heroku.md           # heroku-resource-inventory.json schema
 ```
 
 | Condition                                                | Action                                                                                                                                                        |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | No Terraform files with `heroku_*` resources found       | Stop. Output: "No Terraform files with heroku_* resources found. Heroku Terraform is required for discovery. Procfile and app.json alone are not sufficient." |
 | `.phase-status.json` missing phase gate                  | Stop. Output: "Cannot enter Phase X: Phase Y-1 not completed. Start from Phase Y or resume Phase Y-1."                                                        |
-| awspricing unavailable after 3 attempts                  | Display user warning about ±5-10% accuracy. Use `pricing-cache.md`. Add `pricing_source: "cached_fallback"` to `estimation-infra.json`.                       |
+| awspricing unavailable after 3 attempts                  | Display user warning about ±5-10% accuracy. Use cached pricing from engine tool. Add `pricing_source: "cached_fallback"` to `estimation-infra.json`.                       |
 | User skips questions or says "use defaults for the rest" | Apply documented defaults for remaining questions. Phase 2 completes either way.                                                                              |
 | Dyno type not in Dyno Type Table                         | Reject mapping for that formation. Output: "Unsupported dyno type: {type}. Cannot map to Fargate."                                                            |
 | Add-on not in Fast-Path Table                            | Mark as "Deferred — specialist engagement". No automated mapping produced.                                                                                    |
@@ -205,7 +189,7 @@ heroku-to-aws/
 - **Sizing**: Development tier (e.g., `db.t4g.micro` for databases, 0.5 CPU for Fargate)
 - **Migration mode**: Adapts based on available inputs (Terraform primary, Procfile/app.json supplementary, billing optional)
 - **Cost currency**: USD
-- **Timeline assumption**: 2-16 weeks depending on migration complexity — small (2-6 weeks), medium (6-12 weeks), large (12-18 weeks). See `references/shared/migration-complexity.md` for tier definitions.
+- **Timeline assumption**: 2-16 weeks depending on migration complexity — small (2-6 weeks), medium (6-12 weeks), large (12-18 weeks). Classified by `estimate_heroku_migration` tool.
 
 ## Workflow Execution
 
@@ -224,11 +208,11 @@ When invoked, the agent **MUST follow this exact sequence**:
 
 4. **Execute ALL steps in order**: Follow every numbered step in the reference file. **Do not skip, optimize, or deviate.**
 
-5. **Validate outputs**: Confirm all required output files exist with correct schema before proceeding. Phase orchestrators run **Completion Handoff Gate** checks per `shared/handoff-gates.md`.
+5. **Validate outputs**: `phase_advance` validates all required artifacts exist before advancing. Do not manually check gates.
 
-6. **Handoff gate**: Emit `HANDOFF_OK` or `GATE_FAIL` per `shared/handoff-gates.md`. On `GATE_FAIL`, stop — do not update phase status or load the next phase.
+6. **Advance phase**: Call `phase_advance` to validate outputs and advance to next phase. If gate fails, report missing artifacts and stop.
 
-7. **Update phase status**: Only after `HANDOFF_OK`. Use the Phase Status Update Protocol (read-merge-write) in the same turn as the phase's final output message.
+7. **Phase status is tool-managed**: `phase_advance` handles status updates atomically. Do not write `.phase-status.json` manually.
 
 8. **Feedback and sharing checkpoints**: After Estimate completes, offer feedback and/or plan sharing. This runs **before** advancing to Generate.
 

@@ -22,12 +22,12 @@
         "get_pricing"
       ]
     },
-    "orchestrator": {
+    "engine": {
       "command": "uvx",
       "args": [
         "--from",
-        "git+https://github.com/icarthick/startups.git@feat/heroku-mcp-refactor#subdirectory=migrate/mcp-servers/orchestrator",
-        "orchestrator-server"
+        "git+https://github.com/icarthick/startups.git@feat/heroku-mcp-refactor#subdirectory=migrate/mcp-servers/engine",
+        "engine-server"
       ],
       "env": {
         "FASTMCP_LOG_LEVEL": "ERROR"
@@ -39,7 +39,13 @@
         "migration_init",
         "phase_router",
         "phase_advance",
-        "phase_reset"
+        "phase_reset",
+        "scan_heroku_terraform",
+        "extract_heroku_billing",
+        "design_heroku_migration",
+        "estimate_heroku_migration",
+        "generate_terraform",
+        "generate_docs"
       ]
     }
   }

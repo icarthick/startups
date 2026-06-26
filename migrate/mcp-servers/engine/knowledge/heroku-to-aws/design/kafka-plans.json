@@ -1,0 +1,15 @@
+{
+  "description": "Heroku Kafka plan → MSK broker instance type mapping",
+  "plans": {
+    "basic-0": {"broker_type": "kafka.t3.small", "storage_gb": 10, "brokers": 2, "azs": 2, "replication": 2},
+    "standard-0": {"broker_type": "kafka.m5.large", "storage_gb": 100, "brokers": 3, "azs": 3, "replication": 3},
+    "standard-1": {"broker_type": "kafka.m5.xlarge", "storage_gb": 250, "brokers": 3, "azs": 3, "replication": 3},
+    "standard-2": {"broker_type": "kafka.m5.2xlarge", "storage_gb": 500, "brokers": 3, "azs": 3, "replication": 3},
+    "extended-0": {"broker_type": "kafka.m5.4xlarge", "storage_gb": 1024, "brokers": 3, "azs": 3, "replication": 3},
+    "extended-1": {"broker_type": "kafka.m5.8xlarge", "storage_gb": 2048, "brokers": 3, "azs": 3, "replication": 3},
+    "extended-2": {"broker_type": "kafka.m5.12xlarge", "storage_gb": 4096, "brokers": 3, "azs": 3, "replication": 3},
+    "private-extended-0": {"broker_type": "kafka.m5.4xlarge", "storage_gb": 1024, "brokers": 3, "azs": 3, "replication": 3},
+    "private-extended-1": {"broker_type": "kafka.m5.8xlarge", "storage_gb": 2048, "brokers": 3, "azs": 3, "replication": 3},
+    "private-extended-2": {"broker_type": "kafka.m5.12xlarge", "storage_gb": 4096, "brokers": 3, "azs": 3, "replication": 3}
+  }
+}

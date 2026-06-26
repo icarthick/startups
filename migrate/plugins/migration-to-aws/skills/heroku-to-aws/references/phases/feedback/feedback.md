@@ -154,18 +154,6 @@ Write `$MIGRATION_DIR/feedback.json`:
 
 If gate fails: **STOP**. Output: "Feedback outputs are incomplete. Fix feedback artifacts before completion."
 
-Phase Status Update (read-merge-write):
-
-- `phases.feedback` → `"completed"`
-- `current_phase` → `"complete"`
-- `last_updated` → current ISO 8601
-
-Emit:
-
-```
-HANDOFF_OK | phase=feedback | artifacts=feedback.json,trace.json
-```
+After writing feedback artifacts, the SKILL.md flow calls `phase_advance` which marks feedback as completed.
 
 Output: "Thank you for helping improve this tool. Migration planning is complete."
-
-Return control to SKILL.md. The migration is finished.

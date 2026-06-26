@@ -1,0 +1,35 @@
+{
+  "description": "AWS pricing rates for estimate calculations. Updated 2026-06.",
+  "fargate": {"cpu_per_hour": 0.04048, "memory_gb_per_hour": 0.004445},
+  "alb": {"fixed_monthly": 16.43, "lcu_per_hour": 0.008},
+  "nat_gateway": {"fixed_monthly": 32.85, "per_gb": 0.045},
+  "rds_instances": {
+    "db.t4g.micro": 0.016, "db.t4g.medium": 0.065,
+    "db.m6g.large": 0.178, "db.m6g.xlarge": 0.356, "db.m6g.2xlarge": 0.712,
+    "db.m6g.4xlarge": 1.424, "db.m6g.8xlarge": 2.848, "db.m6g.16xlarge": 5.696,
+    "db.r6g.large": 0.26, "db.r6g.xlarge": 0.52, "db.r6g.2xlarge": 1.04,
+    "db.r6g.4xlarge": 2.08, "db.r6g.8xlarge": 4.16, "db.r6g.16xlarge": 8.32,
+    "db.x2g.16xlarge": 13.34
+  },
+  "rds_storage_per_gb": 0.23,
+  "aurora_storage_per_gb": 0.10,
+  "rds_proxy_per_vcpu_hour": 0.015,
+  "elasticache_nodes": {
+    "cache.t4g.micro": 0.016, "cache.t4g.small": 0.032, "cache.t4g.medium": 0.065,
+    "cache.m6g.large": 0.15, "cache.m6g.xlarge": 0.30, "cache.m6g.2xlarge": 0.60,
+    "cache.m6g.4xlarge": 1.20, "cache.m6g.8xlarge": 2.40, "cache.m6g.12xlarge": 3.60,
+    "cache.m6g.16xlarge": 4.80
+  },
+  "msk_brokers": {
+    "kafka.t3.small": 0.0456, "kafka.m5.large": 0.21, "kafka.m5.xlarge": 0.42,
+    "kafka.m5.2xlarge": 0.84, "kafka.m5.4xlarge": 1.68, "kafka.m5.8xlarge": 3.36,
+    "kafka.m5.12xlarge": 5.04
+  },
+  "msk_storage_per_gb": 0.10,
+  "s3": {"storage_per_gb": 0.023, "get_per_1k": 0.0004, "put_per_1k": 0.005},
+  "cloudwatch": {"log_ingestion_per_gb": 0.50, "log_storage_per_gb": 0.03, "metric_per_month": 0.30, "alarm_per_month": 0.10},
+  "ses_per_1k_emails": 0.10,
+  "eventbridge_per_1m_events": 1.00,
+  "secrets_manager": {"per_secret_month": 0.40, "per_10k_api_calls": 0.05},
+  "route53": {"hosted_zone_month": 0.50}
+}

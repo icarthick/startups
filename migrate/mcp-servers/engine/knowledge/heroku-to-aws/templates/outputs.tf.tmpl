@@ -1,0 +1,12 @@
+output "ecs_cluster_arn" {
+  value = aws_ecs_cluster.main.arn
+}
+
+output "vpc_id" {
+  value = __vpc_output__
+}
+
+output "alb_dns_names" {
+  value = { for k, v in aws_lb.* : k => v.dns_name }
+  description = "ALB DNS names for web services"
+}

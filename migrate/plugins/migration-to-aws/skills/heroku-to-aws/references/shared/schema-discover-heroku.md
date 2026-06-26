@@ -1,6 +1,6 @@
 # Heroku Discovery Schema
 
-Schema for `heroku-resource-inventory.json`, produced by the Discover phase orchestrator (`discover.md`).
+Schema for `heroku-resource-inventory.json`, produced by the Discover phase (`discover-assemble.md`).
 
 **Convention**: Values shown as `X|Y` in examples indicate allowed alternatives — use exactly one value per field, not the literal pipe character.
 

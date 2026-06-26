@@ -1,0 +1,28 @@
+# --- REPEAT_START msk ---
+resource "aws_msk_cluster" "__app_sanitized___kafka" {
+  cluster_name           = "${var.project_name}-__heroku_app__-kafka"
+  kafka_version          = "3.5.1"
+  number_of_broker_nodes = __broker_count__
+
+  broker_node_group_info {
+    instance_type   = "__broker_instance_type__"
+    client_subnets  = __private_subnets__
+    security_groups = [aws_security_group.messaging.id]
+
+    storage_info {
+      ebs_storage_info {
+        volume_size = __storage_per_broker_gb__
+      }
+    }
+  }
+
+  encryption_info {
+    encryption_in_transit {
+      client_broker = "TLS"
+      in_cluster    = true
+    }
+  }
+
+  tags = { HerokuApp = "__heroku_app__", Source = "heroku-kafka:__plan__" }
+}
+# --- REPEAT_END msk ---

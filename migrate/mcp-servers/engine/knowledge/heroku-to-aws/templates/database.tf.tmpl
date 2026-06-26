@@ -1,0 +1,71 @@
+resource "aws_db_subnet_group" "main" {
+  name       = "${var.project_name}-${var.environment}-db-subnet"
+  subnet_ids = __private_subnets__
+  tags       = { Name = "${var.project_name}-db-subnet-group" }
+}
+
+# --- REPEAT_START rds ---
+resource "aws_db_instance" "__app_sanitized___postgres" {
+  identifier     = "${var.project_name}-__heroku_app__-postgres"
+  engine         = "postgres"
+  engine_version = "__engine_version__"
+  instance_class = "__instance_class__"
+
+  allocated_storage     = __storage_gb__
+  storage_type          = "gp3"
+  db_subnet_group_name  = aws_db_subnet_group.main.name
+  vpc_security_group_ids = [aws_security_group.database.id]
+
+  multi_az            = __multi_az__
+  skip_final_snapshot = false
+  final_snapshot_identifier = "${var.project_name}-__heroku_app__-final"
+
+  tags = { HerokuApp = "__heroku_app__", Source = "heroku-postgresql:__plan__" }
+}
+# --- REPEAT_END rds ---
+
+# --- REPEAT_START aurora ---
+resource "aws_rds_cluster" "__app_sanitized___aurora" {
+  cluster_identifier = "${var.project_name}-__heroku_app__-aurora"
+  engine             = "aurora-postgresql"
+  engine_version     = "__engine_version__"
+  database_name      = "__heroku_app_sanitized__"
+
+  db_subnet_group_name   = aws_db_subnet_group.main.name
+  vpc_security_group_ids = [aws_security_group.database.id]
+
+  skip_final_snapshot       = false
+  final_snapshot_identifier = "${var.project_name}-__heroku_app__-aurora-final"
+
+  tags = { HerokuApp = "__heroku_app__" }
+}
+
+resource "aws_rds_cluster_instance" "__app_sanitized___aurora_instance" {
+  identifier         = "${var.project_name}-__heroku_app__-aurora-1"
+  cluster_identifier = aws_rds_cluster.__app_sanitized___aurora.id
+  instance_class     = "__instance_class__"
+  engine             = "aurora-postgresql"
+
+  tags = { HerokuApp = "__heroku_app__" }
+}
+# --- REPEAT_END aurora ---
+
+# --- REPEAT_START rds_proxy ---
+resource "aws_db_proxy" "__app_sanitized___proxy" {
+  name                   = "${var.project_name}-__heroku_app__-proxy"
+  debug_logging          = false
+  engine_family          = "POSTGRESQL"
+  require_tls            = true
+  role_arn               = aws_iam_role.rds_proxy.arn
+  vpc_security_group_ids = [aws_security_group.database.id]
+  vpc_subnet_ids         = __private_subnets__
+
+  auth {
+    auth_scheme = "SECRETS"
+    iam_auth    = "REQUIRED"
+    secret_arn  = aws_secretsmanager_secret.db_credentials.arn
+  }
+
+  tags = { HerokuApp = "__heroku_app__" }
+}
+# --- REPEAT_END rds_proxy ---

@@ -1,0 +1,26 @@
+# --- REPEAT_START elasticache ---
+resource "aws_elasticache_subnet_group" "__app_sanitized___redis" {
+  name       = "${var.project_name}-__heroku_app__-redis-subnet"
+  subnet_ids = __private_subnets__
+}
+
+resource "aws_elasticache_replication_group" "__app_sanitized___redis" {
+  replication_group_id = "${var.project_name}-__heroku_app__-redis"
+  description          = "Redis for __heroku_app__ (migrated from Heroku Redis __plan__)"
+
+  node_type            = "__node_type__"
+  num_cache_clusters   = __num_nodes__
+  engine_version       = "__engine_version__"
+  port                 = 6379
+
+  multi_az_enabled           = __multi_az__
+  automatic_failover_enabled = __automatic_failover__
+  transit_encryption_enabled = __transit_encryption__
+  at_rest_encryption_enabled = true
+
+  subnet_group_name  = aws_elasticache_subnet_group.__app_sanitized___redis.name
+  security_group_ids = [aws_security_group.cache.id]
+
+  tags = { HerokuApp = "__heroku_app__", Source = "heroku-redis:__plan__" }
+}
+# --- REPEAT_END elasticache ---
