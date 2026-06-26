@@ -66,7 +66,14 @@ Phase orchestration is managed by the `engine` MCP server. On each turn:
    ```
    migration_status(project_dir=<project root>)
    ```
-   If multiple runs exist, ask user which to resume or whether to start fresh.
+   **If runs exist** (one or more), present options to the user:
+   - `[A] Resume` — Continue the most recent run from its current phase
+   - `[B] Start fresh` — Create a new migration run
+   - `[C] Cancel` — Stop
+
+   Wait for user choice before proceeding. Do NOT silently resume.
+
+   **If no runs exist**, proceed to step 2.
 
 2. **Initialize (if no run exists):**
    ```
