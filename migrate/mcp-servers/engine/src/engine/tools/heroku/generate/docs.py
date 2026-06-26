@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger("engine.generate_docs")
+logger = logging.getLogger("engine.heroku.generate.docs")
 
 
 def _read_json(path: Path) -> dict | None:

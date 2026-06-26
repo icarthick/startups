@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger("engine.estimate_heroku")
+logger = logging.getLogger("engine.heroku.estimate")
 
 HOURS_PER_MONTH = 730
 

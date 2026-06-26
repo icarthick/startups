@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger("engine.scan_heroku_terraform")
+logger = logging.getLogger("engine.heroku.discover.terraform")
 
 HEROKU_TYPES = {"heroku_app", "heroku_addon", "heroku_formation", "heroku_domain",
                 "heroku_config_association", "heroku_pipeline", "heroku_space",

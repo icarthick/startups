@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from engine.knowledge import load_knowledge
-from engine.tools.design_heroku import design_heroku_migration
+from engine.tools.heroku.design import design_heroku_migration
 
 KNOWLEDGE_DIR = Path(__file__).resolve().parents[1] / "knowledge"
 

@@ -7,10 +7,10 @@
 
 ## Step 1: Generate Terraform
 
-Call the `generate_terraform` MCP tool:
+Call the `heroku_generate_terraform` MCP tool:
 
 ```
-generate_terraform(migration_dir=$MIGRATION_DIR)
+heroku_generate_terraform(migration_dir=$MIGRATION_DIR)
 ```
 
 This tool reads `aws-design.json` and `preferences.json`, then:

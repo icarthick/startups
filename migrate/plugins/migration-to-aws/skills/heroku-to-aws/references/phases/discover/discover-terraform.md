@@ -7,10 +7,10 @@
 
 ## Step 1: Scan Heroku Terraform
 
-Call the `scan_heroku_terraform` MCP tool:
+Call the `heroku_discover_terraform` MCP tool:
 
 ```
-scan_heroku_terraform(project_dir=<project root>, migration_dir=$MIGRATION_DIR)
+heroku_discover_terraform(project_dir=<project root>, migration_dir=$MIGRATION_DIR)
 ```
 
 This tool:

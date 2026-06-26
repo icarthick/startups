@@ -7,10 +7,10 @@
 
 ## Step 1: Generate Design
 
-Call the `design_heroku_migration` MCP tool:
+Call the `heroku_design` MCP tool:
 
 ```
-design_heroku_migration(migration_dir=$MIGRATION_DIR)
+heroku_design(migration_dir=$MIGRATION_DIR)
 ```
 
 This tool reads `heroku-resource-inventory.json` and `preferences.json`, then:

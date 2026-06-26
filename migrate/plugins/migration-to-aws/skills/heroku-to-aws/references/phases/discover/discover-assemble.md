@@ -7,10 +7,10 @@
 
 ## Step 1: Assemble
 
-Call the `assemble_heroku_inventory` MCP tool:
+Call the `heroku_discover_assemble` MCP tool:
 
 ```
-assemble_heroku_inventory(migration_dir=$MIGRATION_DIR)
+heroku_discover_assemble(migration_dir=$MIGRATION_DIR)
 ```
 
 This tool:

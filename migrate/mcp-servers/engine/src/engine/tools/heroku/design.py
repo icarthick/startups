@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger("engine.design_heroku")
+logger = logging.getLogger("engine.heroku.design")
 
 
 def _read_json(path: Path) -> dict | None:

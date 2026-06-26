@@ -6,10 +6,10 @@
 
 ## Step 1: Generate Documentation
 
-Call the `generate_docs` MCP tool:
+Call the `heroku_generate_docs` MCP tool:
 
 ```
-generate_docs(migration_dir=$MIGRATION_DIR)
+heroku_generate_docs(migration_dir=$MIGRATION_DIR)
 ```
 
 This tool reads `aws-design.json`, `preferences.json`, and `heroku-resource-inventory.json`, then:

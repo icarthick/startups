@@ -40,13 +40,13 @@
         "phase_router",
         "phase_advance",
         "phase_reset",
-        "scan_heroku_terraform",
-        "extract_heroku_billing",
-        "assemble_heroku_inventory",
-        "design_heroku_migration",
-        "estimate_heroku_migration",
-        "generate_terraform",
-        "generate_docs"
+        "heroku_discover_terraform",
+        "heroku_discover_billing",
+        "heroku_discover_assemble",
+        "heroku_design",
+        "heroku_estimate",
+        "heroku_generate_terraform",
+        "heroku_generate_docs"
       ]
     }
   }

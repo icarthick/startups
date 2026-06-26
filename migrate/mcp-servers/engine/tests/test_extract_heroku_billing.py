@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from engine.tools.extract_heroku_billing import extract_heroku_billing
+from engine.tools.heroku.discover.billing import extract_heroku_billing
 
 
 @pytest.fixture

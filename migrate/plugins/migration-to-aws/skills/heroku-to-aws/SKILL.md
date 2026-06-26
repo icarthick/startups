@@ -136,10 +136,10 @@ The `.migration/` directory is automatically protected by a `.gitignore` file cr
 **engine** (phase management, discovery, design, estimate, generate):
 
 - Provides `migration_status`, `migration_init`, `phase_router`, `phase_advance`, `phase_reset` (orchestration)
-- Provides `scan_heroku_terraform`, `extract_heroku_billing` (discovery)
-- Provides `design_heroku_migration` (design)
-- Provides `estimate_heroku_migration` (estimate)
-- Provides `generate_terraform`, `generate_docs` (generate)
+- Provides `heroku_discover_terraform`, `heroku_discover_billing` (discovery)
+- Provides `heroku_design` (design)
+- Provides `heroku_estimate` (estimate)
+- Provides `heroku_generate_terraform`, `heroku_generate_docs` (generate)
 - Used at every phase boundary and for deterministic computation
 - Routes are defined in `heroku-to-aws/routes.json` within the server's knowledge directory
 
@@ -160,18 +160,18 @@ heroku-to-aws/
 ├── references/
 │   ├── phases/
 │   │   ├── discover/
-│   │   │   ├── discover-terraform.md           # Terraform discovery (calls scan_heroku_terraform tool)
-│   │   │   ├── discover-billing.md             # Billing data parsing (calls extract_heroku_billing tool)
+│   │   │   ├── discover-terraform.md           # Terraform discovery (calls heroku_discover_terraform tool)
+│   │   │   ├── discover-billing.md             # Billing data parsing (calls heroku_discover_billing tool)
 │   │   │   └── discover-assemble.md            # Assembles heroku-resource-inventory.json
 │   │   ├── clarify/
 │   │   │   └── clarify.md                      # Phase 2: Adaptive questions (12–15, batched ≤5)
 │   │   ├── design/
-│   │   │   └── design.md                       # Phase 3: Calls design_heroku_migration tool
+│   │   │   └── design.md                       # Phase 3: Calls heroku_design tool
 │   │   ├── estimate/
-│   │   │   └── estimate.md                     # Phase 4: Calls estimate_heroku_migration tool
+│   │   │   └── estimate.md                     # Phase 4: Calls heroku_estimate tool
 │   │   ├── generate/
-│   │   │   ├── generate-terraform.md           # Calls generate_terraform tool
-│   │   │   ├── generate-docs.md                # Calls generate_docs tool
+│   │   │   ├── generate-terraform.md           # Calls heroku_generate_terraform tool
+│   │   │   ├── generate-docs.md                # Calls heroku_generate_docs tool
 │   │   │   └── generate-validate.md            # Cross-reference validation
 │   │   └── feedback/
 │   │       └── feedback.md                     # Phase 6: Feedback collection
@@ -196,7 +196,7 @@ heroku-to-aws/
 - **Sizing**: Development tier (e.g., `db.t4g.micro` for databases, 0.5 CPU for Fargate)
 - **Migration mode**: Adapts based on available inputs (Terraform primary, Procfile/app.json supplementary, billing optional)
 - **Cost currency**: USD
-- **Timeline assumption**: 2-16 weeks depending on migration complexity — small (2-6 weeks), medium (6-12 weeks), large (12-18 weeks). Classified by `estimate_heroku_migration` tool.
+- **Timeline assumption**: 2-16 weeks depending on migration complexity — small (2-6 weeks), medium (6-12 weeks), large (12-18 weeks). Classified by `heroku_estimate` tool.
 
 ## Workflow Execution
 

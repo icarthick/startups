@@ -7,10 +7,10 @@
 
 ## Step 1: Generate Estimate
 
-Call the `estimate_heroku_migration` MCP tool:
+Call the `heroku_estimate` MCP tool:
 
 ```
-estimate_heroku_migration(migration_dir=$MIGRATION_DIR)
+heroku_estimate(migration_dir=$MIGRATION_DIR)
 ```
 
 This tool reads `aws-design.json`, `preferences.json`, and `heroku-resource-inventory.json`, then:

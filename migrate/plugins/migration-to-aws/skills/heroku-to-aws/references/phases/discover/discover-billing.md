@@ -7,10 +7,10 @@
 
 ## Step 1: Extract Heroku Billing
 
-Call the `extract_heroku_billing` MCP tool:
+Call the `heroku_discover_billing` MCP tool:
 
 ```
-extract_heroku_billing(project_dir=<project root>, migration_dir=$MIGRATION_DIR)
+heroku_discover_billing(project_dir=<project root>, migration_dir=$MIGRATION_DIR)
 ```
 
 This tool:

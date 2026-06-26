@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger("engine.assemble_inventory")
+logger = logging.getLogger("engine.heroku.discover.assemble")
 
 REQUIRED_FIELDS = {"resource_id", "resource_type", "heroku_app", "config"}
 FORBIDDEN_FIELDS = {"cluster_id", "creation_order_depth", "edges", "dependencies", "must_migrate_together"}

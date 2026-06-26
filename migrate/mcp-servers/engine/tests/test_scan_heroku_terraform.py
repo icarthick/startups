@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from engine.tools.scan_heroku_terraform import scan_heroku_terraform
+from engine.tools.heroku.discover.terraform import scan_heroku_terraform
 
 
 @pytest.fixture

@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger("engine.extract_heroku_billing")
+logger = logging.getLogger("engine.heroku.discover.billing")
 
 BILLING_GLOBS = ["*billing*.csv", "*invoice*.csv", "*billing*.json", "*invoice*.json"]
 SKIP_DIRS = {".git", "node_modules", ".terraform", ".migration"}

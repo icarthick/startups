@@ -10,7 +10,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger("engine.generate_terraform")
+logger = logging.getLogger("engine.heroku.generate.terraform")
 
 
 def _sanitize(name: str) -> str:
