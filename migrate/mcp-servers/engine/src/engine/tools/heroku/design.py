@@ -30,6 +30,97 @@ def _normalize_addon(name: str, aliases: dict) -> str:
     return aliases.get(n, n)
 
 
+# --- Helpers ---
+
+def _make_service(service_id: str, aws_service: str, app: str, rid: str, target_region: str, aws_config: dict) -> dict:
+    """Build a standard service entry."""
+    return {
+        "service_id": service_id,
+        "source_resource_id": rid,
+        "heroku_app": app,
+        "aws_service": aws_service,
+        "confidence": "deterministic",
+        "aws_config": {"region": target_region, **aws_config},
+    }
+
+
+def _make_deferred(addon_name: str, plan: str, provider: str, reason: str) -> dict:
+    """Build a standard deferred entry."""
+    return {"addon_name": addon_name, "addon_plan": plan, "provider": provider, "reason": reason, "recommendation": "Engage AWS account team"}
+
+
+# --- Addon Mappers ---
+
+def _map_postgres(config: dict, app: str, rid: str, target_region: str, preferences: dict, knowledge: dict) -> tuple[dict | None, dict | None]:
+    plan = config.get("plan", "").lower()
+    plans = knowledge.get("heroku-to-aws/design/postgres-plans", {}).get("plans", {})
+    pg = plans.get(plan)
+    if not pg:
+        return None, _make_deferred("heroku-postgresql", plan, "heroku", f"Unrecognized plan: {plan}")
+
+    database_ha = preferences.get("data", {}).get("database_ha", preferences.get("global", {}).get("availability", "multi-az"))
+    use_aurora = database_ha in ("multi-az-ha", "multi-region")
+    return _make_service(
+        f"rds:{app}:postgres",
+        "Aurora PostgreSQL" if use_aurora else "RDS PostgreSQL",
+        app, rid, target_region,
+        {"instance_class": pg["aurora"] if use_aurora else pg["rds"], "multi_az": database_ha != "single-az", "storage_gb": pg["storage_gb"], "engine_version": "15", "rds_proxy": pg["pooling"]},
+    ), None
+
+
+def _map_redis(config: dict, app: str, rid: str, target_region: str, preferences: dict, knowledge: dict) -> tuple[dict | None, dict | None]:
+    plan = config.get("plan", "").lower()
+    plans = knowledge.get("heroku-to-aws/design/redis-plans", {}).get("plans", {})
+    rd = plans.get(plan)
+    if not rd:
+        return None, _make_deferred("heroku-redis", plan, "heroku", f"Unrecognized plan: {plan}")
+
+    return _make_service(
+        f"elasticache:{app}:redis", "ElastiCache Redis", app, rid, target_region,
+        {"node_type": rd["node_type"], "multi_az": rd["ha"], "automatic_failover": rd["ha"], "transit_encryption": rd["encryption"], "engine_version": rd["version"]},
+    ), None
+
+
+def _map_kafka(config: dict, app: str, rid: str, target_region: str, preferences: dict, knowledge: dict) -> tuple[dict | None, dict | None]:
+    plan = config.get("plan", "").lower()
+    plans = knowledge.get("heroku-to-aws/design/kafka-plans", {}).get("plans", {})
+    kf = plans.get(plan)
+    if not kf:
+        return None, _make_deferred("heroku-kafka", plan, "heroku", f"Unrecognized plan: {plan}")
+
+    return _make_service(
+        f"msk:{app}:kafka", "Amazon MSK", app, rid, target_region,
+        {"broker_instance_type": kf["broker_type"], "storage_per_broker_gb": kf["storage_gb"], "broker_count": kf["brokers"], "availability_zones": kf["azs"], "replication_factor": kf["replication"]},
+    ), None
+
+
+def _map_fast_path(addon_service: str, config: dict, app: str, rid: str, target_region: str, knowledge: dict) -> tuple[dict | None, dict | None]:
+    fast_path_data = knowledge.get("heroku-to-aws/design/fast-path-addons", {})
+    fast_path = fast_path_data.get("mappings", {})
+    fp_aliases = fast_path_data.get("prefix_aliases", {})
+
+    normalized = _normalize_addon(addon_service, fp_aliases)
+    fp_entry = fast_path.get(normalized)
+    if fp_entry:
+        return _make_service(
+            f"{fp_entry['aws_services'][0].lower().replace(' ', '_')}:{app}:{addon_service}",
+            " + ".join(fp_entry["aws_services"]), app, rid, target_region,
+            {"services": fp_entry["aws_services"]},
+        ), None
+
+    plan = config.get("plan", "").lower()
+    return None, _make_deferred(addon_service, plan, config.get("provider", "unknown"), "Not found in fast-path table")
+
+
+ADDON_MAPPERS = {
+    "heroku-postgresql": _map_postgres,
+    "heroku-redis": _map_redis,
+    "heroku-kafka": _map_kafka,
+}
+
+
+# --- Main ---
+
 def design_heroku_migration(migration_dir: str, knowledge: dict) -> dict[str, Any]:
     """Design AWS architecture from Heroku inventory + preferences.
 
@@ -49,29 +140,16 @@ def design_heroku_migration(migration_dir: str, knowledge: dict) -> dict[str, An
     if not preferences:
         return {"status": "error", "reason": "preferences.json not found"}
 
-    # Load knowledge tables
+    # Load knowledge
     dyno_types = knowledge.get("heroku-to-aws/design/dyno-types", {}).get("types", {})
-    postgres_plans = knowledge.get("heroku-to-aws/design/postgres-plans", {}).get("plans", {})
-    redis_plans = knowledge.get("heroku-to-aws/design/redis-plans", {}).get("plans", {})
-    kafka_plans = knowledge.get("heroku-to-aws/design/kafka-plans", {}).get("plans", {})
-    fast_path_data = knowledge.get("heroku-to-aws/design/fast-path-addons", {})
-    fast_path = fast_path_data.get("mappings", {})
-    fp_aliases = fast_path_data.get("prefix_aliases", {})
-
-    # Extract preferences
     target_region = preferences.get("global", {}).get("target_region", "us-east-1")
-    availability = preferences.get("global", {}).get("availability", "multi-az")
-    database_ha = preferences.get("data", {}).get("database_ha", availability)
-    log_retention = preferences.get("operational", {}).get("log_retention_days", 30)
 
     services = []
     deferred = []
     warnings = []
     spaces = []
 
-    resources = inventory.get("resources", [])
-
-    for res in resources:
+    for res in inventory.get("resources", []):
         rtype = res.get("resource_type")
         config = res.get("config", {})
         app = res.get("heroku_app", "unknown")
@@ -85,120 +163,28 @@ def design_heroku_migration(migration_dir: str, knowledge: dict) -> dict[str, An
                 continue
             process_type = config.get("process_type", "web")
             quantity = max(0, min(config.get("quantity", 1), 100))
-            services.append({
-                "service_id": f"fargate:{app}:{process_type}",
-                "source_resource_id": rid,
-                "heroku_app": app,
-                "aws_service": "Fargate",
-                "confidence": "deterministic",
-                "aws_config": {
-                    "region": target_region,
-                    "task_cpu": sizing["cpu"],
-                    "task_memory": sizing["memory"],
-                    "desired_count": quantity,
-                    "process_type": process_type,
-                    "load_balancer": process_type == "web",
-                },
-            })
+            services.append(_make_service(
+                f"fargate:{app}:{process_type}", "Fargate", app, rid, target_region,
+                {"task_cpu": sizing["cpu"], "task_memory": sizing["memory"], "desired_count": quantity, "process_type": process_type, "load_balancer": process_type == "web"},
+            ))
             if process_type == "web":
-                services.append({
-                    "service_id": f"alb:{app}:{process_type}",
-                    "source_resource_id": rid,
-                    "heroku_app": app,
-                    "aws_service": "ALB",
-                    "confidence": "deterministic",
-                    "aws_config": {
-                        "region": target_region,
-                        "scheme": "internet-facing",
-                        "target_group": f"fargate:{app}:{process_type}",
-                    },
-                })
+                services.append(_make_service(
+                    f"alb:{app}:{process_type}", "ALB", app, rid, target_region,
+                    {"scheme": "internet-facing", "target_group": f"fargate:{app}:{process_type}"},
+                ))
 
         elif rtype == "addon":
             addon_service = config.get("addon_service", "")
-            plan = config.get("plan", "").lower()
-
-            if addon_service == "heroku-postgresql":
-                pg = postgres_plans.get(plan)
-                if not pg:
-                    deferred.append({"addon_name": addon_service, "addon_plan": plan, "provider": "heroku", "reason": f"Unrecognized plan: {plan}", "recommendation": "Engage AWS account team"})
-                    continue
-                use_aurora = database_ha in ("multi-az-ha", "multi-region")
-                instance_class = pg["aurora"] if use_aurora else pg["rds"]
-                services.append({
-                    "service_id": f"rds:{app}:postgres",
-                    "source_resource_id": rid,
-                    "heroku_app": app,
-                    "aws_service": "Aurora PostgreSQL" if use_aurora else "RDS PostgreSQL",
-                    "confidence": "deterministic",
-                    "aws_config": {
-                        "region": target_region,
-                        "instance_class": instance_class,
-                        "multi_az": database_ha != "single-az",
-                        "storage_gb": pg["storage_gb"],
-                        "engine_version": "15",
-                        "rds_proxy": pg["pooling"],
-                    },
-                })
-
-            elif addon_service == "heroku-redis":
-                rd = redis_plans.get(plan)
-                if not rd:
-                    deferred.append({"addon_name": addon_service, "addon_plan": plan, "provider": "heroku", "reason": f"Unrecognized plan: {plan}", "recommendation": "Engage AWS account team"})
-                    continue
-                services.append({
-                    "service_id": f"elasticache:{app}:redis",
-                    "source_resource_id": rid,
-                    "heroku_app": app,
-                    "aws_service": "ElastiCache Redis",
-                    "confidence": "deterministic",
-                    "aws_config": {
-                        "region": target_region,
-                        "node_type": rd["node_type"],
-                        "multi_az": rd["ha"],
-                        "automatic_failover": rd["ha"],
-                        "transit_encryption": rd["encryption"],
-                        "engine_version": rd["version"],
-                    },
-                })
-
-            elif addon_service == "heroku-kafka":
-                kf = kafka_plans.get(plan)
-                if not kf:
-                    deferred.append({"addon_name": addon_service, "addon_plan": plan, "provider": "heroku", "reason": f"Unrecognized plan: {plan}", "recommendation": "Engage AWS account team"})
-                    continue
-                services.append({
-                    "service_id": f"msk:{app}:kafka",
-                    "source_resource_id": rid,
-                    "heroku_app": app,
-                    "aws_service": "Amazon MSK",
-                    "confidence": "deterministic",
-                    "aws_config": {
-                        "region": target_region,
-                        "broker_instance_type": kf["broker_type"],
-                        "storage_per_broker_gb": kf["storage_gb"],
-                        "broker_count": kf["brokers"],
-                        "availability_zones": kf["azs"],
-                        "replication_factor": kf["replication"],
-                    },
-                })
-
+            mapper = ADDON_MAPPERS.get(addon_service)
+            if mapper:
+                entry, defer = mapper(config, app, rid, target_region, preferences, knowledge)
             else:
-                # Fast-path lookup
-                normalized = _normalize_addon(addon_service, fp_aliases)
-                fp_entry = fast_path.get(normalized)
-                if fp_entry:
-                    aws_svc = " + ".join(fp_entry["aws_services"])
-                    services.append({
-                        "service_id": f"{fp_entry['aws_services'][0].lower().replace(' ', '_')}:{app}:{addon_service}",
-                        "source_resource_id": rid,
-                        "heroku_app": app,
-                        "aws_service": aws_svc,
-                        "confidence": "deterministic",
-                        "aws_config": {"region": target_region, "services": fp_entry["aws_services"]},
-                    })
-                else:
-                    deferred.append({"addon_name": addon_service, "addon_plan": plan, "provider": config.get("provider", "unknown"), "reason": "Not found in fast-path table", "recommendation": "Engage AWS account team"})
+                entry, defer = _map_fast_path(addon_service, config, app, rid, target_region, knowledge)
+
+            if entry:
+                services.append(entry)
+            if defer:
+                deferred.append(defer)
 
         elif rtype == "pipeline":
             warnings.append(f"Pipeline '{config.get('pipeline_name', 'unknown')}' detected — CI/CD mapping requires manual configuration")
@@ -253,7 +239,6 @@ def design_heroku_migration(migration_dir: str, knowledge: dict) -> dict[str, An
         "vpc_design": vpc_design,
     }
 
-    # Write output
     out_path = mdir / "aws-design.json"
     with open(out_path, "w") as f:
         json.dump(design, f, indent=2)
