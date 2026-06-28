@@ -36,6 +36,7 @@
     "_comment": "CloudWatch observability is added ONCE post-loop (like NAT), replacing any per-service CloudWatch-Logs entry — never double-count. Log volume is heuristic (Heroku's logging model differs, so billing data doesn't apply).",
     "log_volume_gb_per_service": {
       "fargate_service": 3,
+      "eks_pod_service": 3,
       "rds_or_aurora_service": 1,
       "alb_service": 2,
       "nat_gateway": 1,

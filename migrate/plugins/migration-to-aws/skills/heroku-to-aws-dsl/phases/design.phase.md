@@ -19,13 +19,12 @@
 # "do not recompute" guard. Deterministic leaves stay in DATA; the fragment only
 # does the lookup/clamp/branch the data dictates.
 #
-# EKS BRANCH SCOPE (flagged): clarify's design_constraints.kubernetes defaults to
-# ecs-fargate. This phase authors the FARGATE (default) compute path fully. The
-# EKS branch (eks-managed / eks-or-ecs) is declared as a SEPARATE trigger-gated
-# fragment that is NOT YET AUTHORED (eks-mapping fragment _file is a stub). Until
-# it is authored, an eks-* preference will fail loudly at the fragment trigger
-# rather than silently fall back to Fargate. This is default-safe: existing flows
-# (Fargate) are complete; opting into EKS is gated and visibly incomplete.
+# EKS: clarify's design_constraints.kubernetes defaults to ecs-fargate. This phase
+# authors BOTH compute paths: Fargate (mapping-engine) and EKS (eks-mapping, the
+# all-or-nothing alternative gated on an eks-* preference). EKS formations -> pods
+# + a single eks_cluster aggregate sized from all formations; the assembler merges
+# the EKS design in. Estimate prices pods at $0 + the cluster post-loop; generate
+# emits eks.tf + kubernetes/ manifests.
 # ============================================================================
 _phase: design
 _title: "Design AWS Architecture"
@@ -44,6 +43,7 @@ _input:
 _knowledge:
   - { file: knowledge/design/design-defaults.json }
   - { file: knowledge/design/dyno-fargate-sizing.json,      _when: "inventory has a formation AND design_constraints.kubernetes.value is ecs-fargate or absent" }
+  - { file: knowledge/design/eks-pod-sizing.json,           _when: "inventory has a formation AND design_constraints.kubernetes.value is eks-managed or eks-or-ecs" }
   - { file: knowledge/design/postgres-rds-sizing.json,      _when: "inventory has a heroku-postgresql addon" }
   - { file: knowledge/design/redis-elasticache-sizing.json, _when: "inventory has a heroku-redis addon" }
   - { file: knowledge/design/kafka-msk-sizing.json,         _when: "inventory has a heroku-kafka addon" }
@@ -83,18 +83,18 @@ _preconditions:
       _unrecoverable: >
         An input file does not parse as valid JSON. Re-run the producing phase.
 
-# Phase body: ONE fragment (the mapping engine, Fargate path) + one assembler.
-# The EKS fragment is declared but trigger-gated + NOT YET AUTHORED (stub _file);
-# its trigger fires only on an eks-* preference, which is not the default.
+# Phase body: TWO fragments + one assembler (the discover-style merge shape).
+#   - mapping-engine [always]: non-formation services + VPC + Fir + Fargate
+#     formations (when NOT eks); CREATES aws-design.json.
+#   - eks-mapping [eks pref only]: formations -> EKS pods + the eks_cluster
+#     aggregate; CREATES _eks-design.json (its own artifact).
+# The assembler MERGES _eks-design.json into aws-design.json (one creator per
+# artifact; assembler-only mutation). All-or-nothing: EKS replaces Fargate for
+# ALL formations when selected.
 _fragments:
   - _id: mapping-engine
     _trigger: { _always: true }
     _file: phases/design/design-mapping.md
-  # eks-mapping fires only on an opt-in EKS preference. NOTE (non-DSL annotation):
-  # this fragment is NOT YET AUTHORED — its _file is a halt stub. The trigger is a
-  # plain-language condition the LLM evaluates against preferences (NOT a pseudo-
-  # artifact); on the default ecs-fargate/absent value it is false and the stub is
-  # never loaded.
   - _id: eks-mapping
     _trigger: { _when: "preferences.design_constraints.kubernetes.value is 'eks-managed' or 'eks-or-ecs'" }
     _file: phases/design/design-eks.md
@@ -134,27 +134,28 @@ security groups, and note Fir workloads as deferred — assembling a single
 `aws-design.json` in `$MIGRATION_DIR/`. The output is consumed by Estimate and
 Generate. No clustering; resources are a flat list processed in input order.
 
-The work is composed of ONE FRAGMENT + one ASSEMBLER (the unit taxonomy — see
-`../INTERPRETER.md`):
+The work is composed of TWO FRAGMENTS + one ASSEMBLER (the unit taxonomy — see
+`../INTERPRETER.md`; this is the discover-style merge shape):
 
-1. **mapping-engine** fragment (`phases/design/design-mapping.md`) — the single
-   unit of work, trigger always-true. Single-pass maps each resource (formation
-   → Fargate, postgres → RDS/Aurora, redis → ElastiCache, kafka → MSK, other
-   addons → fast-path, pipeline → detect-only warning, space → collected for VPC),
-   then designs the VPC + security groups and the Fir notation from the same
-   pass. CREATES `aws-design.json`. The lookups/clamps/branches are dictated by
-   the `knowledge/design/*.json` data (loaded per `_knowledge` guards).
-2. **design-assemble** (`phases/design/design-assemble.md`) — the mandatory
-   assembler. A validator/promote: it READS `aws-design.json` (and the inventory,
-   to evaluate the conditional route output gates) and owns the artifact-level
-   contract (schema-shape checks + every route output gate). It mutates/creates
-   nothing.
+1. **mapping-engine** fragment (`phases/design/design-mapping.md`) — always-on.
+   Single-pass maps each resource (formation → Fargate WHEN NOT EKS, postgres →
+   RDS/Aurora, redis → ElastiCache, kafka → MSK, other addons → fast-path,
+   pipeline → detect-only warning, space → collected for VPC), designs the VPC +
+   security groups, notes Fir. CREATES `aws-design.json`.
+2. **eks-mapping** fragment (`phases/design/design-eks.md`) — fires only on an
+   `eks-managed`/`eks-or-ecs` preference. Maps every formation to an EKS
+   Deployment pod entry + the single `eks_cluster` aggregate (sized from all
+   formations). CREATES its own `_eks-design.json` (intermediate).
+3. **design-assemble** (`phases/design/design-assemble.md`) — the mandatory
+   assembler. MERGES `_eks-design.json` into `aws-design.json` when present
+   (folds in the EKS services + the `eks_cluster` key), then owns the
+   artifact-level contract (schema-shape + route output gates). One creator per
+   artifact; the assembler is the only mutator.
 
-EKS: the `eks-mapping` fragment fires only when
-`preferences.design_constraints.kubernetes.value` is `eks-managed` or
-`eks-or-ecs` (its `_trigger._when`). That fragment is **not yet authored** —
-until it is, an EKS preference halts at the stub. The default (`ecs-fargate` /
-absent) path is fully authored here, so the stub is never loaded on the default.
+EKS is ALL-OR-NOTHING: when selected, EVERY formation maps to EKS (not Fargate),
+decided by the `kubernetes.value` preference. The default (`ecs-fargate` /
+absent) path runs the Fargate formation branch in mapping-engine and the
+eks-mapping fragment never fires.
 
 Run the fragment(s) in `_fragments` order (skipping false triggers), then the
 assembler. Each is a first-class DSL unit with its OWN frontmatter — read each

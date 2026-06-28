@@ -2,12 +2,11 @@
 _assemble: design-assemble
 _of_phase: design
 _scope: >
-  Validate the mapping fragment's aws-design.json against the schema-shape rules
-  and the route output gates (conditional on what the inventory contained). ONLY
-  this. Creates nothing, mutates nothing (pure validator). Does NOT update
-  .phase-status.json.
-_reads: [aws-design.json, heroku-resource-inventory.json]
-_mutates: []
+  Merge the EKS fragment's _eks-design.json into aws-design.json (when present),
+  then validate the merged design against the schema-shape rules and the route
+  output gates. ONLY this. Does NOT update .phase-status.json.
+_reads: [aws-design.json, _eks-design.json, heroku-resource-inventory.json]
+_mutates: [aws-design.json]
 _produces: []
 _postconditions:
   - _validate_json: aws-design.json
@@ -21,7 +20,8 @@ _postconditions:
   - _assert: "if vpc_design.mode == new_vpc -> >=2 subnets across separate AZs"
   - _assert: "metadata.total_services == services[].length"
   - _assert: "no ARM/Graviton/CNB targeting anywhere in output (Fir detect-only)"
-  - _assert: "ROUTE GATE: if inventory had formations -> services[] has >=1 Fargate (or EKS) entry, unless ALL dyno types were unrecognized"
+  - _assert: "ROUTE GATE: if inventory had formations -> services[] has >=1 Fargate (Fargate path) OR EKS (eks path) entry, unless ALL dyno types were unrecognized"
+  - _assert: "if any EKS service exists -> aws-design.json has an eks_cluster (merged from _eks-design.json) and NO Fargate formation entries (all-or-nothing)"
   - _assert: "ROUTE GATE: if inventory had recognized heroku-postgresql -> services[] has an RDS or Aurora entry"
   - _assert: "ROUTE GATE: if inventory had recognized heroku-redis -> services[] has an ElastiCache entry"
   - _assert: "ROUTE GATE: if inventory had recognized heroku-kafka -> services[] has an MSK entry"
@@ -35,17 +35,30 @@ _on_error:
 ## Orientation
 
 The mandatory design-phase ASSEMBLER (exactly one per phase, terminal), here a
-validator/promote: the mapping fragment already created `aws-design.json` and
-there is nothing to combine (single-fragment phase), so this unit creates
-nothing and mutates nothing — it owns the artifact-level contract (schema-shape
-validity, per-entry required fields, the VPC contract, and the ROUTE OUTPUT
-GATES), expressed as its `_postconditions`, which are the design handoff gate.
+MERGER + validator (the discover-style shape): the mapping-engine fragment
+created `aws-design.json` (non-formation + VPC + Fir + Fargate formations), and
+WHEN the EKS path fired the eks-mapping fragment created `_eks-design.json` (EKS
+services + the `eks_cluster`). This assembler MERGES the latter into the former
+(appends `eks_services[]` into `services[]`, adds the `eks_cluster` key) and owns
+the artifact-level contract (schema-shape, per-entry fields, VPC, ROUTE OUTPUT
+GATES). One creator per artifact; the assembler is the only mutator.
 
-It reads `aws-design.json` (the artifact) and `heroku-resource-inventory.json`
-(the phase input — needed to evaluate the route gates, e.g. "if the inventory had
-a recognized postgres addon, the design must contain an RDS/Aurora entry"); per
-the interpreter, a validator assembler may read the phase input for
-trigger-dependent contracts.
+It reads `aws-design.json`, `_eks-design.json` (if the EKS fragment ran), and
+`heroku-resource-inventory.json` (the phase input — to evaluate the route gates).
+
+## Step: merge_eks
+
+```meta
+_reads: [aws-design.json, _eks-design.json]
+_mutates: aws-design.json
+```
+
+IF `_eks-design.json` exists (the EKS path fired): read it and fold it into
+`aws-design.json` — append every `eks_services[]` entry into `services[]`, set the
+top-level `eks_cluster` key to its `eks_cluster`. Recompute
+`metadata.total_services` = final `services[].length`. (The mapping-engine left
+no Fargate formation entries in EKS mode, so there is no Fargate/EKS mix.) IF
+`_eks-design.json` does NOT exist (Fargate / no formations), this step is a no-op.
 
 ## Step: validate_design
 
@@ -53,7 +66,7 @@ trigger-dependent contracts.
 _reads: [aws-design.json, heroku-resource-inventory.json]
 ```
 
-Read `aws-design.json`. Run every check in this unit's `_postconditions`. The
+Read the (now merged) `aws-design.json`. Run every check in this unit's `_postconditions`. The
 ROUTE GATE checks re-read `heroku-resource-inventory.json` to know what the
 design was OBLIGATED to produce: each recognized core resource type present in
 the inventory must have its corresponding service entry in the design (a missing

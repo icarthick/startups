@@ -1,0 +1,47 @@
+# Deployment manifest — one per formation (file: kubernetes/{{heroku_app}}-{{process_type}}-deployment.yaml).
+# The {{ports_block}} (containerPort 8080) is emitted ONLY for process_type == web.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{process_type}}
+  namespace: {{heroku_app}}
+  labels:
+    app: {{process_type}}
+    app.kubernetes.io/name: {{process_type}}
+    app.kubernetes.io/part-of: {{heroku_app}}
+spec:
+  replicas: {{replicas}}
+  selector:
+    matchLabels:
+      app: {{process_type}}
+  template:
+    metadata:
+      labels:
+        app: {{process_type}}
+    spec:
+      containers:
+        - name: {{process_type}}
+          image: {{container_image}}
+          resources:
+            requests:
+              cpu: "{{req_cpu}}"
+              memory: "{{req_mem}}"
+            limits:
+              cpu: "{{lim_cpu}}"
+              memory: "{{lim_mem}}"
+          env:
+            - name: PORT
+              value: "8080"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{heroku_app}}-config
+                  key: DATABASE_URL
+                  optional: true
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{heroku_app}}-config
+                  key: REDIS_URL
+                  optional: true
+          {{ports_block}}

@@ -1,0 +1,183 @@
+# eks.tf — emitted when aws-design.json has an eks_cluster (the EKS compute path).
+# {{vpc_id_reference}} / {{subnet_refs}} / {{vpc_cidr_block}} resolve per vpc_design.
+# NODE GROUP: emit EXACTLY ONE block per design.eks_cluster.node_group_type —
+#   "managed"      -> the aws_eks_node_group block ONLY
+#   "self-managed" -> the aws_launch_template + aws_autoscaling_group block ONLY
+# Never emit both.
+
+resource "aws_eks_cluster" "main" {
+  name     = "{{cluster_name}}"
+  role_arn = aws_iam_role.eks_cluster.arn
+  version  = "{{kubernetes_version}}"
+
+  vpc_config {
+    subnet_ids         = {{subnet_refs}}
+    security_group_ids = [aws_security_group.eks_cluster.id]
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.eks_cluster_policy,
+    aws_iam_role_policy_attachment.eks_vpc_resource_controller,
+  ]
+}
+
+resource "aws_iam_role" "eks_cluster" {
+  name = "{{cluster_name}}-cluster-role"
+  assume_role_policy = jsonencode({
+    Version   = "2012-10-17"
+    Statement = [{ Action = "sts:AssumeRole", Effect = "Allow", Principal = { Service = "eks.amazonaws.com" } }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "eks_cluster_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
+  role       = aws_iam_role.eks_cluster.name
+}
+
+resource "aws_iam_role_policy_attachment" "eks_vpc_resource_controller" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSVPCResourceController"
+  role       = aws_iam_role.eks_cluster.name
+}
+
+resource "aws_iam_role" "eks_nodes" {
+  name = "{{cluster_name}}-node-role"
+  assume_role_policy = jsonencode({
+    Version   = "2012-10-17"
+    Statement = [{ Action = "sts:AssumeRole", Effect = "Allow", Principal = { Service = "ec2.amazonaws.com" } }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "eks_worker_node_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+  role       = aws_iam_role.eks_nodes.name
+}
+resource "aws_iam_role_policy_attachment" "eks_cni_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+  role       = aws_iam_role.eks_nodes.name
+}
+resource "aws_iam_role_policy_attachment" "eks_container_registry" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+  role       = aws_iam_role.eks_nodes.name
+}
+
+# === EMIT ONLY WHEN node_group_type == "managed" ===
+resource "aws_eks_node_group" "general" {
+  cluster_name    = aws_eks_cluster.main.name
+  node_group_name = "general"
+  node_role_arn   = aws_iam_role.eks_nodes.arn
+  subnet_ids      = {{subnet_refs}}
+  instance_types  = {{node_instance_types_hcl}}
+  scaling_config {
+    desired_size = {{desired_size}}
+    max_size     = {{max_size}}
+    min_size     = {{min_size}}
+  }
+}
+
+# === EMIT ONLY WHEN node_group_type == "self-managed" ===
+resource "aws_launch_template" "eks_nodes" {
+  name_prefix   = "{{cluster_name}}-node-"
+  instance_type = {{node_instance_type_primary}}
+  image_id      = data.aws_ssm_parameter.eks_ami.value
+  user_data = base64encode(<<-EOF
+    #!/bin/bash
+    /etc/eks/bootstrap.sh ${aws_eks_cluster.main.name}
+  EOF
+  )
+  network_interfaces {
+    security_groups = [aws_security_group.eks_nodes.id]
+  }
+  tag_specifications {
+    resource_type = "instance"
+    tags          = { "kubernetes.io/cluster/${aws_eks_cluster.main.name}" = "owned" }
+  }
+}
+
+data "aws_ssm_parameter" "eks_ami" {
+  name = "/aws/service/eks/optimized-ami/{{kubernetes_version}}/amazon-linux-2/recommended/image_id"
+}
+
+resource "aws_autoscaling_group" "eks_nodes" {
+  name                = "{{cluster_name}}-nodes"
+  desired_capacity    = {{desired_size}}
+  max_size            = {{max_size}}
+  min_size            = {{min_size}}
+  vpc_zone_identifier = {{subnet_refs}}
+  launch_template {
+    id      = aws_launch_template.eks_nodes.id
+    version = "$Latest"
+  }
+  tag {
+    key                 = "kubernetes.io/cluster/${aws_eks_cluster.main.name}"
+    value               = "owned"
+    propagate_at_launch = true
+  }
+}
+
+resource "aws_security_group" "eks_nodes" {
+  name_prefix = "{{cluster_name}}-nodes-"
+  vpc_id      = {{vpc_id_reference}}
+  ingress {
+    from_port       = 0
+    to_port         = 0
+    protocol        = "-1"
+    security_groups = [aws_security_group.eks_cluster.id]
+  }
+  ingress {
+    from_port = 0
+    to_port   = 0
+    protocol  = "-1"
+    self      = true
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# === ALWAYS (both node group types) ===
+data "tls_certificate" "eks" {
+  url = aws_eks_cluster.main.identity[0].oidc[0].issuer
+}
+
+resource "aws_iam_openid_connect_provider" "eks" {
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = [data.tls_certificate.eks.certificates[0].sha1_fingerprint]
+  url             = aws_eks_cluster.main.identity[0].oidc[0].issuer
+}
+
+resource "helm_release" "aws_lb_controller" {
+  name       = "aws-load-balancer-controller"
+  repository = "https://aws.github.io/eks-charts"
+  chart      = "aws-load-balancer-controller"
+  namespace  = "kube-system"
+  version    = "1.8.0"
+  set {
+    name  = "clusterName"
+    value = aws_eks_cluster.main.name
+  }
+  set {
+    name  = "serviceAccount.create"
+    value = "true"
+  }
+}
+
+resource "aws_security_group" "eks_cluster" {
+  name_prefix = "{{cluster_name}}-cluster-"
+  vpc_id      = {{vpc_id_reference}}
+  # API access restricted to the VPC CIDR (tighten for production)
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["{{vpc_cidr_block}}"]
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}

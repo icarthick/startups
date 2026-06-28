@@ -115,7 +115,7 @@
       "m6i.16xlarge": 2242.56
     },
     "pod_cost": 0,
-    "formula": "control_plane_monthly + node_monthly_rate * node_count  (+ ALB per web service + NAT if private subnets). Per-pod Fargate-style task cost is NOT charged."
+    "formula": "control_plane_monthly + node_monthly_rate * node_count, where node_count = eks_cluster.node_groups[0].desired_size and node_monthly_rate = node_rates_monthly[instance_types[0]]. Per-pod Fargate-style task cost is NOT charged (pods are $0). ALB (web) and NAT are added by their own lines, NOT re-added here."
   },
 
   "nat_gateway": {

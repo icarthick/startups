@@ -1,0 +1,19 @@
+# Service manifest — ONLY for web process types (file: kubernetes/{{heroku_app}}-web-service.yaml).
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: {{heroku_app}}
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "external"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+    service.beta.kubernetes.io/aws-load-balancer-target-type: "ip"
+    alb.ingress.kubernetes.io/target-type: "ip"
+spec:
+  type: LoadBalancer
+  selector:
+    app: web
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP

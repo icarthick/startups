@@ -133,13 +133,19 @@ Add costs that derive from the design as a whole (NOT per-service loop entries):
 
 - **NAT Gateway** — if `aws-design.json.vpc_design.mode == "new_vpc"` (private
   subnets present): add `nat_gateway.monthly_fixed` (+ data estimate; default 0).
+- **NAT Gateway** — if `aws-design.json.vpc_design.mode == "new_vpc"` (private
+  subnets present): add `nat_gateway.monthly_fixed` (+ data estimate; default 0).
+  Add it ONCE here — the EKS branch below must NOT re-add NAT.
 - **EKS cluster** — if `aws-design.json` has an `eks_cluster` entry (EKS compute
   path): add `eks.control_plane_monthly` + `node_monthly_rate * node_count`
-  (from `eks.node_rates_monthly`) + ALB per web service + NAT if private. NOTE:
-  EKS PODS COST $0 — do NOT also add per-pod task costs (compute is billed via
-  the nodes; charging pods double-counts). (Design's EKS branch is a stub today,
-  so this fires only once EKS is authored — but the handling is here so estimate
-  needs no retrofit.)
+  where `node_count = eks_cluster.node_groups[0].desired_size` (the steady-state
+  count for the balanced tier — NOT min or max), and `node_monthly_rate` =
+  `eks.node_rates_monthly[node_groups[0].instance_types[0]]`. NOTE: EKS PODS COST
+  $0 — each EKS service in `services[]` is a $0 breakdown line (priced, NOT
+  `unpriced`); do NOT add per-pod task costs (compute is billed via the nodes
+  here; charging pods double-counts). The web ALB is added by the ALB per-service
+  line, and NAT by the NAT bullet above — the EKS branch does NOT re-add ALB or
+  NAT. (Design's EKS path emits `eks_cluster`; this fires when it is present.)
 - **Route 53** — if `preferences.data.dns_strategy == "route53"`: add
   `route53.hosted_zone_monthly` (+ query estimate).
 

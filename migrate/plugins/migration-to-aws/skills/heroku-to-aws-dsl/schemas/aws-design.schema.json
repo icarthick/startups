@@ -103,6 +103,32 @@
           "then": { "required": ["subnets"], "properties": { "subnets": { "minItems": 2 } } }
         }
       ]
+    },
+    "eks_cluster": {
+      "type": "object",
+      "description": "Present only on the EKS compute path; the single cluster aggregate sized from all formations.",
+      "required": ["cluster_name", "kubernetes_version", "node_group_type", "node_groups", "addons"],
+      "properties": {
+        "cluster_name": { "type": "string" },
+        "kubernetes_version": { "type": "string" },
+        "node_group_type": { "type": "string", "enum": ["managed", "self-managed"] },
+        "node_groups": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["name", "instance_types", "min_size", "max_size", "desired_size"],
+            "properties": {
+              "name": { "type": "string" },
+              "instance_types": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+              "min_size": { "type": "integer", "minimum": 1 },
+              "max_size": { "type": "integer", "minimum": 1 },
+              "desired_size": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "addons": { "type": "array", "items": { "type": "string" } }
+      }
     }
   }
 }

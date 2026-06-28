@@ -17,8 +17,8 @@
 # fragments are the routing ALGORITHM (see docs/unit-taxonomy-spec.md). Routing
 # data + var sources are knowledge/generate/generate-routing.json.
 #
-# EKS generate (eks.tf + kubernetes/ manifests) is a loud-halt stub, gated like
-# design's EKS branch — part of the later EKS cross-phase pass.
+# EKS generate (eks.tf + helm-provider.tf + kubernetes/ manifests) fires on an
+# eks_cluster design entry — the EKS cross-phase pass authored it.
 # ============================================================================
 _phase: generate
 _title: "Generate Migration Artifacts"
@@ -56,6 +56,11 @@ _templates:
   - { file: templates/generate/docs/README.md.tmpl }
   - { file: templates/generate/scripts/migrate-postgres.sh, _when: "design has Postgres" }
   - { file: templates/generate/scripts/migrate-redis.sh,    _when: "design has Redis" }
+  - { file: templates/generate/terraform/eks.tf.tmpl,           _when: "design has an eks_cluster" }
+  - { file: templates/generate/terraform/helm-provider.tf.tmpl, _when: "design has an eks_cluster" }
+  - { file: templates/generate/kubernetes/namespace.yaml.tmpl,  _when: "design has an eks_cluster" }
+  - { file: templates/generate/kubernetes/deployment.yaml.tmpl, _when: "design has an eks_cluster" }
+  - { file: templates/generate/kubernetes/service.yaml.tmpl,    _when: "design has an eks_cluster with a web EKS service" }
 
 _re_entry_guard:
   if: "feedback.json exists AND phase feedback completed"
@@ -149,8 +154,9 @@ This is the MULTI-ARTIFACT phase. The work is TWO FRAGMENTS + one ASSEMBLER:
 
 Templates are DATA (output skeletons, referenced via `_templates`, never inlined);
 the routing/var-source mapping is `knowledge/generate/generate-routing.json`; the
-warnings SHAPE is `schemas/generation-warnings.schema.json`. EKS generation
-(`generate-eks.md`) is a loud-halt stub gated on an EKS design entry — not yet
-authored (the Fargate path is complete). After the assembler validates, the phase
+warnings SHAPE is `schemas/generation-warnings.schema.json`. The `eks-generate`
+fragment fires on an `eks_cluster` design entry and emits `eks.tf` +
+`helm-provider.tf` (helm/tls providers kept OUT of main.tf) + `kubernetes/`
+manifests. After the assembler validates, the phase
 emits `HANDOFF_OK | phase=generate | ...`, sets `phases.generate="completed"`,
 `current_phase="feedback"`, and tells the user to load `feedback.phase.md` next.

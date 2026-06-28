@@ -72,15 +72,16 @@ Read from `preferences.json` (used by later steps; resolve once here):
 `data.redis_ha`, `operational.log_retention_days`,
 `design_constraints.kubernetes.value`, `operational.fir_intent` (may be absent).
 
-**Compute-mode determination (EKS gate):** the phase's `eks-mapping` fragment
-is trigger-gated on `design_constraints.kubernetes.value` being `eks-managed` or
-`eks-or-ecs` (see `design.phase.md`). If that value is set, the phase routes to
-the (not-yet-authored) EKS fragment, which halts — you will NOT reach this
-Fargate mapping for formations. This fragment authors the Fargate path, so it
-assumes the value is `ecs-fargate` or absent. Fir-intent precedence:
-`operational.fir_intent == "self_managed_eks_ecs"` does NOT enable EKS; the
-global kubernetes preference governs non-Fir formations and Fir stays a deferred
-notation (Step `note_fir`).
+**Compute-mode determination (EKS gate):** if
+`design_constraints.kubernetes.value` is `eks-managed` or `eks-or-ecs`, the EKS
+compute path is active — SKIP the `formation` Fargate branch below entirely (the
+`eks-mapping` fragment maps formations to EKS pods and the assembler folds them
+in). Still do everything else here: non-formation services (postgres/redis/kafka/
+fast-path), VPC, Fir. If the value is `ecs-fargate` or absent, run the Fargate
+formation branch as normal. Fir-intent precedence:
+`operational.fir_intent == "self_managed_eks_ecs"` does NOT by itself enable EKS;
+the global kubernetes preference governs. Fir stays a deferred notation
+(Step `note_fir`).
 
 ## Step: map_resources
 
@@ -106,7 +107,8 @@ are provenance only. A lookup is a lookup; a clamp is a clamp.
 
 For each branch:
 
-**`formation` →** Fargate mapping (default compute path):
+**`formation` →** Fargate mapping (DEFAULT compute path — SKIP this entire branch
+when the EKS gate is active; the `eks-mapping` fragment handles formations then):
 
 1. If the app has NO formation resources at all (empty Procfile), reject the
    app's formations: warn with `design-defaults.json.messages.empty_procfile`
