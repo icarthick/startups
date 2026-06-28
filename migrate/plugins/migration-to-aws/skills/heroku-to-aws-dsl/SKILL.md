@@ -14,9 +14,12 @@ vocabulary. **You (the LLM) are the interpreter.** There is no runtime engine.
 ## How to run this skill
 
 1. **Read `INTERPRETER.md` ONCE.** It defines every `_`-key and the execution
-   order (`_init` → `_preconditions` → load applicable `_knowledge` → `_steps` →
-   `_postconditions` → advance per `_advances_to`). It is skill-agnostic and
-   shared across every phase.
+   order (`_init` → `_re_entry_guard` → `_preconditions` → the `_fragments`
+   (each WRITES its artifacts) → the `_assemble` unit → `_postconditions` →
+   advance per `_advances_to`). It is skill-agnostic and shared across every
+   phase. A phase composes its work from FRAGMENTS (units of work) + exactly one
+   ASSEMBLER (combines/validates) — see the unit taxonomy in `INTERPRETER.md`
+   and `docs/unit-taxonomy-spec.md`.
 2. **Determine the current phase** from `$MIGRATION_DIR/.phase-status.json`
    (created by the discover phase's `_init`). If no `.migration/` run exists,
    start at discover. Otherwise pick the first phase whose status is not
@@ -27,14 +30,14 @@ vocabulary. **You (the LLM) are the interpreter.** There is no runtime engine.
 
 ## Phase chain
 
-| Phase    | File                        | Produces                          | Status |
-| -------- | --------------------------- | --------------------------------- | ------ |
-| Discover | `phases/discover.phase.md`  | `heroku-resource-inventory.json`  | ✅ authored + cold-LLM validated |
-| Clarify  | `phases/clarify.phase.md`   | `preferences.json`                | ⏳ not yet ported |
-| Design   | `phases/design.phase.md`    | `aws-design.json`                 | ⏳ not yet ported (arithmetic checkpoint) |
-| Estimate | `phases/estimate.phase.md`  | `estimation-infra.json`           | ⏳ not yet ported |
-| Generate | `phases/generate.phase.md`  | `terraform/`, guides, scripts     | ⏳ not yet ported |
-| Feedback | `phases/feedback.phase.md`  | `feedback.json`                   | ⏳ not yet ported |
+| Phase    | File                       | Produces                         | Status                                        |
+| -------- | -------------------------- | -------------------------------- | --------------------------------------------- |
+| Discover | `phases/discover.phase.md` | `heroku-resource-inventory.json` | ✅ authored + cold-LLM validated              |
+| Clarify  | `phases/clarify.phase.md`  | `preferences.json`               | ✅ authored + cold-LLM validated              |
+| Design   | `phases/design.phase.md`   | `aws-design.json`                | ✅ authored + cold-LLM validated (2 fixtures) |
+| Estimate | `phases/estimate.phase.md` | `estimation-infra.json`          | ⏳ not yet ported                             |
+| Generate | `phases/generate.phase.md` | `terraform/`, guides, scripts    | ⏳ not yet ported                             |
+| Feedback | `phases/feedback.phase.md` | `feedback.json`                  | ⏳ not yet ported                             |
 
 **Clarify is a mandatory gate** before Design/Estimate/Generate — enforced by
 each downstream phase's `_requires_phase`, not by trust.
@@ -46,10 +49,13 @@ heroku-to-aws-dsl/
 ├── SKILL.md                 ← you are here (entry point)
 ├── INTERPRETER.md           ← shared DSL interpreter — read first
 ├── phases/                  ← one *.phase.{yaml,md} per phase
-│   └── discover/             ← a phase's route sub-units live in a dir named for it
-│       ├── discover-terraform.md   (route: primary, required)
-│       ├── discover-billing.md     (route: optional, glob-triggered)
-│       └── discover-assemble.md    (route: always, merges contributions)
+│   ├── discover/             ← a phase's fragment + assembler units live in a dir named for it
+│   │   ├── discover-terraform.md   (fragment: primary, required)
+│   │   ├── discover-billing.md     (fragment: optional, glob-triggered)
+│   │   └── discover-assemble.md    (assembler: merges fragment outputs)
+│   └── clarify/
+│       ├── clarify-interview.md     (fragment: the interactive Q&A)
+│       └── clarify-assemble.md      (assembler: no-op/promote validator)
 ├── knowledge/               ← DATA only (JSON tables: dyno/pg/redis/kafka/...). NOT instructions.
 │   └── design/              ← mapping tables as JSON (added when design is ported)
 ├── schemas/                 ← JSON Schemas — the cross-phase artifact contracts
@@ -57,11 +63,13 @@ heroku-to-aws-dsl/
 └── test-output/             ← captured test artifacts + verdicts
 ```
 
-A phase whose body is several triggered CONTRIBUTORS to one artifact (like
-discover) declares them as `_routes` and authors each in `phases/<phase>/`. A
-phase that is one linear sequence uses `_steps` inline. Note: route files hold
-INSTRUCTIONS (`## Step:` sections); `knowledge/` holds DATA (lookup tables) —
-these are different categories and live in different trees.
+Every phase composes its body from FRAGMENTS (units of work, each its own file
+in `phases/<phase>/` with its own frontmatter) + exactly one ASSEMBLER
+(combines/enriches/validates — also its own file). A phase whose work is a
+single linear job (like clarify) is still modeled this way: ONE fragment + a
+no-op/promote assembler. Note: fragment/assembler files hold INSTRUCTIONS
+(`## Step:` sections); `knowledge/` holds DATA (lookup tables) — different
+categories, different trees. See `docs/unit-taxonomy-spec.md` for the full spec.
 
 ## Philosophy (unchanged from the markdown skill)
 

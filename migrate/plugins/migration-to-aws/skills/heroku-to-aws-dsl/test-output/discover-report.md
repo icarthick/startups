@@ -3,8 +3,8 @@
 **Question:** Can a cold-context LLM (zero repo/engine knowledge) execute the
 ported **discover** phase from `INTERPRETER.md` + `discover.phase.md` (Form 2b) +
 the conditional `knowledge/discover-billing.md` alone, and produce a
-schema-valid `heroku-resource-inventory.json` — *including the newly-ported
-billing path*?
+schema-valid `heroku-resource-inventory.json` — _including the newly-ported
+billing path_?
 
 **Setup:** Claude Code (fresh Bedrock session), given ONLY the three DSL files +
 `fixtures/acme-store/` (heroku.tf, Procfile, app.json, billing-export-2026-02.csv).
@@ -25,7 +25,7 @@ persist it. The computed artifact was transcribed to
 ## What this run proves (beyond the Form 1 discover test)
 
 1. **Form 2b is as executable as Form 1.** The cold LLM correlated every
-   ```` ```meta ```` fence to its step prose with **no trouble** ("co-location
+   `` ```meta `` fence to its step prose with **no trouble** ("co-location
    made correlation trivial; no frontmatter step-list to cross-reference"). The
    seam-free hybrid form holds for a real phase.
 
@@ -70,6 +70,7 @@ This is the discover analogue of the Form 1 test's "DSL must be self-contained"
 finding — the rule existed in prose but was under-specified at a leaf.
 
 Minor / cosmetic (not bugs):
+
 - `discovery_timestamp` format unspecified → LLM used a deterministic placeholder.
   Runtime value is "now"; acceptable.
 - `app_id: null` — the Heroku UUID isn't in local `.tf` (it's a remote computed
@@ -96,7 +97,8 @@ The re-run-discover path (previously specified-but-untested) was cold-LLM tested
 with a populated `.migration/` fixture (`fixtures/acme-store-resumed/`). Both
 branches passed: unconfirmed re-run HALTS without deleting `preferences.json`;
 explicit confirmation triggers the `on_confirm` cascade (reset downstream phases
-+ remove their artifacts) then re-runs. The test caught one real bug — the
-re-entry guard was evaluated too late (after steps overwrote the inventory) —
-now fixed by hoisting the guard to pre-steps in INTERPRETER.md. Full writeup:
-`test-output/reentry-cascade-verdict.md`.
+
+- remove their artifacts) then re-runs. The test caught one real bug — the
+  re-entry guard was evaluated too late (after steps overwrote the inventory) —
+  now fixed by hoisting the guard to pre-steps in INTERPRETER.md. Full writeup:
+  `test-output/reentry-cascade-verdict.md`.

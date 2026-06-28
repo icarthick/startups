@@ -1,0 +1,337 @@
+{
+  "_comment": "Data-driven question set for the clarify interview. The clarify-interview.md fragment is a generic DRIVER that iterates this data; it does NOT inline question prompts, options, defaults, validations, or batch composition. KNOWLEDGE per docs/unit-taxonomy-spec.md (these evolve \u2014 new regions, new compliance frameworks, reworded prompts \u2014 independently of the interview algorithm). The output artifact SHAPE is the contract in schemas/preferences.schema.json.",
+
+  "_target_artifact": "preferences.json (shape per schemas/preferences.schema.json)",
+
+  "inventory_facts": {
+    "_comment": "Facts the driver derives ONCE from heroku-resource-inventory.json; question triggers + fast-path reference these by name.",
+    "total_apps": "metadata.total_apps_discovered",
+    "has_postgres": "any addon with config.addon_service == 'heroku-postgresql'",
+    "has_redis": "any addon with config.addon_service == 'heroku-redis'",
+    "has_kafka": "any addon with config.addon_service == 'heroku-kafka'",
+    "has_space": "any resource with resource_type == 'space'",
+    "peering_detected": "any space with config.peering.detected == true",
+    "peering_vpc_id": "that space's config.peering.vpc_id (may be null)",
+    "has_fir": "any app with heroku_generation == 'fir'",
+    "postgres_plan": "the detected heroku-postgresql plan tier (for the Q6c size hint)"
+  },
+
+  "fast_path": {
+    "_comment": "Offered only when eligible; if accepted, ask only ask_questions (+ Q11 if has_fir) and default everything else.",
+    "eligible_when": "total_apps < 5 AND NOT has_space AND NOT has_kafka",
+    "ask_questions": ["Q1", "Q2", "Q3", "Q4", "Q12c"],
+    "ask_q11_if": "has_fir",
+    "clarify_mode_value": "fast_path",
+    "extra_defaults": {
+      "_comment": "Fast-path-only defaults beyond each question's own default.",
+      "migration_urgency": "routine",
+      "database_ha": "<matches the Q3 availability answer>",
+      "redis_ha": true
+    },
+    "offer_prompt": "Your stack looks straightforward \u2014 {N} app(s), no Private Spaces, no Kafka. Want to use smart defaults and answer just 4\u20136 questions? I'll apply sensible defaults for the rest.",
+    "offer_options": [
+      { "label": "Yes \u2014 short path", "value": "fast" },
+      { "label": "No \u2014 ask me everything", "value": "full" }
+    ]
+  },
+
+  "batches": [
+    { "id": "global", "name": "Global / Strategic", "questions": ["Q1", "Q2", "Q3", "Q4", "Q5", "Q12c"] },
+    {
+      "id": "data_network",
+      "name": "Data / Network",
+      "questions": ["Q6", "Q6b", "Q6c", "Q7", "Q8", "Q9", "Q9b", "Q10"]
+    },
+    {
+      "id": "operational",
+      "name": "Operational / Conditional",
+      "questions": ["Q11", "Q12b", "Q12", "Q13", "Q14", "Q15"]
+    }
+  ],
+  "_batch_notes": "Present batches in this order. Within a batch present only the ACTIVE questions (trigger true). A batch with no active questions is skipped. Batch 2 always has at least Q10; batch 3 always has Q12b/Q12/Q13/Q14/Q15.",
+
+  "questions": {
+    "Q1": {
+      "label": "Target AWS region",
+      "writes": "global.target_region",
+      "trigger": "always",
+      "prompt": "Which AWS region should your infrastructure be deployed to?",
+      "options": [
+        { "label": "us-east-1 (N. Virginia)", "value": "us-east-1" },
+        { "label": "us-west-2 (Oregon)", "value": "us-west-2" },
+        { "label": "eu-west-1 (Ireland)", "value": "eu-west-1" },
+        { "label": "eu-central-1 (Frankfurt)", "value": "eu-central-1" },
+        { "label": "ap-southeast-1 (Singapore)", "value": "ap-southeast-1" },
+        { "label": "ap-northeast-1 (Tokyo)", "value": "ap-northeast-1" },
+        { "label": "Other (specify a valid AWS region code)", "value": "<user value>" }
+      ],
+      "validation": "must be a valid AWS region code; reject non-existent codes",
+      "default": "us-east-1"
+    },
+    "Q2": {
+      "label": "Compliance",
+      "writes": "global.compliance",
+      "trigger": "always",
+      "prompt": "Do you need to meet any compliance frameworks?",
+      "options": [
+        { "label": "None", "value": "none" },
+        { "label": "SOC 2", "value": "soc2" },
+        { "label": "HIPAA", "value": "hipaa" },
+        { "label": "PCI DSS", "value": "pci" },
+        { "label": "Multiple (specify)", "value": "<array of user-specified>" }
+      ],
+      "default": "none"
+    },
+    "Q3": {
+      "label": "Availability posture",
+      "writes": "global.availability",
+      "trigger": "always",
+      "prompt": "What availability level does your production workload need?",
+      "options": [
+        { "label": "Single-AZ (dev/staging, cost-optimized)", "value": "single-az" },
+        { "label": "Multi-AZ (production standard)", "value": "multi-az" },
+        { "label": "Multi-AZ HA (mission-critical, Aurora)", "value": "multi-az-ha" },
+        { "label": "Multi-Region (catastrophic tolerance)", "value": "multi-region" }
+      ],
+      "default": "multi-az"
+    },
+    "Q4": {
+      "label": "Maintenance window",
+      "writes": "global.maintenance_window",
+      "trigger": "always",
+      "prompt": "When should AWS perform maintenance operations?",
+      "options": [
+        {
+          "label": "Weekday off-hours (Tue\u2013Thu 02:00\u201306:00 UTC)",
+          "value": { "day": "tuesday-thursday", "hour_utc": 3 }
+        },
+        {
+          "label": "Weekend early morning (Sat\u2013Sun 02:00\u201306:00 UTC)",
+          "value": { "day": "saturday-sunday", "hour_utc": 3 }
+        },
+        { "label": "Sunday pre-dawn (Sun 03:00\u201305:00 UTC)", "value": { "day": "sunday", "hour_utc": 4 } },
+        { "label": "Flexible (AWS defaults)", "value": "flexible" }
+      ],
+      "default": "flexible"
+    },
+    "Q5": {
+      "label": "Environment naming",
+      "writes": "global.environment_naming",
+      "trigger": "always",
+      "prompt": "What should the primary environment be called in AWS resource naming and tags?",
+      "options": [
+        { "label": "production", "value": "production" },
+        { "label": "prod", "value": "prod" },
+        { "label": "live", "value": "live" },
+        { "label": "Other (specify)", "value": "<user value>" }
+      ],
+      "default": "production"
+    },
+    "Q6": {
+      "label": "Database HA",
+      "writes": "data.database_ha",
+      "trigger": "has_postgres",
+      "prompt": "For your PostgreSQL database(s), what high-availability configuration do you want on AWS?",
+      "options": [
+        { "label": "Single-AZ", "value": "single-az" },
+        { "label": "Multi-AZ", "value": "multi-az" },
+        { "label": "Multi-AZ HA (Aurora)", "value": "multi-az-ha" },
+        { "label": "Match global availability posture (Q3)", "value": "<Q3 value>" }
+      ],
+      "default": "<Q3 value>"
+    },
+    "Q6b": {
+      "label": "Migration approach",
+      "writes": "global.migration_approach",
+      "trigger": "has_postgres",
+      "_canonical_note": "CANONICAL migration-approach question. Upstream listed it twice (Q5b global + Q6b data) \u2014 same constraint. Ask ONCE here; record under id Q6b only. There is NO separate 'migration urgency' question (that is only a fast-path default migration_urgency:routine).",
+      "prompt": "How would you like to sequence the migration?",
+      "options": [
+        { "label": "Full cutover (DB + app together, one window)", "value": "full_cutover" },
+        {
+          "label": "Data-first interim cutover (DB now, app stays on Heroku temporarily)",
+          "value": "interim_cutover_data_first"
+        }
+      ],
+      "follow_up_when_value": {
+        "interim_cutover_data_first": {
+          "ask": "What's your target date to complete the app migration off Heroku? (YYYY-MM-DD)",
+          "validation": "ISO 8601 date AND in the future; re-prompt if invalid",
+          "then_set": {
+            "global.target_exit_date": "<validated date>",
+            "global.interim_cutover": true,
+            "global.ktlo_warning": "Heroku is in sustaining engineering. Hybrid operation should be bounded to weeks, not quarters."
+          }
+        }
+      },
+      "default": "full_cutover"
+    },
+    "Q6c": {
+      "label": "DB migration method",
+      "writes": "data.migration_method",
+      "trigger": "has_postgres",
+      "prompt": "How would you like to migrate your PostgreSQL data to AWS?",
+      "options": [
+        { "label": "pg_dump / pg_restore (simplest, downtime; < ~10GB)", "value": "pg_dump_restore" },
+        {
+          "label": "AWS DMS (shorter downtime, large DBs; one-time bulk + final cutover, no CDC with Heroku)",
+          "value": "dms"
+        },
+        { "label": "Bucardo (trigger-based, near-zero downtime; extra EC2)", "value": "bucardo" },
+        { "label": "WAL-G (WAL-based, minimal downtime large DBs; extra EC2)", "value": "wal_g" }
+      ],
+      "size_hint": "use postgres_plan max storage as an UPPER-BOUND estimate: < 10GB -> recommend pg_dump_restore; >= 10GB -> recommend dms; near-zero-downtime regardless -> bucardo/wal_g. If user gives an actual size, use it and set data.db_size_source='user_override', else 'plan_derived'.",
+      "design_impact": "dms selection carries the CDC-limitation warning (Heroku does not grant the REPLICATION role).",
+      "default": "pg_dump_restore"
+    },
+    "Q7": {
+      "label": "Redis HA",
+      "writes": "data.redis_ha",
+      "trigger": "has_redis",
+      "prompt": "Should your Redis cluster on AWS include Multi-AZ with automatic failover?",
+      "options": [
+        { "label": "Yes (Multi-AZ + failover, ~2x cost)", "value": true },
+        { "label": "No (single-node)", "value": false }
+      ],
+      "default": true
+    },
+    "Q8": {
+      "label": "Kafka retention",
+      "writes": "data.kafka_retention_days",
+      "trigger": "has_kafka",
+      "prompt": "How long should Kafka messages be retained on AWS MSK?",
+      "options": [
+        { "label": "1 day", "value": 1 },
+        { "label": "3 days", "value": 3 },
+        { "label": "7 days", "value": 7 },
+        { "label": "14 days", "value": 14 },
+        { "label": "30 days", "value": 30 },
+        { "label": "Custom (specify days)", "value": "<user int>" }
+      ],
+      "validation": "custom must be an integer 1\u2013365",
+      "default": 7
+    },
+    "Q9": {
+      "label": "VPC subnet IDs",
+      "writes": "network.subnet_ids",
+      "trigger": "peering_detected AND subnet IDs not already known",
+      "prompt": "Your Private Space has VPC peering. Provide 1\u20136 AWS subnet IDs (comma-separated) so we reference the existing VPC.",
+      "validation": "each must match ^subnet-[0-9a-f]{17}$; accept 1\u20136; on bad format re-prompt: 'Invalid subnet ID format. Expected subnet-xxxxxxxxxxxxxxxxx (subnet- + 17 hex chars). Provide 1\u20136 valid subnet IDs, comma-separated.'",
+      "default": null,
+      "no_default_note": "MUST be answered if it fires (cannot reference an existing VPC without it)."
+    },
+    "Q9b": {
+      "label": "VPC ID",
+      "writes": "network.existing_vpc_id",
+      "trigger": "peering_detected AND peering_vpc_id is null",
+      "prompt": "I detected VPC peering but couldn't find the AWS VPC ID. Provide your existing AWS VPC ID.",
+      "validation": "must match ^vpc-[0-9a-f]{17}$; on bad format re-prompt: 'Invalid VPC ID format. Expected vpc-xxxxxxxxxxxxxxxxx (vpc- + 17 hex chars).'",
+      "default": null,
+      "no_default_note": "MUST be answered if it fires."
+    },
+    "Q10": {
+      "label": "DNS strategy",
+      "writes": "data.dns_strategy",
+      "trigger": "always",
+      "prompt": "How do you want to manage DNS for your migrated services?",
+      "options": [
+        { "label": "Route 53 (migrate DNS to AWS)", "value": "route53" },
+        { "label": "External DNS (keep current provider)", "value": "external" }
+      ],
+      "default": "route53"
+    },
+    "Q11": {
+      "label": "Fir intent",
+      "writes": "global.fir_intent",
+      "trigger": "has_fir",
+      "prompt": "I detected Fir-generation app(s). What's your compute migration intent for these Fir workloads?",
+      "options": [
+        { "label": "Exit Heroku entirely (re-platform to AWS, ECS/Fargate)", "value": "exit_heroku" },
+        { "label": "Self-managed EKS/ECS (your own orchestration)", "value": "self_managed_eks_ecs" }
+      ],
+      "design_impact": "Both fully migrate Fir to AWS; B signals self-managed orchestration. Cutover timing is Q6b, not this. Fir workloads remain deferred in v1.",
+      "default": "exit_heroku"
+    },
+    "Q12b": {
+      "label": "Containerization status",
+      "writes": "operational.containerization_status",
+      "trigger": "always",
+      "prompt": "Is your application already containerized (has a Dockerfile)?",
+      "options": [
+        { "label": "Yes (Dockerfile exists)", "value": "containerized" },
+        { "label": "No (buildpacks only)", "value": "buildpack_only" },
+        { "label": "Partial (some services have Dockerfiles)", "value": "partial" }
+      ],
+      "default": "buildpack_only"
+    },
+    "Q12c": {
+      "label": "Kubernetes preference",
+      "writes": "design_constraints.kubernetes",
+      "trigger": "always",
+      "prompt": "Would you prefer EKS (Kubernetes) or ECS Fargate for your containerized workloads?",
+      "options": [
+        {
+          "label": "EKS preferred (self-managed node groups)",
+          "value": { "value": "eks-managed", "chosen_by": "user" }
+        },
+        { "label": "EKS acceptable (managed node groups)", "value": { "value": "eks-or-ecs", "chosen_by": "user" } },
+        { "label": "ECS Fargate preferred (simplest)", "value": { "value": "ecs-fargate", "chosen_by": "user" } },
+        { "label": "I don't know", "value": { "value": "ecs-fargate", "chosen_by": "default" } }
+      ],
+      "design_impact": "EKS values map all formations to EKS Deployments downstream; non-formation resources unaffected. Fir intent (Q11) precedence: the global kubernetes preference wins for non-Fir formations.",
+      "default": { "value": "ecs-fargate", "chosen_by": "default" }
+    },
+    "Q12": {
+      "label": "Container registry",
+      "writes": "operational.container_registry",
+      "trigger": "always",
+      "prompt": "Where should container images be stored?",
+      "options": [
+        { "label": "Amazon ECR", "value": "ecr" },
+        { "label": "Existing registry", "value": "external" }
+      ],
+      "default": "ecr"
+    },
+    "Q13": {
+      "label": "Log retention",
+      "writes": "operational.log_retention_days",
+      "trigger": "always",
+      "prompt": "How long should application logs be retained in CloudWatch Logs?",
+      "options": [
+        { "label": "7 days", "value": 7 },
+        { "label": "14 days", "value": 14 },
+        { "label": "30 days", "value": 30 },
+        { "label": "90 days", "value": 90 },
+        { "label": "365 days", "value": 365 },
+        { "label": "Custom (specify days)", "value": "<user int>" }
+      ],
+      "validation": "custom must be an integer 1\u20133653",
+      "default": 30
+    },
+    "Q14": {
+      "label": "Alerting",
+      "writes": "operational.alerting",
+      "trigger": "always",
+      "prompt": "How do you want to handle alerting and on-call notifications?",
+      "options": [
+        { "label": "CloudWatch Alarms + SNS", "value": "cloudwatch" },
+        { "label": "PagerDuty", "value": "pagerduty" },
+        { "label": "OpsGenie", "value": "opsgenie" },
+        { "label": "None for now", "value": "none" }
+      ],
+      "default": "cloudwatch"
+    },
+    "Q15": {
+      "label": "Cost optimization",
+      "writes": "operational.cost_optimization",
+      "trigger": "always",
+      "prompt": "How aggressively should we optimize for cost vs. operational safety?",
+      "options": [
+        { "label": "Conservative (match capacity, prioritize stability)", "value": "conservative" },
+        { "label": "Balanced (right-sizing with safety margins)", "value": "balanced" },
+        { "label": "Aggressive (minimize cost, tighter margins)", "value": "aggressive" }
+      ],
+      "default": "balanced"
+    }
+  }
+}

@@ -16,13 +16,17 @@ _on_error:
 
 # Discover Fragment: Billing (optional)
 
-> A discover-phase FRAGMENT, INDEPENDENT of the terraform fragment (it never
-> reads terraform's output — no inter-fragment dependency). Triggered ONLY when a
-> billing/invoice file matches the phase's glob trigger. Single responsibility:
-> parse billing data. WRITES `billing-profile.json`; the assembler later merges
-> that into `heroku-resource-inventory.json` as the `billing_profile` section.
-> Billing is OPTIONAL and must NEVER fail the phase — any parse failure warns and
-> skips. Does NOT update `.phase-status.json`.
+## Orientation
+
+A discover-phase FRAGMENT, INDEPENDENT of the terraform fragment (it never reads
+terraform's output — no inter-fragment dependency). Triggered ONLY when a
+billing/invoice file matches the phase's glob trigger. Single responsibility:
+parse billing data and WRITE `billing-profile.json`; the assembler later merges
+it into `heroku-resource-inventory.json` as the `billing_profile` section
+(adding `"billing"` to `metadata.discovery_sources`). If skipped or all files
+fail to parse, no `billing-profile.json` is written and the assembler uses
+`billing_profile = {available:false}`. Billing is OPTIONAL and never fails the
+phase — the contract enforces this via `_scope` and `_on_error: _warn_and_skip`.
 
 ## Step: detect_billing_format
 
@@ -36,19 +40,19 @@ inspection.
 
 **CSV (read the header row):**
 
-| Header contains                                          | `source_format`  |
-| -------------------------------------------------------- | ---------------- |
-| `app`, `dyno_units`, `addon_total`, `platform_total`     | `enterprise_csv` |
-| `description`, `amount`, `period_start`, `period_end`    | `invoice_csv`    |
-| `resource_name`, `category`, `cost`                      | `line_item_csv`  |
+| Header contains                                       | `source_format`  |
+| ----------------------------------------------------- | ---------------- |
+| `app`, `dyno_units`, `addon_total`, `platform_total`  | `enterprise_csv` |
+| `description`, `amount`, `period_start`, `period_end` | `invoice_csv`    |
+| `resource_name`, `category`, `cost`                   | `line_item_csv`  |
 
 **JSON (parse and check top-level shape):**
 
-| Structure                                                  | `source_format`    |
-| ---------------------------------------------------------- | ------------------ |
-| `total`, `period_start`, `period_end`, `charges[]`         | `invoice_json`     |
-| `invoice_id`, `total_amount`, `line_items[]`               | `api_invoice_json` |
-| `apps[]` with nested cost objects                          | `enterprise_json`  |
+| Structure                                          | `source_format`    |
+| -------------------------------------------------- | ------------------ |
+| `total`, `period_start`, `period_end`, `charges[]` | `invoice_json`     |
+| `invoice_id`, `total_amount`, `line_items[]`       | `api_invoice_json` |
+| `apps[]` with nested cost objects                  | `enterprise_json`  |
 
 Unrecognized header/structure, or malformed JSON → record a `parse_warning`
 naming the file, **skip it** (`_warn_and_skip`), try the next billing file. If
@@ -118,17 +122,3 @@ the assembler folds it into the inventory as the `billing_profile` section):
   "parse_warnings": []
 }
 ```
-
-## Output
-
-This fragment WRITES `billing-profile.json`. The assembler reads it and folds it
-into `heroku-resource-inventory.json` as the `billing_profile` section, adding
-`"billing"` to `metadata.discovery_sources`. If this fragment is skipped (no
-billing files) or all files fail to parse, no `billing-profile.json` is written
-and the assembler uses `billing_profile = {available:false}`.
-
-## Scope
-
-Parse Heroku billing data into a structured profile. Nothing else — no AWS
-service names, no AWS cost projections, no Heroku-vs-AWS comparison (that is the
-estimate phase). Do NOT update `.phase-status.json` from here.

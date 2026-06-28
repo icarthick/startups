@@ -1,0 +1,57 @@
+{
+  "_comment": "Per-skill TUNABLE CONSTANTS for the design phase — the knobs an org turns WITHOUT rewriting the mapping algorithm. Referenced by phases/design/design-mapping.md; never inline these in step prose (see docs/unit-taxonomy-spec.md 'Knowledge / contract / procedure separation'). NOT algorithm, NOT output contract (that is schemas/aws-design.schema.json).",
+
+  "engine_versions": {
+    "_comment": "Default engine versions for designed managed services. Bump on the provider's release cadence — unrelated to the mapping algorithm. (See the MCP refactor's EKS k8s-version port-time-constant lesson.)",
+    "rds_postgresql": "15"
+  },
+
+  "new_vpc": {
+    "_comment": "Default VPC topology generated when no existing peered VPC is referenced. An org may tune CIDR / AZ count without touching how resources map.",
+    "cidr_block": "10.0.0.0/16",
+    "subnets": [
+      { "cidr": "10.0.1.0/24", "az_suffix": "a", "type": "public" },
+      { "cidr": "10.0.2.0/24", "az_suffix": "b", "type": "public" },
+      { "cidr": "10.0.3.0/24", "az_suffix": "a", "type": "private" },
+      { "cidr": "10.0.4.0/24", "az_suffix": "b", "type": "private" }
+    ],
+    "route_table": { "destination": "0.0.0.0/0", "target": "internet_gateway" },
+    "internet_gateway": true
+  },
+
+  "security_group": {
+    "_comment": "Service port reference data + SG name patterns + egress. include_port_when names the design condition under which each inbound port is added (a service-port fact, not algorithm).",
+    "restricted_name_pattern": "{primary_app}-restricted-sg",
+    "default_name_pattern": "{primary_app}-app-sg",
+    "fallback_primary_app": "migrated",
+    "ports": {
+      "app_https": { "port": 443, "protocol": "tcp", "include_port_when": "always (app ingress)" },
+      "app_http": { "port": 80, "protocol": "tcp", "include_port_when": "default SG only (no Private Space)" },
+      "postgres": { "port": 5432, "protocol": "tcp", "include_port_when": "an RDS/Aurora service is in the design" },
+      "redis": { "port": 6379, "protocol": "tcp", "include_port_when": "an ElastiCache service is in the design" },
+      "kafka": { "port": 9092, "protocol": "tcp", "include_port_when": "an MSK service is in the design" }
+    },
+    "outbound_all": { "port": 0, "protocol": "-1", "cidr": "0.0.0.0/0" },
+    "restricted_cidr_source": "space config.peering.peer_cidr if present, else the VPC/app CIDR",
+    "default_inbound_cidr": "0.0.0.0/0"
+  },
+
+  "patterns": {
+    "_comment": "Naming/string patterns for generated values. Placeholders {app}/{process_type} are filled at design time.",
+    "container_image": "placeholder:{app}-{process_type}",
+    "cloudwatch_log_group": "/heroku/{app}",
+    "default_log_retention_days": 30
+  },
+
+  "fir": {
+    "_comment": "Fir-generation handling is detect-only in v1 (NEVER emit ARM/Graviton/CNB). These are the fixed notation strings.",
+    "deferral_note": "Fir-generation workloads detected. No Fir-specific Terraform (ARM/Graviton instance targeting, CNB buildpack configuration) is generated in v1. These workloads are deferred to a future version.",
+    "none_note": "No Fir workloads detected; all Cedar generation."
+  },
+
+  "messages": {
+    "_comment": "Fixed warning/diagnostic strings the procedure emits. {app}/{pipeline} filled at runtime.",
+    "empty_procfile": "No process types declared for app {app}. At least one process type is required in the Procfile.",
+    "pipeline_detect_only": "Pipeline '{pipeline}' detected — CI/CD mapping requires manual configuration"
+  }
+}

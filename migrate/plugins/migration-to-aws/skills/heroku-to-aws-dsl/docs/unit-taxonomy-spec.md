@@ -12,15 +12,16 @@ into the phase's final artifacts). Earlier the body was a flat `_steps` list, or
 a `_routes` list that blurred "do work" and "combine work" into one kind. The
 three-kind model separates concerns that have genuinely different contracts:
 
-| Kind | Role | Reads | Writes |
-|---|---|---|---|
-| **Phase** | lifecycle + composition | — | — (composes the units below) |
-| **Fragment** | one unit of work, single responsibility | source inputs | 1..N phase artifacts (directly to disk) |
-| **Assembler** | combine / enrich fragment outputs | fragment artifacts | mutates 0..N + creates 0..N artifacts |
+| Kind          | Role                                    | Reads              | Writes                                  |
+| ------------- | --------------------------------------- | ------------------ | --------------------------------------- |
+| **Phase**     | lifecycle + composition                 | —                  | — (composes the units below)            |
+| **Fragment**  | one unit of work, single responsibility | source inputs      | 1..N phase artifacts (directly to disk) |
+| **Assembler** | combine / enrich fragment outputs       | fragment artifacts | mutates 0..N + creates 0..N artifacts   |
 
 ## Core rules
 
 ### 1. Fragments write artifacts directly (to disk)
+
 Fragments do NOT hold output only in memory. They WRITE their artifact file(s)
 to `$MIGRATION_DIR/`. Rationale: real discovery outputs (e.g. gcp's
 `gcp-resource-inventory.json`) are large; forcing them through in-memory
@@ -30,8 +31,9 @@ that breaks on gcp-scale data.) Files here are NOT engine-style intermediate
 plumbing; they are the phase's actual artifacts.
 
 ### 2. A fragment produces 1..N artifacts, from ONE responsibility
+
 A fragment may write multiple files, but ONLY if they derive from its single
-responsibility (one source / one *reason to change* — they change together).
+responsibility (one source / one _reason to change_ — they change together).
 Example: gcp `discover-terraform` produces BOTH `gcp-resource-inventory.json`
 and `gcp-resource-clusters.json`, because clusters is derived from the inventory
 resources in the SAME terraform parse — one source, one reason to change.
@@ -43,6 +45,7 @@ two fragments). The test is NOT "two files → two fragments"; it is "two reason
 to change → two fragments."
 
 ### 3. NO inter-fragment dependencies
+
 Fragments are an independent, flat, freely-orderable set. A fragment NEVER reads
 another fragment's output. If output B is derived from output A, that coupling is
 a SIGNAL they belong in the SAME fragment — not two fragments with a dependency
@@ -51,8 +54,10 @@ is wrong. This keeps fragments a flat set (no DAG, no ordering contract, no
 dependency-resolution conformance).
 
 ### 4. Exactly one assembler per phase (mandatory; may be no-op)
+
 Every phase has exactly one assembler, and it is terminal. Its job spans a
 spectrum:
+
 - **merge/transform**: read several fragment artifacts → combine into one file.
 - **enrich in place**: mutate a fragment-written file (add cross-references, etc.).
 - **derive**: create new cross-cutting files from fragment artifacts.
@@ -65,6 +70,7 @@ The assembler is the consistent home for the **artifact-level contract** of any
 file it touches.
 
 ### 5. Creator / mutator ownership over time (in-place mutation is allowed)
+
 An artifact has exactly ONE **creator** (a fragment OR the assembler) and
 zero-or-more **mutators** (the assembler only). The creator asserts the file's
 INITIAL contract at creation; the assembler asserts the FINAL contract after any
@@ -75,6 +81,7 @@ appears as a mutator; phase `_produces` == union of (fragment `_produces`) ∪
 (assembler `_produces`) ∪ (assembler `_mutates`).
 
 ### 6. Closed vocabulary extends into ALL unit files
+
 Fragment files and the assembler file are first-class DSL units with their own
 frontmatter — NOT anonymous markdown. Every `_`-key in any unit's frontmatter or
 `meta` fences must be in the interpreter vocabulary; a typo'd key fails loudly
@@ -82,6 +89,7 @@ frontmatter — NOT anonymous markdown. Every `_`-key in any unit's frontmatter 
 files structurally testable (the gap the route-refactor had introduced).
 
 ## Postcondition placement
+
 - **Fragment postconditions** check the file(s) THAT FRAGMENT writes, at write time.
 - **Assembler postconditions** check the files it creates, and the FINAL state of
   files it mutates.
@@ -92,6 +100,7 @@ files structurally testable (the gap the route-refactor had introduced).
 ## Frontmatter key-sets
 
 ### Phase (lifecycle + composition)
+
 `_phase`, `_title`, `_requires_phase`, `_scope`, `_input`, `_init` (first phase),
 `_re_entry_guard`, `_preconditions`, `_fragments` (ordered list, each
 `{_id, _trigger, _file}`), `_assemble` (`{_file}` — mandatory), `_postconditions`
@@ -99,24 +108,29 @@ files structurally testable (the gap the route-refactor had introduced).
 `_forbids_files`, `_on_error`.
 
 ### Fragment (one responsibility → 1..N artifacts)
+
 `_fragment` (id), `_of_phase`, `_scope`, `_produces` (the file(s) it creates),
 `_preconditions` (optional, fragment-local), the body (`## Step:` sections),
 `_postconditions` (on its own artifacts), `_on_error`.
 
 ### Assembler (combine / enrich → mutate and/or create)
+
 `_assemble` (id), `_of_phase`, `_scope`, `_reads` (fragment artifacts consumed),
 `_mutates` (files edited in place, 0..N), `_produces` (new files created, 0..N),
 the body, `_postconditions` (on mutated + created files), `_on_error`.
 
 ## Trigger ownership
-`_trigger` lives in the PHASE's `_fragments` list, NOT in the fragment. *When a
-fragment fires* is a composition decision the phase owns; *what a fragment
-promises and must satisfy* is the fragment's own contract. Reading the phase
+
+`_trigger` lives in the PHASE's `_fragments` list, NOT in the fragment. _When a
+fragment fires_ is a composition decision the phase owns; _what a fragment
+promises and must satisfy_ is the fragment's own contract. Reading the phase
 tells you "what runs when"; reading a fragment tells you "what it produces + must
 satisfy."
 
 ## Worked example A — heroku discover (independent sources, merge)
+
 Two responsibilities (parse IaC vs parse invoices) → two fragments:
+
 - fragment `terraform` (trigger: always/required) → writes its resource data
 - fragment `billing` (trigger: glob billing files) → writes its billing data
 - assembler → merges into ONE artifact `heroku-resource-inventory.json`
@@ -124,6 +138,7 @@ Two responsibilities (parse IaC vs parse invoices) → two fragments:
   merge-into-one is the natural shape.
 
 ## Worked example B — gcp discover (one source, multi-artifact fragment)
+
 - fragment `terraform` (one responsibility: parse GCP terraform) → writes BOTH
   `gcp-resource-inventory.json` AND `gcp-resource-clusters.json` (clusters
   derived from inventory in the same parse — one reason to change, so NOT split).
@@ -136,6 +151,7 @@ The gcp case is why fragments write files (big data) and why a fragment produces
 dependent fragments.
 
 ## Conformance checklist (CI)
+
 1. Every phase has exactly one `_assemble`; it is terminal.
 2. Every phase artifact (`_produces`) has exactly one creator (a fragment or the
    assembler).
@@ -146,3 +162,123 @@ dependent fragments.
 6. Every `_file` resolves; every unit file parses; closed-vocab holds in all.
 7. Each artifact's final postconditions live with its last writer.
 8. Reason-to-change guard: multi-artifact fragments justified (same source).
+
+## Knowledge / contract / procedure separation
+
+Status: SPEC (agreed 2026-06-28). A unit's `.md` file is PROCEDURE. Data that
+can evolve independently of the procedure MUST NOT be inlined in the procedure's
+prose — it lives in a separate artifact the procedure references, so the two
+version independently.
+
+### The test (apply to every literal value or table in a unit file)
+
+> **"Would someone change this value/table for a reason that has NOTHING to do
+> with changing the mapping/algorithm itself?"**
+
+- **YES → it is KNOWLEDGE.** Extract it to `knowledge/<skill>/...` (JSON DATA)
+  and reference it from the procedure. Never inline it in `## Step:` prose.
+- **NO → it is PROCEDURE.** It is the algorithm/branch/order/error-policy and
+  stays in the `.md`.
+
+A third category is neither: the **output CONTRACT** (the shape of the artifact a
+unit produces) lives in `schemas/*.json`. It is not knowledge (no one tunes it on
+an independent cadence) and not procedure (it is a shape, not a step) — so it is
+NOT extracted to a "template" file. The procedure REFERENCES the schema; it does
+not re-list every field. (Re-listing creates an MD↔template↔schema drift surface
+— strictly worse.)
+
+### The three homes
+
+| Category      | Test result                             | Home                              | Example                                                                                                                                                                                              |
+| ------------- | --------------------------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Knowledge** | changes independently of the algorithm  | `knowledge/<skill>/*.json`        | dyno→Fargate table; Postgres `engine_version`; new_vpc CIDR/subnet plan; service ports (5432/6379/9092); the 0–100 clamp bound; default region lists; validation regexes; the clarify defaults table |
+| **Procedure** | changes only when the algorithm changes | the unit `.md` (`## Step:` prose) | "look up dyno_type, exact case-insensitive"; "if web also emit ALB"; "do not recompute from provenance"; branch/order/error policy                                                                   |
+| **Contract**  | the produced artifact's shape           | `schemas/*.json`                  | `aws-design.schema.json`; `preferences.schema.json`. The MD references it; it does not re-list fields.                                                                                               |
+
+### Tunable-constants sheet (avoid lonely scalar files)
+
+Do NOT scatter one-value files. Loose per-skill constants that pass the test
+(engine versions, the VPC CIDR/subnet plan, service ports, clamp bounds, default
+region) collect into ONE per-phase sheet, e.g.
+`knowledge/<skill>/design/design-defaults.json` — "the knobs an org turns
+without rewriting the migration." A single coherent sheet earns its file; a
+lonely scalar does not.
+
+### The guardrail (do NOT over-extract)
+
+Extract DATA and TUNABLE CONSTANTS; NEVER extract LOGIC or CONTRACT. The failure
+mode is a hollow `.md` of "look up X in file Y" with the actual algorithm
+fragmented across JSON so the procedure is no longer readable AS a procedure.
+The test is the guardrail: the dyno TABLE is data (extract); the clamp BOUND is a
+tunable constant (extract); the "if web emit ALB" BRANCH is logic (keep); the
+output SHAPE is contract (schema). Hold that line and the `.md` stays readable as
+an algorithm while the JSON stays meaningful as knowledge.
+
+### No-duplication rule
+
+A datum lives in exactly ONE place. If a value is in a knowledge JSON, the
+procedure references it — it does NOT re-state it (e.g. do not write "(0–100)"
+in prose when `_desired_count.min/max` already holds it; do not re-type a
+per-table `_on_not_found` message the JSON already carries). Duplication is a
+drift surface and a conformance failure.
+
+### Conformance checklist (CI) — knowledge separation
+
+(Global conformance checks 9–12, continuing the lists above.)
+
+1. No bare literal in `## Step:` prose that is a tunable constant (engine
+   version, CIDR, port, clamp bound, region, regex) — such values MUST resolve
+   to a `knowledge/` reference. (Heuristic-flag: numeric/version/CIDR/port
+   literals in step prose are candidates for review.)
+2. No datum appears in BOTH a knowledge JSON and step prose (no-duplication).
+3. The output artifact's field set is asserted by a `schemas/*.json` the
+   assembler `_validate_schema`s against — the MD does not re-enumerate it as
+   the authority.
+4. Every `knowledge/` file is referenced by at least one unit (no orphan data);
+   every `_knowledge` reference resolves (no dangling reference).
+
+## Unit file regions (whole-file grammar)
+
+Status: SPEC (agreed 2026-06-28). Every unit file has NO undefined zones — each
+region is a named thing the interpreter (`INTERPRETER.md` → "Unit file regions")
+has a rule for. The shape is:
+
+```
+---  frontmatter (STRUCTURAL contract)  ---
+# <H1 title>                 ← cosmetic, no meaning
+## Orientation               ← exactly one, NON-NORMATIVE reader context
+## Step: <id>                ← zero or more, the executable procedure
+  (a phase with pure-composition work has ZERO steps)
+```
+
+Three content homes, no overlap (this is the file-structure analogue of the
+knowledge/contract/procedure split):
+
+- **Contract** → frontmatter (the only source of truth for scope, IO, produces).
+- **Orientation** → the one `## Orientation` section: descriptive, get-your-
+  bearings prose; the interpreter reads it but never executes it; it carries no
+  rule.
+- **Procedure** → `## Step:` bodies.
+
+Why named, not positional: an author can miss "whatever sits before the first
+step"; a named `## Orientation` heading cannot be accidentally absorbed and is
+structurally verifiable. Why no trailing sections: a `## Output`/`## Scope`/
+`## Notes` after the steps just restates `_produces`/`_scope` — duplication and a
+drift surface (same no-duplication rule as knowledge). Scope lives in `_scope`,
+outputs in `_produces`/step `_writes`; nowhere else.
+
+### Conformance checklist (CI) — unit file regions
+
+(Global conformance checks 13–16, continuing the lists above.)
+
+1. A unit file is exactly: frontmatter, then an optional H1, then at most ONE
+   `## Orientation`, then zero-or-more `## Step:` sections — and nothing else.
+   Any other top-level section (`## Output`, `## Scope`, `## Notes`, …) is a
+   defect.
+2. `## Orientation`, if present, sits immediately after the H1 and before the
+   first `## Step:`; there is at most one.
+3. No normative language (MUST / NEVER / "do NOT" imperatives that bind
+   behavior) appears in the H1 or `## Orientation` — binding rules live in the
+   frontmatter or a `## Step:`. (Heuristic-flag for review.)
+4. Nothing appears after the last `## Step:` (or after `## Orientation` when a
+   unit has no steps).

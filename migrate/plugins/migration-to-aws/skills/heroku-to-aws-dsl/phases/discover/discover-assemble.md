@@ -21,15 +21,15 @@ _on_error:
 
 # Discover Assembler
 
-> The mandatory discover-phase ASSEMBLER (exactly one per phase, terminal). The
-> terraform fragment CREATED `heroku-resource-inventory.json`; this assembler
-> MUTATES it in place to fold in billing (if present) and owns the final
-> artifact-level contract. It is the file's last writer, so it owns the file's
-> final postconditions (schema, forbidden-fields).
->
-> Reads files from `$MIGRATION_DIR/` (no in-memory cross-fragment hand-off):
-> the terraform-created inventory, and `billing-profile.json` IF the billing
-> fragment ran. Does NOT update `.phase-status.json`.
+## Orientation
+
+The mandatory discover-phase ASSEMBLER (exactly one per phase, terminal). The
+terraform fragment CREATED `heroku-resource-inventory.json`; this assembler
+MUTATES it in place to fold in billing (if present) and owns the final
+artifact-level contract (schema, forbidden-fields) — it is the file's last
+writer. It reads from `$MIGRATION_DIR/` (no in-memory cross-fragment hand-off):
+the terraform-created inventory, and `billing-profile.json` IF the billing
+fragment ran.
 
 ## Step: fold_in_billing
 
@@ -51,16 +51,3 @@ terraform-written sections.
 
 MUST NOT introduce forbidden clustering fields anywhere: `cluster_id`,
 `creation_order_depth`, `edges`, `dependencies`, `must_migrate_together`.
-
-## Output
-
-This assembler MUTATES `heroku-resource-inventory.json` (the phase's artifact) to
-its final form and validates it via this unit's `_postconditions`. It creates no
-new files (`_produces: []`). After it passes, the phase `_postconditions` run;
-on full pass the interpreter emits `HANDOFF_OK | phase=discover | ...` and
-advances to clarify.
-
-## Scope
-
-Fold the fragments' outputs into one flat inventory and validate it. Nothing
-else — no AWS names, no cost, no clustering.

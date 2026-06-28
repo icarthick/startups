@@ -40,12 +40,14 @@ re-run before it overwrites this phase's own artifact. See its section below.
   Treat it as a hard boundary.
 
 ## `_input`
+
 A list of artifact filenames this phase consumes from `$MIGRATION_DIR/`. You
 will read them during the steps. (Existence is enforced by `_preconditions`.)
 Glob patterns (e.g. `**/*.tf`) are workspace-relative source files the phase
 reads directly rather than run artifacts.
 
 ## `_init`
+
 A block of one-time setup actions to run BEFORE `_preconditions`, present only on
 the FIRST phase of a migration (the one with `_requires_phase: null`). Verbs:
 
@@ -63,10 +65,11 @@ the FIRST phase of a migration (the one with `_requires_phase: null`). Verbs:
   4. Write `.phase-status.json` with all six phases (`discover`, `clarify`,
      `design`, `estimate`, `generate`, `feedback`) — this phase `in_progress`
      and `current_phase` set to it, the rest `pending`.
-  Run this BEFORE `_preconditions` because the preconditions/steps read and
-  write inside `$MIGRATION_DIR`, which must exist first.
+     Run this BEFORE `_preconditions` because the preconditions/steps read and
+     write inside `$MIGRATION_DIR`, which must exist first.
 
 ## `_preconditions`
+
 A list of checks to run BEFORE any step. Each item is one check verb plus an
 `_on_failure` action (see ERROR ACTIONS). Run them in order; on the first
 failure, perform its `_on_failure` action and STOP (do not run steps). Check
@@ -87,6 +90,7 @@ When preconditions pass, set `phases.<_phase> = "in_progress"` and
 `current_phase = <_phase>` in `.phase-status.json` (read-merge-write), then proceed.
 
 ## `_knowledge`
+
 Data files the phase MAY reference. Each item is `{file, _when}`. Load `file`
 (read it into context) ONLY IF its `_when` guard is true for THIS inventory.
 `_when` is a plain-language condition you evaluate against the input artifacts
@@ -95,6 +99,7 @@ false — they're irrelevant and waste context. A bare `file:` with no `_when`
 loads always.
 
 ## `_on_error`
+
 A top-level REFERENCE TABLE mapping each error-action name (`_halt_and_inform`,
 `_warn_and_skip`, `_defer`, `_default_and_warn`, `_unrecoverable`) to its
 documented effect + status transition. It is NOT executed directly and is NOT a
@@ -103,6 +108,7 @@ in-prose actions resolve to (see ERROR ACTIONS). Treat it as documentation; the
 ERROR ACTIONS section below is authoritative for behavior.
 
 ## Phase body: `_fragments` + `_assemble` (the unit taxonomy)
+
 A phase composes its work from **fragments** (units of work, each its own file)
 plus exactly ONE **assembler** (combines/enriches fragment outputs into the
 phase's final artifacts). Both fragment and assembler files are first-class DSL
@@ -115,19 +121,27 @@ fragment + a no-op/promote assembler. There is no separate flat-`_steps` phase
 body mode — uniformity across all phases.)
 
 ### `_fragments` (in the PHASE frontmatter)
+
 An ordered list; each entry composes one fragment:
+
 - `_id` — fragment name.
 - `_trigger` — WHEN this fragment runs (the phase owns triggering, not the
   fragment). One of: `_always: true`; `_glob: <pattern|list>`;
-  `_artifact_exists: <name|list>`; `_check_source_exists: {glob, containing}`.
+  `_artifact_exists: <name|list>`; `_check_source_exists: {glob, containing}`;
+  `_when: <plain-language condition>` (evaluated against the phase inputs /
+  preferences — use this when a fragment is gated on a VALUE in an input rather
+  than the presence of a file/artifact, e.g. an opt-in preference selecting an
+  alternate compute branch).
   A false trigger SKIPS the fragment (its artifact(s) simply absent; the
   assembler accounts for absence).
 - `_file: <path>` — the fragment file. Load ONLY when the trigger is true
   (context economy — an untriggered fragment's file is never read).
 
 ### Fragment file frontmatter (`_file` target)
+
 A fragment is ONE responsibility producing 1..N artifacts WRITTEN DIRECTLY to
 `$MIGRATION_DIR/`. Keys:
+
 - `_fragment` — id (matches the phase's `_fragments[]._id`).
 - `_of_phase` — the owning phase (self-describing back-reference).
 - `_scope` — this fragment's hard boundary.
@@ -142,21 +156,30 @@ A fragment is ONE responsibility producing 1..N artifacts WRITTEN DIRECTLY to
 - `_on_error`.
 
 ### Assembler file frontmatter (the phase's `_assemble._file`)
+
 Exactly one per phase, terminal. Combines/enriches fragment artifacts. Keys:
+
 - `_assemble` — id.
 - `_of_phase`, `_scope`.
-- `_reads: [files]` — the fragment artifacts it consumes.
+- `_reads: [files]` — the fragment artifacts it consumes. A validator/no-op
+  assembler MAY also read the phase's own `_input` artifacts (e.g. the discover
+  inventory) when it needs them to evaluate a CONDITIONAL contract — "value X is
+  required only if the inventory contained resource Y." That is legitimate: the
+  assembler owns the artifact-level contract, and some of those checks are
+  trigger-dependent, so it must see the trigger source. It is still combine/
+  validate, not new discovery.
 - `_mutates: [files]` — (0..N) fragment artifacts it edits IN PLACE.
 - `_produces: [files]` — (0..N) NEW files it creates.
 - body: `## Step:` sections.
 - `_postconditions` — on the files it CREATES and the FINAL state of files it
   MUTATES.
 - `_on_error`.
-The assembler may be a no-op/promote (fragments already wrote the phase's
-artifacts, nothing to combine) — it still owns the artifact-level contract via
-its `_postconditions`, so it always exists.
+  The assembler may be a no-op/promote (fragments already wrote the phase's
+  artifacts, nothing to combine) — it still owns the artifact-level contract via
+  its `_postconditions`, so it always exists.
 
 ### Creator / mutator ownership (in-place mutation allowed)
+
 Each artifact has exactly ONE creator (a fragment OR the assembler) and 0..N
 mutators (the assembler only). The creator asserts the file's INITIAL contract;
 the assembler asserts the FINAL contract of anything it mutates. Whoever LAST
@@ -165,6 +188,7 @@ union of all fragment `_produces` + assembler `_produces` + assembler
 `_mutates`.
 
 ### Execution
+
 Run fragments in `_fragments` order (skipping false triggers), each WRITING its
 artifact(s) to disk. Then run the assembler, which reads/mutates/creates files.
 Then the phase `_postconditions` (cross-cutting only). Fragments write files
@@ -172,6 +196,7 @@ directly (NOT in-memory-only) — real discovery outputs are large; these are th
 phase's actual artifacts, not engine-style intermediate plumbing.
 
 ## `_steps` (the body grammar inside a fragment or assembler file)
+
 An ordered list. Execute each step in order. A step has:
 
 - `_id` — step name (for diagnostics/logs).
@@ -195,6 +220,7 @@ An ordered list. Execute each step in order. A step has:
   condition is true; otherwise skip it entirely.
 
 ## `_postconditions`
+
 Checks run AFTER all steps, before advancing. Same check verbs as
 `_preconditions`, plus:
 
@@ -212,6 +238,7 @@ On ANY failure: emit the `GATE_FAIL` line, do NOT modify artifacts to force a
 pass, do NOT advance, tell the user what failed and how to fix it.
 
 ## `_re_entry_guard`
+
 A top-level phase key, evaluated BEFORE `_preconditions` and the steps (right
 after `_init`). Re-running a phase whose outputs already drove downstream phases
 would silently invalidate that downstream work, so this is the interlock that
@@ -251,6 +278,7 @@ If `if` is false (normal first run), the guard is a no-op — proceed to
 `_preconditions`.
 
 ## `_produces` / `_advances_to` / `_forbids_files`
+
 - `_produces` — the artifact(s) this phase must have written (cross-checked
   against `_postconditions`).
 - `_advances_to: X` — ONLY after `HANDOFF_OK`: set `phases.<_phase>="completed"`,
@@ -284,12 +312,13 @@ diagnostic's `reason=` field.
 ---
 
 ## Step bodies in the markdown body (FORM 2b — seam-free hybrid)
+
 When the phase file is a `.md` with YAML frontmatter and NO `_steps:` list in
 the frontmatter, the steps live in the MARKDOWN BODY instead. In that case:
 
 - Each step is a section headed `## Step: <id>`. Steps execute in the ORDER the
   `## Step:` sections appear in the body (top to bottom).
-- Immediately under the heading, a fenced ```` ```meta ```` block holds the
+- Immediately under the heading, a fenced `` ```meta `` block holds the
   step's machine contract (the same `_`-keys you'd otherwise see inline:
   `_collect`, `_for_each`, `_branch_on`, `_when`, `_writes`, `_writes_var`,
   `_knowledge`). Parse it as YAML. Unknown `_`-keys there are invalid (Golden
@@ -305,6 +334,42 @@ the frontmatter, the steps live in the MARKDOWN BODY instead. In that case:
 Everything else (precondition/postcondition semantics, error actions, advancing)
 is identical to the frontmatter-list form.
 
+## Unit file regions (the whole-file grammar)
+
+Every unit file (`*.phase.md`, fragment, assembler) is EXACTLY these regions, in
+this order, and NOTHING else. There are no undefined zones — a region the
+interpreter has no rule for is an invalid file (CI-flaggable, like an undefined
+`_`-key).
+
+1. **Frontmatter** (`---` … `---`) — the STRUCTURAL contract (identity, IO,
+   preconditions, postconditions, knowledge, error policy, produces/advances/
+   forbids, and for a phase the `_fragments`/`_assemble` composition). Machine-
+   parsed, closed-vocabulary. This is the single source of truth for the unit's
+   contract.
+2. **An H1 title** (`# <name>`) — cosmetic, for humans. The interpreter assigns
+   it no meaning.
+3. **`## Orientation`** — exactly ONE such section, immediately after the H1.
+   NON-NORMATIVE: it orients the reader (what this unit is, what it reads/writes,
+   where its knowledge/contract live) and the interpreter READS it for context
+   but MUST NOT execute it. It carries NO binding instruction — every rule lives
+   in the frontmatter or a `## Step:`. A unit MAY omit Orientation; if present it
+   is exactly one and only here. (Recap of contract behavior is allowed ONLY when
+   it explicitly points at the frontmatter key that is the authority, e.g.
+   "advances per `_advances_to`"; never as the source of a rule.)
+4. **`## Step: <id>`** sections — zero or more, the executable procedure, run
+   top-to-bottom (FORM 2b: each is an optional `` ```meta `` block then reason
+   prose). A phase whose work is pure composition has ZERO steps (its work is the
+   `_fragments`/`_assemble` declared in frontmatter); a fragment/assembler has
+   one or more.
+
+Nothing follows the last `## Step:` (or follows Orientation, when there are no
+steps). Do NOT add trailing `## Output` / `## Scope` / `## Notes` prose — a
+unit's scope is its frontmatter `_scope`, its outputs are `_produces` /
+step `_writes`; restating them in trailing prose is duplication (a drift surface)
+and is forbidden. Likewise no normative content may live in the H1 or
+Orientation; if you wrote a rule there, move it into the frontmatter contract or
+a `## Step:`.
+
 ## Golden rules
 
 1. **Never modify an artifact to make a gate pass.** Gates are fail-closed.
@@ -317,3 +382,7 @@ is identical to the frontmatter-list form.
    guess its meaning.
 5. **Stay inside `_scope`.** Producing out-of-scope output is a failure even if
    the steps "succeed."
+6. **Only `## Step:` bodies and the frontmatter are executable.** The H1 and
+   `## Orientation` are non-normative context — read them, never act on them. A
+   file region the interpreter has no rule for (see "Unit file regions") makes
+   the file invalid.

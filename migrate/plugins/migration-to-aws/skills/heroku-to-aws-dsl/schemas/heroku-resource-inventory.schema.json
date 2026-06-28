@@ -92,7 +92,14 @@
         "source_file": { "type": "string" },
         "source_format": {
           "type": "string",
-          "enum": ["enterprise_csv", "invoice_csv", "line_item_csv", "invoice_json", "api_invoice_json", "enterprise_json"]
+          "enum": [
+            "enterprise_csv",
+            "invoice_csv",
+            "line_item_csv",
+            "invoice_json",
+            "api_invoice_json",
+            "enterprise_json"
+          ]
         },
         "line_items": {
           "type": "array",

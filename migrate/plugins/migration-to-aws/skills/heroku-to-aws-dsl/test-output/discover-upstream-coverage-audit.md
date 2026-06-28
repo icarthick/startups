@@ -7,6 +7,7 @@ gets silently lost — cf. design.py dropping security groups / empty-Procfile /
 rds_proxy / kafka-broker-by-tier.)
 
 **Structure of the port (not all into one file):**
+
 - `discover.md` (orchestrator) → `discover.phase.md` **frontmatter** + verbs in
   shared `INTERPRETER.md`.
 - `discover-terraform.md` → **inlined** as `## Step:` sections in
@@ -23,6 +24,7 @@ loads terraform discovery but only loads billing "if billing files found."
 ## Coverage result: full, after two gap fixes
 
 ### Gaps found and FIXED this session
+
 1. **`_check_single_active_phase` (upstream Rule 2) was defined in the
    interpreter but not invoked by discover.** A real silent-drop. **Fixed:**
    added `_check_single_active_phase: true` to discover's `_preconditions` with
@@ -33,6 +35,7 @@ loads terraform discovery but only loads billing "if billing files found."
    SHOULD).
 
 ### Known limitation — INHERITED from upstream, NOT a regression
+
 - **`line_item_csv` billing format is detected but has no parse rule.** It's in
   the detection table (Step 1) and the schema enum, but neither the DSL knowledge
   file's Step 2 NOR upstream's `discover-billing.md` Steps 2a–2e give it dedicated
@@ -41,6 +44,7 @@ loads terraform discovery but only loads billing "if billing files found."
   separate "fix upstream too" decision; do NOT silently add parse logic here.
 
 ### Everything substantive confirmed ported (spot-checked file-by-file)
+
 - All 7 Terraform resource types with full per-type extraction + attr rules
   (simple/nested-dot/ref/interp/map-keys-only secret redaction).
 - Reference resolution (app lookup, unassociated fallback).

@@ -20,6 +20,7 @@ inter-fragment dependencies; assembler may mutate-in-place and/or create.
 ## Cold-LLM re-test: PASS — and the separate frontmatters tested as a HELP
 
 A cold LLM executed discover from the 3-kind structure. Results:
+
 - **Unit model understood from the interpreter alone**, mapped to the fixture
   "1:1 with zero surprises."
 - **File flow correct:** terraform CREATES the inventory, billing CREATES
@@ -48,7 +49,7 @@ A cold LLM executed discover from the 3-kind structure. Results:
    state the synthesized formation is `source:"procfile"`; LLM resolved it via
    the schema enum. Tightened to say it explicitly.
 3. **Mild over-engineering for the 2-discoverer case (accepted, by design).**
-   The LLM noted a single flat file would be lighter *for this fixture* (4 files
+   The LLM noted a single flat file would be lighter _for this fixture_ (4 files
    vs 1), since both triggers fired so it paid file-hopping without the skip
    benefit. Correct observation — but the structure is the right call for the
    general case (gcp's large multi-artifact fragments, trigger-gated loading,

@@ -1,0 +1,108 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "aws-design.schema.json",
+  "title": "AWS Design",
+  "description": "Flat AWS architecture design mapped from the Heroku inventory. No clustering/dependency-graph fields. Every service entry maps exactly one source resource (or a composite for one add-on).",
+  "type": "object",
+  "required": ["phase", "timestamp", "metadata", "services", "deferred", "warnings", "vpc_design"],
+  "additionalProperties": true,
+  "properties": {
+    "phase": { "type": "string", "const": "design" },
+    "design_source": { "type": "string" },
+    "timestamp": { "type": "string", "minLength": 1 },
+    "metadata": {
+      "type": "object",
+      "required": ["total_services", "total_apps_migrated", "fir_workloads_detected", "fir_generation_note"],
+      "properties": {
+        "total_services": { "type": "integer", "minimum": 0 },
+        "total_apps_migrated": { "type": "integer", "minimum": 0 },
+        "fir_workloads_detected": { "type": "array", "items": { "type": "string" } },
+        "fir_generation_note": { "type": "string" }
+      }
+    },
+    "services": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["service_id", "source_resource_id", "heroku_app", "aws_service", "confidence", "aws_config"],
+        "properties": {
+          "service_id": { "type": "string" },
+          "source_resource_id": { "type": "string" },
+          "heroku_app": { "type": "string" },
+          "aws_service": { "type": "string" },
+          "confidence": { "type": "string", "enum": ["deterministic"] },
+          "aws_config": { "type": "object" }
+        },
+        "not": {
+          "anyOf": [
+            { "required": ["cluster_id"] },
+            { "required": ["edges"] },
+            { "required": ["dependencies"] },
+            { "required": ["must_migrate_together"] }
+          ]
+        }
+      }
+    },
+    "deferred": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["addon_name", "addon_plan", "provider", "reason", "recommendation"],
+        "properties": {
+          "addon_name": { "type": "string" },
+          "addon_plan": { "type": ["string", "null"] },
+          "provider": { "type": ["string", "null"] },
+          "reason": { "type": "string" },
+          "recommendation": { "type": "string" }
+        }
+      }
+    },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "vpc_design": {
+      "type": "object",
+      "required": ["mode"],
+      "properties": {
+        "mode": { "type": "string", "enum": ["existing_vpc", "new_vpc"] },
+        "existing_vpc_id": { "type": "string" },
+        "subnet_ids": { "type": "array", "items": { "type": "string" } },
+        "cidr_block": { "type": "string" },
+        "subnets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["cidr", "az", "type"],
+            "properties": {
+              "cidr": { "type": "string" },
+              "az": { "type": "string" },
+              "type": { "type": "string", "enum": ["public", "private"] }
+            }
+          }
+        },
+        "route_table": { "type": "object" },
+        "internet_gateway": { "type": "boolean" },
+        "security_groups": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "inbound_rules", "outbound_rules"],
+            "properties": {
+              "name": { "type": "string" },
+              "inbound_rules": { "type": "array" },
+              "outbound_rules": { "type": "array" }
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "mode": { "const": "existing_vpc" } } },
+          "then": { "required": ["existing_vpc_id"], "properties": { "existing_vpc_id": { "minLength": 1 } } }
+        },
+        {
+          "if": { "properties": { "mode": { "const": "new_vpc" } } },
+          "then": { "required": ["subnets"], "properties": { "subnets": { "minItems": 2 } } }
+        }
+      ]
+    }
+  }
+}

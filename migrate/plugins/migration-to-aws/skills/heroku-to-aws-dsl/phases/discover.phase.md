@@ -93,6 +93,8 @@ _on_error:
 
 # Discover Heroku Resources
 
+## Orientation
+
 Scan the workspace for Heroku declarations and assemble a single flat
 `heroku-resource-inventory.json` in `$MIGRATION_DIR/`. The work is composed of
 FRAGMENTS (units of work, each its own file) + one ASSEMBLER:

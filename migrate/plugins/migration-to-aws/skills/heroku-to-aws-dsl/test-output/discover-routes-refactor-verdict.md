@@ -2,6 +2,7 @@
 
 **Change:** discover's body went from inline `_steps` (+ a `_knowledge` billing
 sub-file) to a `_routes` list of PEER discoverer sub-units, each in its own file:
+
 - `phases/discover/discover-terraform.md` (route: required, always)
 - `phases/discover/discover-billing.md` (route: optional, glob-triggered)
 - `phases/discover/discover-assemble.md` (route: always, merges contributions)
@@ -23,7 +24,8 @@ accumulators — no intermediate artifacts. Only assemble `_writes` the inventor
 ## Cold-LLM re-test: PASS — and the structure tested as LOWER mental-load
 
 A cold LLM executed the refactored phase from INTERPRETER.md + discover.phase.md
-+ the route files + fixture. Results:
+
+- the route files + fixture. Results:
 
 - **Route triggering correct:** all 3 triggers evaluated right; each `_file`
   loaded ONLY after its trigger was confirmed true; untriggered route files would

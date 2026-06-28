@@ -19,6 +19,7 @@ prior `heroku-resource-inventory.json`.
 ## Part 1 — unconfirmed re-run: PASS
 
 The cold LLM correctly:
+
 - Evaluated the guard `if` (`preferences.json exists AND clarify completed`) →
   TRUE → fired the guard.
 - **HALTED without running the steps and without overwriting the inventory.**
@@ -31,6 +32,7 @@ The cold LLM correctly:
 ## Part 2 — confirmed re-run: PASS
 
 On explicit confirmation it performed `on_confirm` precisely:
+
 - Reset clarify/design/estimate/generate/feedback → `pending`, kept discover
   active.
 - Removed exactly the listed downstream artifacts present (only
@@ -62,6 +64,7 @@ This is a genuine correctness bug, not a nitpick: the guardrail's value depends
 entirely on firing before the destructive step.
 
 **Fix applied (this session):**
+
 1. INTERPRETER.md master order now reads
    `_init → _re_entry_guard (pre-steps) → _preconditions → _knowledge → _steps →
    _postconditions → advance`, with an explicit "why the guard moves up" note.
@@ -90,6 +93,7 @@ hypothetical confirmation) performed the exact cascade. The bug class
 ("authored-here-runs-there") is structurally eliminated, not prose-patched.
 
 **Two NEW minor soft spots the re-test surfaced (lesser, not blocking):**
+
 1. **"Explicit confirmation" is undefined** — the spec demands the user EXPLICITLY
    confirm the cascade but gives no canonical prompt or affirmation token. "re-run
    discover" alone is NOT confirmation of the destructive reset. Left to LLM

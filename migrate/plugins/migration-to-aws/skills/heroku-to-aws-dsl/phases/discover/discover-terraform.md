@@ -20,11 +20,15 @@ _on_error:
 
 # Discover Fragment: Terraform (primary)
 
-> A discover-phase FRAGMENT. Triggered by `discover.phase.md` (its trigger is
-> effectively always — Terraform is the required primary source). Single
-> responsibility: discover Heroku resources from Terraform + repo artifacts.
-> Writes its data into `heroku-resource-inventory.json` (the assembler may
-> enrich/validate it afterward). Does NOT update `.phase-status.json`.
+## Orientation
+
+A discover-phase FRAGMENT, triggered by `discover.phase.md` (its trigger is
+effectively always — Terraform is the required primary source). Single
+responsibility: discover Heroku resources from Terraform + repo artifacts, and
+write them into `heroku-resource-inventory.json` (the assembler may
+enrich/validate it afterward; this fragment is the file's CREATOR, the assembler
+its MUTATOR). The written sections (`resources[]`, `apps[]`, `terraform_metadata`,
+`metadata`) are shaped by `schemas/heroku-resource-inventory.schema.json`.
 
 ## Step: scan_terraform
 
@@ -151,27 +155,3 @@ from a standalone `heroku_space` resource that the app does not reference — a
 `heroku_space` with no app referencing it stays an `unassociated` space resource
 and does not populate any app's `space`. (Terraform alone cannot prove an app
 runs in a given space unless the app declares it.)
-
-## Output
-
-This fragment CREATES `heroku-resource-inventory.json` with the
-terraform-derived sections:
-
-- flat `resources[]` (all `source:"terraform"` entries plus any Procfile-only
-  formation), input order preserved.
-- `apps[]` (per the inventory schema).
-- `terraform_metadata` `{ found:true, tf_files_scanned, resource_types_extracted,
-  parse_warnings }`.
-- `metadata` `{ discovery_timestamp, total_apps_discovered, discovery_sources
-  (starts ["terraform"] + "procfile" if a Procfile/app.json was parsed),
-  confidence }`.
-
-The billing fragment (if it runs) and the assembler add `billing_profile` and
-final validation afterward — this fragment is the CREATOR of the inventory file;
-the assembler is its MUTATOR.
-
-## Scope
-
-Extract Heroku resource declarations from `.tf` files and integrate
-Procfile/app.json. Nothing else — no AWS names, no cost, no Terraform generation
-for AWS, no clustering. Do NOT update `.phase-status.json`.
