@@ -37,3 +37,7 @@ Thumbs.db
 
 # Migration artifacts (generated at runtime by plugins)
 .migration/
+
+# Agent scratch / throwaway work (notes, probes, captured logs, draft plans)
+.agents/scratchpad/
+**/.agents/scratchpad/

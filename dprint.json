@@ -3,7 +3,8 @@
   "excludes": [
     "**/node_modules/**",
     "**/.git/**",
-    "**/dist/**"
+    "**/dist/**",
+    "**/.agents/scratchpad/**"
   ],
   "indentWidth": 2,
   "json": {

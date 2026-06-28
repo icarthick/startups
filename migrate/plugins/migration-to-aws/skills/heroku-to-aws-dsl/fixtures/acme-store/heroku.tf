@@ -48,7 +48,7 @@ resource "heroku_config_association" "config" {
   vars = {
     DATABASE_URL = "postgres://redacted"
     REDIS_URL    = "redis://redacted"
-    SECRET_KEY   = "super-secret-value"
+    SECRET_KEY   = "redacted"
   }
 }
 
