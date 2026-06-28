@@ -1,0 +1,13 @@
+{
+  "name": "acme-store",
+  "stack": "heroku-22",
+  "buildpacks": [{ "url": "heroku/ruby" }],
+  "addons": ["heroku-postgresql:standard-0", "heroku-redis:premium-2", "sendgrid:starter"],
+  "env": {
+    "RAILS_ENV": { "value": "production" },
+    "SECRET_KEY_BASE": { "generator": "secret" }
+  },
+  "formation": {
+    "web": { "quantity": 2, "size": "standard-2x" }
+  }
+}

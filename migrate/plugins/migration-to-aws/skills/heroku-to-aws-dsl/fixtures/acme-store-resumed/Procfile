@@ -1,0 +1,4 @@
+web: bundle exec puma -C config/puma.rb
+worker: bundle exec sidekiq
+# release runs migrations on deploy — declared in Procfile only, no heroku_formation
+release: bundle exec rails db:migrate

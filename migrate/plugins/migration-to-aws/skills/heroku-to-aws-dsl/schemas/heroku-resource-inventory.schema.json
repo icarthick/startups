@@ -1,0 +1,113 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "heroku-resource-inventory.schema.json",
+  "title": "Heroku Resource Inventory",
+  "description": "Flat inventory of Heroku resources discovered from Terraform, Procfile/app.json, and optional billing exports. No clustering or dependency-graph fields are permitted.",
+  "type": "object",
+  "required": ["resources", "apps", "metadata", "terraform_metadata"],
+  "additionalProperties": true,
+  "properties": {
+    "resources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["resource_id", "resource_type", "heroku_app", "config"],
+        "properties": {
+          "resource_id": { "type": "string" },
+          "resource_type": {
+            "type": "string",
+            "enum": ["app", "addon", "formation", "domain", "config", "pipeline", "space"]
+          },
+          "heroku_app": { "type": "string" },
+          "config": { "type": "object" },
+          "source": { "type": "string", "enum": ["terraform", "procfile", "app_json"] },
+          "tf_file": { "type": "string" },
+          "tf_resource_name": { "type": "string" }
+        },
+        "not": {
+          "anyOf": [
+            { "required": ["cluster_id"] },
+            { "required": ["creation_order_depth"] },
+            { "required": ["edges"] },
+            { "required": ["dependencies"] },
+            { "required": ["must_migrate_together"] }
+          ]
+        }
+      }
+    },
+    "apps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["app_name", "heroku_generation", "generation_action"],
+        "properties": {
+          "app_name": { "type": "string" },
+          "app_id": { "type": ["string", "null"] },
+          "discovery_status": { "type": "string", "enum": ["success", "discovery_failed"] },
+          "failure_reason": { "type": ["string", "null"] },
+          "heroku_generation": { "type": "string", "enum": ["cedar", "fir", "unknown"] },
+          "generation_action": { "type": "string", "enum": ["detect_only"] },
+          "generation_diagnostics": { "type": "array", "items": { "type": "string" } },
+          "space": { "type": ["string", "null"] },
+          "buildpacks": { "type": "array", "items": { "type": "string" } },
+          "env_keys": { "type": "array", "items": { "type": "string" } },
+          "app_json_only_addons": { "type": "array", "items": { "type": "string" } },
+          "procfile_parse_warning": { "type": ["string", "null"] },
+          "app_json_parse_warning": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["discovery_timestamp", "total_apps_discovered", "discovery_sources", "confidence"],
+      "properties": {
+        "discovery_timestamp": { "type": "string" },
+        "total_apps_discovered": { "type": "integer", "minimum": 0 },
+        "discovery_sources": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["terraform", "procfile", "billing"] }
+        },
+        "confidence": { "type": "string", "enum": ["full", "reduced"] }
+      }
+    },
+    "terraform_metadata": {
+      "type": "object",
+      "required": ["found"],
+      "properties": {
+        "found": { "type": "boolean" },
+        "tf_files_scanned": { "type": "integer", "minimum": 0 },
+        "resource_types_extracted": { "type": "array", "items": { "type": "string" } },
+        "parse_warnings": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "billing_profile": {
+      "type": "object",
+      "required": ["available"],
+      "properties": {
+        "available": { "type": "boolean" },
+        "total_monthly_cost": { "type": "number" },
+        "currency": { "type": "string" },
+        "billing_period": { "type": "string" },
+        "source_file": { "type": "string" },
+        "source_format": {
+          "type": "string",
+          "enum": ["enterprise_csv", "invoice_csv", "line_item_csv", "invoice_json", "api_invoice_json", "enterprise_json"]
+        },
+        "line_items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["resource_name", "category", "cost"],
+            "properties": {
+              "resource_name": { "type": "string" },
+              "category": { "type": "string", "enum": ["dyno", "addon", "platform", "other"] },
+              "cost": { "type": "number" }
+            }
+          }
+        },
+        "parse_warnings": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

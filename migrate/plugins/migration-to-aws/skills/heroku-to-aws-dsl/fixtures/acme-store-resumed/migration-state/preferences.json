@@ -1,0 +1,31 @@
+{
+  "migration_id": "0315-1030",
+  "skill": "heroku-to-aws",
+  "metadata": {
+    "timestamp": "2026-03-15T11:00:00Z",
+    "clarify_mode": "full",
+    "questions_asked": ["Q1", "Q2", "Q3", "Q6", "Q6c", "Q7", "Q12c"],
+    "questions_defaulted": ["Q4", "Q5", "Q10", "Q13", "Q14", "Q15"]
+  },
+  "global": {
+    "target_region": "us-east-1",
+    "compliance": "none",
+    "availability": "multi-az",
+    "migration_approach": "full_cutover"
+  },
+  "data": {
+    "database_ha": "multi-az",
+    "migration_method": "pg_dump_restore",
+    "redis_ha": true,
+    "dns_strategy": "route53"
+  },
+  "operational": {
+    "container_registry": "ecr",
+    "containerization_status": "buildpack_only",
+    "log_retention_days": 30,
+    "cost_optimization": "balanced"
+  },
+  "design_constraints": {
+    "kubernetes": { "value": "ecs-fargate", "chosen_by": "default" }
+  }
+}

@@ -1,0 +1,2 @@
+app,dyno_units,dyno_cost,addon_total,platform_total,period,total
+acme-store,2,100.00,75.00,25.00,2026-02,200.00

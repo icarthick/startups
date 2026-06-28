@@ -1,0 +1,13 @@
+{
+  "migration_id": "0315-1030",
+  "last_updated": "2026-03-15T11:00:00Z",
+  "current_phase": "design",
+  "phases": {
+    "discover": "completed",
+    "clarify": "completed",
+    "design": "pending",
+    "estimate": "pending",
+    "generate": "pending",
+    "feedback": "pending"
+  }
+}

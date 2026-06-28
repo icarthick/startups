@@ -1,0 +1,194 @@
+{
+  "resources": [
+    {
+      "resource_id": "app:acme-store",
+      "resource_type": "app",
+      "heroku_app": "acme-store",
+      "config": {
+        "app_name": "acme-store",
+        "region": "us",
+        "stack": "heroku-22",
+        "organization": "acme-inc",
+        "buildpacks": ["heroku/ruby"]
+      },
+      "source": "terraform",
+      "tf_file": "heroku.tf",
+      "tf_resource_name": "web_app"
+    },
+    {
+      "resource_id": "formation:acme-store:web",
+      "resource_type": "formation",
+      "heroku_app": "acme-store",
+      "config": {
+        "process_type": "web",
+        "command": "bundle exec puma -C config/puma.rb",
+        "dyno_type": "standard-2x",
+        "quantity": 2
+      },
+      "source": "terraform",
+      "tf_file": "heroku.tf",
+      "tf_resource_name": "web"
+    },
+    {
+      "resource_id": "formation:acme-store:worker",
+      "resource_type": "formation",
+      "heroku_app": "acme-store",
+      "config": {
+        "process_type": "worker",
+        "command": "bundle exec sidekiq",
+        "dyno_type": "standard-1x",
+        "quantity": 1
+      },
+      "source": "terraform",
+      "tf_file": "heroku.tf",
+      "tf_resource_name": "worker"
+    },
+    {
+      "resource_id": "addon:acme-store:heroku-postgresql:standard-0",
+      "resource_type": "addon",
+      "heroku_app": "acme-store",
+      "config": {
+        "addon_service": "heroku-postgresql",
+        "plan": "standard-0",
+        "provider": "heroku"
+      },
+      "source": "terraform",
+      "tf_file": "heroku.tf",
+      "tf_resource_name": "postgres"
+    },
+    {
+      "resource_id": "addon:acme-store:heroku-redis:premium-2",
+      "resource_type": "addon",
+      "heroku_app": "acme-store",
+      "config": {
+        "addon_service": "heroku-redis",
+        "plan": "premium-2",
+        "provider": "heroku"
+      },
+      "source": "terraform",
+      "tf_file": "heroku.tf",
+      "tf_resource_name": "redis"
+    },
+    {
+      "resource_id": "addon:acme-store:papertrail:choklad",
+      "resource_type": "addon",
+      "heroku_app": "acme-store",
+      "config": {
+        "addon_service": "papertrail",
+        "plan": "choklad",
+        "provider": "heroku"
+      },
+      "source": "terraform",
+      "tf_file": "heroku.tf",
+      "tf_resource_name": "papertrail"
+    },
+    {
+      "resource_id": "config:acme-store",
+      "resource_type": "config",
+      "heroku_app": "acme-store",
+      "config": {
+        "config_var_keys": ["DATABASE_URL", "REDIS_URL", "SECRET_KEY"]
+      },
+      "source": "terraform",
+      "tf_file": "heroku.tf",
+      "tf_resource_name": "config"
+    },
+    {
+      "resource_id": "pipeline:acme-pipeline",
+      "resource_type": "pipeline",
+      "heroku_app": "unassociated",
+      "config": {
+        "pipeline_name": "acme-pipeline",
+        "stages": [],
+        "review_apps_enabled": false,
+        "detection_status": "detect-only"
+      },
+      "source": "terraform",
+      "tf_file": "heroku.tf",
+      "tf_resource_name": "main"
+    },
+    {
+      "resource_id": "space:acme-space",
+      "resource_type": "space",
+      "heroku_app": "unassociated",
+      "config": {
+        "space_name": "acme-space",
+        "region": "virginia",
+        "shield": false,
+        "organization": "acme-inc",
+        "peering": {
+          "detected": false,
+          "vpc_id": null,
+          "peer_cidr": null
+        }
+      },
+      "source": "terraform",
+      "tf_file": "heroku.tf",
+      "tf_resource_name": "private"
+    },
+    {
+      "resource_id": "formation:acme-store:release",
+      "resource_type": "formation",
+      "heroku_app": "acme-store",
+      "config": {
+        "process_type": "release",
+        "command": "bundle exec rails db:migrate",
+        "dyno_type": "unknown",
+        "quantity": 0
+      },
+      "source": "procfile",
+      "tf_file": "Procfile",
+      "tf_resource_name": "release"
+    }
+  ],
+  "apps": [
+    {
+      "app_name": "acme-store",
+      "app_id": null,
+      "discovery_status": "success",
+      "failure_reason": null,
+      "heroku_generation": "cedar",
+      "generation_action": "detect_only",
+      "generation_diagnostics": ["stack 'heroku-22' indicates Cedar generation"],
+      "space": null,
+      "buildpacks": ["heroku/ruby"],
+      "env_keys": ["RAILS_ENV", "SECRET_KEY_BASE"],
+      "app_json_only_addons": ["sendgrid:starter"],
+      "procfile_parse_warning": null,
+      "app_json_parse_warning": null
+    }
+  ],
+  "metadata": {
+    "discovery_timestamp": "2026-06-27T00:00:00Z",
+    "total_apps_discovered": 1,
+    "discovery_sources": ["terraform", "procfile", "billing"],
+    "confidence": "full"
+  },
+  "terraform_metadata": {
+    "found": true,
+    "tf_files_scanned": 1,
+    "resource_types_extracted": [
+      "heroku_app",
+      "heroku_formation",
+      "heroku_addon",
+      "heroku_config_association",
+      "heroku_pipeline",
+      "heroku_space"
+    ],
+    "parse_warnings": []
+  },
+  "billing_profile": {
+    "available": true,
+    "total_monthly_cost": 200.0,
+    "currency": "USD",
+    "billing_period": "2026-02",
+    "source_file": "billing-export-2026-02.csv",
+    "source_format": "enterprise_csv",
+    "line_items": [
+      { "resource_name": "acme-store", "category": "dyno", "cost": 100.0 },
+      { "resource_name": "acme-store", "category": "addon", "cost": 75.0 },
+      { "resource_name": "acme-store", "category": "platform", "cost": 25.0 }
+    ],
+    "parse_warnings": []
+  }
+}
