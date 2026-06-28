@@ -249,6 +249,14 @@ drift surface and a conformance failure.
    the authority.
 4. Every `knowledge/` file is referenced by at least one unit (no orphan data);
    every `_knowledge` reference resolves (no dangling reference).
+5. **Cross-table key coverage.** When one phase's knowledge table EMITS a value
+   that a LATER phase's table must look up by (e.g. design's
+   `postgres-rds-sizing.json` emits an `rds_instance_class` that estimate's
+   `aws-pricing.json` must have a rate for), EVERY value the producer can emit
+   MUST exist as a key in the consumer table. (Surfaced by the real-repo run:
+   design emitted `db.m6g.*` RDS classes the estimate table lacked → silent
+   `unpriced`. The structural gates can't catch a legitimately-`unpriced` line;
+   this consistency check is the guard.)
 
 ## Unit file regions (whole-file grammar)
 

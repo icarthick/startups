@@ -9,27 +9,23 @@
     "staleness_days": 30,
     "staleness_note": "If more than staleness_days past last_updated, infrastructure rates remain reliable; set pricing_source=cached_stale and note it. AI-model rates (not used for heroku->aws) may have drifted."
   },
-
   "_multi_az_convention": {
     "_comment": "THE TRAP (see test-output/estimate-arithmetic-probe.md): a design's multi_az:true means different things per service. Each service rate below carries multi_az_handling so the formula applies the RIGHT adjustment, never a blanket multiplier.",
     "baked_in": "rate already INCLUDES multi-AZ; NEVER apply a multiplier (multi_az flag is informational)",
     "multiplier_x2": "rate is single-AZ; multiply by 2 when design multi_az == true",
     "intrinsic": "service is inherently multi-AZ; no adjustment; multi_az flag informational"
   },
-
   "fargate": {
     "per_vcpu_hour": 0.04048,
     "per_gb_mem_hour": 0.004445,
     "formula": "(task_cpu/1024 * per_vcpu_hour + task_memory/1024 * per_gb_mem_hour) * hours_per_month * desired_count",
     "multi_az_handling": "n/a (Fargate cost is task-size driven, not AZ-driven)"
   },
-
   "alb": {
     "monthly_fixed": 16.43,
     "per_lcu_hour": 0.008,
     "formula": "monthly_fixed + per_lcu_hour * hours_per_month (LCU baseline estimate)"
   },
-
   "rds_postgresql": {
     "multi_az_handling": "baked_in",
     "_note": "pricing-cache RDS PostgreSQL table is labeled (On-Demand, Multi-AZ) — the rate ALREADY includes multi-AZ. Do NOT double for multi_az.",
@@ -39,12 +35,20 @@
       "db.t4g.medium": 0.129,
       "db.t4g.large": 0.258,
       "db.t4g.xlarge": 0.517,
-      "db.t4g.2xlarge": 1.034
+      "db.t4g.2xlarge": 1.034,
+      "db.m6g.large": 0.356,
+      "db.m6g.xlarge": 0.712,
+      "db.m6g.2xlarge": 1.424,
+      "db.m6g.4xlarge": 2.848,
+      "db.m6g.8xlarge": 5.696,
+      "db.m6g.16xlarge": 11.392,
+      "db.r6g.16xlarge": 14.5,
+      "db.x2g.16xlarge": 18.05
     },
     "storage_per_gb_month": 0.23,
-    "formula": "instance_rate * hours_per_month + storage_gb * storage_per_gb_month"
+    "formula": "instance_rate * hours_per_month + storage_gb * storage_per_gb_month",
+    "_instances_note": "Multi-AZ on-demand hourly, us-east-1. t4g.* verified from cache; m6g/r6g/x2g families added to MATCH the design table's emitted classes (postgres-rds-sizing.json) — approximate (~2x single-AZ), verify via the awspricing MCP for a large estimate. Every rds_instance_class the design can emit MUST have a rate here (no unpriced production DBs)."
   },
-
   "aurora_postgresql": {
     "multi_az_handling": "intrinsic",
     "_note": "Aurora replicates across 3 AZs by default; rate is as-listed, no multi-AZ adjustment.",
@@ -59,11 +63,10 @@
       "db.r6g.16xlarge": 8.832
     },
     "_instances_note": "r6g.16xlarge extrapolated 2x from 8xlarge; verify via MCP if it drives a large estimate.",
-    "storage_per_gb_month": 0.10,
-    "io_per_million": 0.20,
+    "storage_per_gb_month": 0.1,
+    "io_per_million": 0.2,
     "formula": "instance_rate * hours_per_month + storage_gb * storage_per_gb_month + io_estimate (io optional; default 0 absent usage data)"
   },
-
   "elasticache": {
     "multi_az_handling": "multiplier_x2",
     "_note": "pricing-cache ElastiCache is Single-AZ; apply x2 when design multi_az == true.",
@@ -85,7 +88,6 @@
     "_nodes_note": "m6g sizes above large extrapolated by doubling; verify via MCP if large.",
     "formula": "node_rate * hours_per_month * (2 if design multi_az else 1)"
   },
-
   "msk": {
     "multi_az_handling": "intrinsic",
     "_note": "broker_count already spans AZs (2 or 3 per design); cost is per-broker, no extra multi-AZ multiplier.",
@@ -99,13 +101,12 @@
       "kafka.m5.12xlarge": 5.04
     },
     "_brokers_note": "MSK broker rates approximate; verify via MCP for a kafka-heavy estimate.",
-    "storage_per_gb_month": 0.10,
+    "storage_per_gb_month": 0.1,
     "formula": "broker_rate * hours_per_month * broker_count + storage_per_broker_gb * broker_count * storage_per_gb_month"
   },
-
   "eks": {
     "_comment": "EKS cost = control plane (once) + EC2 nodes; PODS COST $0 (compute billed via nodes — charging pods double-counts). Post-loop add, gated on an eks_cluster design entry. EKS-aware now though design's EKS branch is a stub.",
-    "control_plane_monthly": 73.00,
+    "control_plane_monthly": 73.0,
     "node_rates_monthly": {
       "m6i.large": 70.08,
       "m6i.xlarge": 140.16,
@@ -117,7 +118,6 @@
     "pod_cost": 0,
     "formula": "control_plane_monthly + node_monthly_rate * node_count, where node_count = eks_cluster.node_groups[0].desired_size and node_monthly_rate = node_rates_monthly[instance_types[0]]. Per-pod Fargate-style task cost is NOT charged (pods are $0). ALB (web) and NAT are added by their own lines, NOT re-added here."
   },
-
   "nat_gateway": {
     "monthly_fixed": 32.85,
     "per_gb_processed": 0.045,
@@ -128,16 +128,24 @@
     "formula": "per_vcpu_hour * hours_per_month * vcpus (when connection pooling mapped)"
   },
   "route53": {
-    "hosted_zone_monthly": 0.50,
-    "per_million_queries": 0.40,
+    "hosted_zone_monthly": 0.5,
+    "per_million_queries": 0.4,
     "formula": "hosted_zone_monthly + query_estimate (when dns_strategy == route53)"
   },
-
   "fast_path_services": {
     "_comment": "Minimal/flat estimates for fast-path-mapped add-ons.",
-    "s3": { "storage_per_gb_month": 0.023, "formula": "storage_gb * rate + request estimate" },
-    "ses": { "per_1000_emails": 0.10, "formula": "flat minimal baseline from SendGrid mapping" },
-    "eventbridge": { "per_million_events": 1.00, "formula": "minimal for cron jobs" },
+    "s3": {
+      "storage_per_gb_month": 0.023,
+      "formula": "storage_gb * rate + request estimate"
+    },
+    "ses": {
+      "per_1000_emails": 0.1,
+      "formula": "flat minimal baseline from SendGrid mapping"
+    },
+    "eventbridge": {
+      "per_million_events": 1.0,
+      "formula": "minimal for cron jobs"
+    },
     "amazon_mq": {
       "instance_monthly_est": 130.0,
       "formula": "instance_rate * 730 + storage (CloudAMQP mapping; verify via MCP)"
@@ -146,20 +154,24 @@
       "instance_monthly_est": 100.0,
       "formula": "instance_rate * 730 + storage (Bonsai mapping; verify via MCP)"
     },
-    "cloudfront": { "per_gb_first_10tb": 0.085, "formula": "transfer_gb * rate + request costs" },
+    "cloudfront": {
+      "per_gb_first_10tb": 0.085,
+      "formula": "transfer_gb * rate + request costs"
+    },
     "secrets_manager": {
-      "per_secret_month": 0.40,
+      "per_secret_month": 0.4,
       "per_10k_api_calls": 0.05,
       "formula": "secret_count * per_secret_month + api_estimate"
     },
-    "elasticache_memcached": { "_use": "same node rates as elasticache (Memcachier mapping)" }
+    "elasticache_memcached": {
+      "_use": "same node rates as elasticache (Memcachier mapping)"
+    }
   },
-
   "cloudwatch": {
-    "log_ingestion_per_gb": 0.50,
+    "log_ingestion_per_gb": 0.5,
     "log_storage_per_gb_month": 0.03,
-    "custom_metric_month": 0.30,
-    "standard_alarm_month": 0.10,
-    "xray_per_million_traces": 5.00
+    "custom_metric_month": 0.3,
+    "standard_alarm_month": 0.1,
+    "xray_per_million_traces": 5.0
   }
 }

@@ -133,8 +133,6 @@ Add costs that derive from the design as a whole (NOT per-service loop entries):
 
 - **NAT Gateway** — if `aws-design.json.vpc_design.mode == "new_vpc"` (private
   subnets present): add `nat_gateway.monthly_fixed` (+ data estimate; default 0).
-- **NAT Gateway** — if `aws-design.json.vpc_design.mode == "new_vpc"` (private
-  subnets present): add `nat_gateway.monthly_fixed` (+ data estimate; default 0).
   Add it ONCE here — the EKS branch below must NOT re-add NAT.
 - **EKS cluster** — if `aws-design.json` has an `eks_cluster` entry (EKS compute
   path): add `eks.control_plane_monthly` + `node_monthly_rate * node_count`
