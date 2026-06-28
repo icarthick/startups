@@ -1,0 +1,104 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "estimation-infra.schema.json",
+  "title": "AWS Cost Estimate (infrastructure)",
+  "description": "Projected AWS monthly costs for the designed architecture, Heroku comparison, ROI, complexity tier, optimization opportunities, and recommendation. Produced by the estimate phase from aws-design.json + preferences.json + the billing profile.",
+  "type": "object",
+  "required": [
+    "phase",
+    "timestamp",
+    "pricing_source",
+    "projected_costs",
+    "complexity_tier",
+    "complexity_inputs",
+    "recommendation"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "phase": { "type": "string", "const": "estimate" },
+    "design_source": { "type": "string" },
+    "timestamp": { "type": "string", "minLength": 1 },
+    "accuracy_confidence": { "type": "string" },
+    "pricing_source": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": { "type": "string", "enum": ["cached", "live", "cached_fallback", "cached_stale", "unavailable"] },
+        "message": { "type": "string" },
+        "services_with_missing_fallback": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "current_costs": {
+      "type": "object",
+      "properties": {
+        "source": { "type": "string", "enum": ["billing_data", "pricing_cache", "user_provided", "unavailable"] },
+        "heroku_monthly": { "type": ["number", "null"] },
+        "heroku_annual": { "type": ["number", "null"] },
+        "baseline_note": { "type": "string" },
+        "breakdown": { "type": "object" }
+      }
+    },
+    "projected_costs": {
+      "type": "object",
+      "required": ["aws_monthly_balanced", "breakdown"],
+      "properties": {
+        "aws_monthly_premium": { "type": "number", "minimum": 0 },
+        "aws_monthly_balanced": { "type": "number", "exclusiveMinimum": 0 },
+        "aws_monthly_optimized": { "type": "number", "minimum": 0 },
+        "aws_annual_optimized": { "type": "number", "minimum": 0 },
+        "breakdown": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["service", "mid"],
+            "properties": {
+              "service": { "type": "string" },
+              "service_id": { "type": "string" },
+              "low": { "type": ["number", "string"] },
+              "mid": { "type": ["number", "string"] },
+              "high": { "type": ["number", "string"] },
+              "pricing_source": {
+                "type": "string",
+                "enum": ["cached", "live", "cached_fallback", "cached_stale", "unpriced", "unavailable"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "cost_comparison": { "type": "object" },
+    "migration_cost_considerations": { "type": "object" },
+    "roi_analysis": { "type": "object" },
+    "optimization_opportunities": { "type": "array", "items": { "type": "object" } },
+    "complexity_tier": { "type": "string", "enum": ["small", "medium", "large"] },
+    "complexity_inputs": {
+      "type": "object",
+      "required": ["service_count", "monthly_spend"],
+      "properties": {
+        "service_count": { "type": "integer", "minimum": 0 },
+        "monthly_spend": { "type": "number", "minimum": 0 },
+        "has_databases": { "type": "boolean" },
+        "has_stateful_storage": { "type": "boolean" },
+        "availability": { "type": "string" },
+        "compliance": { "oneOf": [{ "type": "string" }, { "type": "array" }] },
+        "multi_region": { "type": "boolean" }
+      }
+    },
+    "financial_summary": { "type": "object" },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "recommendation": {
+      "type": "object",
+      "required": ["path", "path_label", "migrate_if", "stay_if"],
+      "properties": {
+        "path": { "type": "string", "enum": ["migrate_optimized", "migrate_phased", "stay"] },
+        "path_label": { "type": "string", "minLength": 1 },
+        "roi_justification": { "type": "string" },
+        "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+        "migrate_if": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "stay_if": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "next_steps": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

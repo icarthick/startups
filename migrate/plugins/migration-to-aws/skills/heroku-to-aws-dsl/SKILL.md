@@ -30,14 +30,14 @@ vocabulary. **You (the LLM) are the interpreter.** There is no runtime engine.
 
 ## Phase chain
 
-| Phase    | File                       | Produces                         | Status                                        |
-| -------- | -------------------------- | -------------------------------- | --------------------------------------------- |
-| Discover | `phases/discover.phase.md` | `heroku-resource-inventory.json` | ✅ authored + cold-LLM validated              |
-| Clarify  | `phases/clarify.phase.md`  | `preferences.json`               | ✅ authored + cold-LLM validated              |
-| Design   | `phases/design.phase.md`   | `aws-design.json`                | ✅ authored + cold-LLM validated (2 fixtures) |
-| Estimate | `phases/estimate.phase.md` | `estimation-infra.json`          | ⏳ not yet ported                             |
-| Generate | `phases/generate.phase.md` | `terraform/`, guides, scripts    | ⏳ not yet ported                             |
-| Feedback | `phases/feedback.phase.md` | `feedback.json`                  | ⏳ not yet ported                             |
+| Phase    | File                       | Produces                         | Status                                                             |
+| -------- | -------------------------- | -------------------------------- | ------------------------------------------------------------------ |
+| Discover | `phases/discover.phase.md` | `heroku-resource-inventory.json` | ✅ authored + cold-LLM validated                                   |
+| Clarify  | `phases/clarify.phase.md`  | `preferences.json`               | ✅ authored + cold-LLM validated                                   |
+| Design   | `phases/design.phase.md`   | `aws-design.json`                | ✅ authored + cold-LLM validated (2 fixtures)                      |
+| Estimate | `phases/estimate.phase.md` | `estimation-infra.json`          | ✅ authored + cold-LLM validated (multi-AZ trap caught)            |
+| Generate | `phases/generate.phase.md` | `terraform/`, guides, scripts    | ✅ authored + cold-LLM validated (SG ref-integrity caught + fixed) |
+| Feedback | `phases/feedback.phase.md` | `feedback.json`                  | ⏳ not yet ported                                                  |
 
 **Clarify is a mandatory gate** before Design/Estimate/Generate — enforced by
 each downstream phase's `_requires_phase`, not by trust.

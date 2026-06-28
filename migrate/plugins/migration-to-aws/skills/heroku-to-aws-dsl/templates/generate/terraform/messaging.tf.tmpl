@@ -1,0 +1,62 @@
+# messaging.tf — Amazon MSK. Emitted when the design has Amazon MSK.
+# {{private_subnet_refs}} must span >=2 AZs matching broker count.
+# log.retention.hours = preferences.data.kafka_retention_days * 24.
+
+resource "aws_msk_configuration" "{{app_sanitized}}_kafka" {
+  name           = "${var.project_name}-${var.environment}-msk-config"
+  kafka_versions = ["{{kafka_version}}"]
+  server_properties = <<PROPERTIES
+auto.create.topics.enable=false
+default.replication.factor={{replication_factor}}
+num.partitions={{default_partitions}}
+min.insync.replicas=2
+log.retention.hours={{retention_hours}}
+PROPERTIES
+  tags = { Name = "${var.project_name}-${var.environment}-msk-config" }
+}
+
+resource "aws_msk_cluster" "{{app_sanitized}}_kafka" {
+  cluster_name           = "${var.project_name}-${var.environment}-msk"
+  kafka_version          = "{{kafka_version}}"
+  number_of_broker_nodes = {{broker_count}}
+
+  broker_node_group_info {
+    instance_type   = "{{broker_instance_type}}"
+    client_subnets  = {{private_subnet_refs}}
+    security_groups = [aws_security_group.messaging.id]
+    storage_info {
+      ebs_storage_info {
+        volume_size = {{storage_per_broker_gb}}
+      }
+    }
+  }
+
+  encryption_info {
+    encryption_in_transit {
+      client_broker = "TLS"
+      in_cluster    = true
+    }
+  }
+
+  configuration_info {
+    arn      = aws_msk_configuration.{{app_sanitized}}_kafka.arn
+    revision = aws_msk_configuration.{{app_sanitized}}_kafka.latest_revision
+  }
+
+  logging_info {
+    broker_logs {
+      cloudwatch_logs {
+        enabled   = true
+        log_group = aws_cloudwatch_log_group.msk.name
+      }
+    }
+  }
+
+  tags = { Name = "${var.project_name}-${var.environment}-msk", HerokuApp = "{{heroku_app}}" }
+}
+
+resource "aws_cloudwatch_log_group" "msk" {
+  name              = "/msk/${var.project_name}-${var.environment}"
+  retention_in_days = {{log_retention_days}}
+  tags              = { Name = "${var.project_name}-${var.environment}-msk-logs" }
+}

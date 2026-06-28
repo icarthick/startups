@@ -1,0 +1,102 @@
+{
+  "_comment": "Routing DATA for the generate-terraform fragment: which template emits for which design content, the service->file map, the unmapped->warning list, and template-variable sources. KNOWLEDGE per docs/unit-taxonomy-spec.md (evolves independently of the routing algorithm). The output SHAPE of generation-warnings.json is schemas/generation-warnings.schema.json; the .tf bodies are templates/generate/terraform/*.tmpl.",
+
+  "always_emit": [
+    { "template": "main.tf.tmpl", "out": "terraform/main.tf" },
+    { "template": "variables.tf.tmpl", "out": "terraform/variables.tf" },
+    { "template": "outputs.tf.tmpl", "out": "terraform/outputs.tf" },
+    { "template": "gitignore.tmpl", "out": "terraform/.gitignore" },
+    { "template": "tfvars.example.tmpl", "out": "terraform/terraform.tfvars.example" }
+  ],
+
+  "conditional_emit": [
+    { "template": "vpc-new.tf.tmpl", "out": "terraform/vpc.tf", "when": "vpc_design.mode == 'new_vpc'" },
+    { "template": "vpc-existing.tf.tmpl", "out": "terraform/vpc.tf", "when": "vpc_design.mode == 'existing_vpc'" },
+    {
+      "template": "security-restricted.tf.tmpl",
+      "out": "terraform/security.tf",
+      "when": "a Private Space exists (vpc_design has a restricted SG / a space was in the inventory)"
+    },
+    {
+      "template": "security-standard.tf.tmpl",
+      "out": "terraform/security.tf",
+      "when": "NO Private Space (standard SG set)"
+    },
+    {
+      "template": "compute.tf.tmpl",
+      "out": "terraform/compute.tf",
+      "when": "any service aws_service in {Fargate, ALB}"
+    },
+    {
+      "template": "database.tf.tmpl",
+      "out": "terraform/database.tf",
+      "when": "any service aws_service in {RDS PostgreSQL, Aurora PostgreSQL}"
+    },
+    {
+      "template": "cache.tf.tmpl",
+      "out": "terraform/cache.tf",
+      "when": "any service aws_service == ElastiCache Redis"
+    },
+    {
+      "template": "messaging.tf.tmpl",
+      "out": "terraform/messaging.tf",
+      "when": "any service aws_service == Amazon MSK"
+    }
+  ],
+  "_emit_note": "security.tf is ALWAYS emitted (pick restricted XOR standard). Exactly one vpc.tf variant. Domain files only when their service type is present. BOTH security templates define the per-tier SGs (alb/fargate/database/cache/messaging) that compute/database/cache/messaging reference — emit a tier's SG only when that service type is present so domain references resolve. The RESTRICTED variant differs only in the ALB external ingress (declared dependency CIDRs, not 0.0.0.0/0).",
+
+  "service_to_file": {
+    "Fargate": "compute.tf",
+    "ALB": "compute.tf",
+    "CloudWatch Logs": "compute.tf (log group; no standalone resource)",
+    "RDS PostgreSQL": "database.tf",
+    "Aurora PostgreSQL": "database.tf",
+    "ElastiCache Redis": "cache.tf",
+    "Amazon MSK": "messaging.tf"
+  },
+
+  "unmapped_to_warning": {
+    "_comment": "Services with NO terraform resource mapping: SKIP (no .tf), log to generation-warnings.json. EXCEPTION: a CloudWatch Logs service from a logging add-on (Papertrail/Rollbar/Sentry) is integrated into compute.tf's log config \u2014 do NOT warn for it.",
+    "warn_services": [
+      "Amazon SES",
+      "Amazon SNS (SMS)",
+      "EventBridge Scheduler",
+      "ElastiCache Memcached",
+      "Amazon MQ",
+      "Amazon OpenSearch",
+      "S3",
+      "CloudFront",
+      "CloudWatch + X-Ray",
+      "X-Ray",
+      "Secrets Manager"
+    ],
+    "no_warn": ["CloudWatch Logs (integrated into compute.tf log configuration)"],
+    "reason_template": "No Terraform resource mapping available for {aws_service}",
+    "recommendation": "Configure this service manually in the AWS Console or add a custom Terraform module"
+  },
+
+  "template_var_sources": {
+    "target_region": "preferences.global.target_region",
+    "project_name": "first heroku_app (sanitized) or migration_id",
+    "environment": "preferences.global.environment_naming",
+    "migration_id": "from .phase-status.json",
+    "vpc_cidr": "aws-design.vpc_design.cidr_block (new_vpc) or default 10.0.0.0/16",
+    "existing_vpc_id": "aws-design.vpc_design.existing_vpc_id",
+    "existing_subnet_ids_hcl_list": "aws-design.vpc_design.subnet_ids as an HCL list literal",
+    "app_ingress_rules_hcl": "aws-design.vpc_design.security_groups[].inbound_rules as HCL list-of-object literal (port/protocol/cidr/description)",
+    "services_migrated_count": "aws-design.metadata.total_services",
+    "log_retention_days": "preferences.operational.log_retention_days else 30",
+    "maintenance_window": "preferences.global.maintenance_window formatted as a Terraform ddd:hh24:mi-ddd:hh24:mi window (flexible -> a documented default like 'sun:03:00-sun:05:00')",
+    "task_cpu/task_memory/desired_count": "per-service aws_config",
+    "instance_class/storage_gb/multi_az/engine_version/rds_proxy": "per-service aws_config (database)",
+    "node_type/automatic_failover/transit_encryption": "per-service aws_config (cache); num_cache_clusters = 2 if multi_az else 1",
+    "broker_instance_type/broker_count/storage_per_broker_gb/replication_factor": "per-service aws_config (messaging); kafka_version default 3.5.1; retention_hours = preferences.data.kafka_retention_days * 24",
+    "app_sanitized": "heroku_app with '-' replaced by '_'",
+    "storage_gb_x2": "storage_gb * 2 (max_allocated_storage headroom)",
+    "major_version": "the major of engine_version (e.g. 15 -> postgres15 / redis7)",
+    "alb_internal": "false when aws_config.scheme == 'internet-facing' (default), else true",
+    "private_subnet_refs / public_subnet_refs": "new_vpc -> aws_subnet.private[*].id / aws_subnet.public[*].id; existing_vpc -> the existing-subnet data source ids",
+    "port_mappings_block": "the containerPort 8080 portMappings block ONLY for process_type == 'web', else empty",
+    "load_balancer_block": "the load_balancer{} + depends_on block ONLY when aws_config.load_balancer == true, else empty"
+  }
+}

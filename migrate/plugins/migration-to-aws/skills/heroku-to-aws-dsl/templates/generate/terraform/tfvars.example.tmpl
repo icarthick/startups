@@ -1,0 +1,21 @@
+# Copy this file to terraform.tfvars and fill in values before running terraform plan.
+# Do NOT commit terraform.tfvars to source control — it may contain sensitive values.
+
+aws_region   = "{{target_region}}"
+project_name = "{{project_name}}"
+environment  = "{{environment}}"
+migration_id = "{{migration_id}}"
+
+# Database credentials (required if RDS/Aurora is in the design)
+# db_username = "app_user"
+# db_password = "CHANGE_ME"
+
+# ACM certificate (required if ALB is in the design)
+# acm_certificate_arn = "arn:aws:acm:{{target_region}}:<account_id>:certificate/<cert-id>"
+
+# Container images (one per Fargate service)
+# container_image_<app>_<process_type> = "<account_id>.dkr.ecr.{{target_region}}.amazonaws.com/<repo>:<tag>"
+
+# Existing VPC (only if Private Space peering is detected)
+# existing_vpc_id     = "vpc-0123456789abcdef0"
+# existing_subnet_ids = ["subnet-aaa", "subnet-bbb"]

@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "generation-warnings.schema.json",
+  "title": "Generation Warnings",
+  "description": "Services from aws-design.json that could not be mapped to Terraform during the generate phase. Always written (empty warnings[] if all services generated).",
+  "type": "object",
+  "required": ["generated_at", "warnings", "total_warnings", "total_services_generated", "total_services_skipped"],
+  "additionalProperties": true,
+  "properties": {
+    "generated_at": { "type": "string", "minLength": 1 },
+    "migration_id": { "type": "string" },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["service_id", "aws_service", "reason", "recommendation"],
+        "properties": {
+          "service_id": { "type": "string" },
+          "aws_service": { "type": "string" },
+          "heroku_app": { "type": "string" },
+          "source_resource_id": { "type": "string" },
+          "reason": { "type": "string" },
+          "recommendation": { "type": "string" }
+        }
+      }
+    },
+    "total_warnings": { "type": "integer", "minimum": 0 },
+    "total_services_generated": { "type": "integer", "minimum": 0 },
+    "total_services_skipped": { "type": "integer", "minimum": 0 }
+  }
+}

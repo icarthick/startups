@@ -1,0 +1,167 @@
+# database.tf — RDS PostgreSQL OR Aurora PostgreSQL (+ optional RDS Proxy).
+# Emitted when the design has RDS/Aurora. The routing selects the RDS block when
+# aws_service == "RDS PostgreSQL", the Aurora block when "Aurora PostgreSQL".
+# The RDS Proxy block is appended only when aws_config.rds_proxy == true.
+# {{private_subnet_refs}} per vpc_design.mode. {{maintenance_window}} formatted
+# from preferences.global.maintenance_window.
+
+resource "aws_db_subnet_group" "main" {
+  name       = "${var.project_name}-${var.environment}-db-subnet"
+  subnet_ids = {{private_subnet_refs}}
+  tags       = { Name = "${var.project_name}-${var.environment}-db-subnet" }
+}
+
+variable "db_name" {
+  description = "PostgreSQL database name"
+  type        = string
+  default     = "app"
+}
+variable "db_username" {
+  description = "PostgreSQL master username"
+  type        = string
+  sensitive   = true
+}
+variable "db_password" {
+  description = "PostgreSQL master password"
+  type        = string
+  sensitive   = true
+}
+
+# === SELECT ONE: RDS block (aws_service == "RDS PostgreSQL") ===
+resource "aws_db_instance" "{{app_sanitized}}_postgres" {
+  identifier     = "${var.project_name}-${var.environment}-postgres"
+  engine         = "postgres"
+  engine_version = "{{engine_version}}"
+  instance_class = "{{instance_class}}"
+
+  allocated_storage     = {{storage_gb}}
+  max_allocated_storage = {{storage_gb_x2}}
+  storage_type          = "gp3"
+  storage_encrypted     = true
+
+  db_name  = var.db_name
+  username = var.db_username
+  password = var.db_password
+
+  multi_az               = {{multi_az}}
+  db_subnet_group_name   = aws_db_subnet_group.main.name
+  vpc_security_group_ids = [aws_security_group.database.id]
+
+  backup_retention_period = 7
+  backup_window           = "{{backup_window}}"
+  maintenance_window      = "{{maintenance_window}}"
+
+  skip_final_snapshot       = false
+  final_snapshot_identifier = "${var.project_name}-${var.environment}-postgres-final"
+  parameter_group_name      = aws_db_parameter_group.{{app_sanitized}}_postgres.name
+
+  tags = { Name = "${var.project_name}-${var.environment}-postgres", HerokuApp = "{{heroku_app}}" }
+}
+
+resource "aws_db_parameter_group" "{{app_sanitized}}_postgres" {
+  name   = "${var.project_name}-${var.environment}-postgres-params"
+  family = "postgres{{major_version}}"
+  parameter {
+    name  = "log_connections"
+    value = "1"
+  }
+  parameter {
+    name  = "log_disconnections"
+    value = "1"
+  }
+  tags = { Name = "${var.project_name}-${var.environment}-postgres-params" }
+}
+
+# === SELECT ONE: Aurora block (aws_service == "Aurora PostgreSQL") ===
+resource "aws_rds_cluster" "{{app_sanitized}}_aurora" {
+  cluster_identifier = "${var.project_name}-${var.environment}-aurora"
+  engine             = "aurora-postgresql"
+  engine_version     = "{{engine_version}}"
+  database_name      = var.db_name
+  master_username    = var.db_username
+  master_password    = var.db_password
+
+  db_subnet_group_name   = aws_db_subnet_group.main.name
+  vpc_security_group_ids = [aws_security_group.database.id]
+
+  backup_retention_period = 7
+  preferred_backup_window = "{{backup_window}}"
+  storage_encrypted       = true
+
+  skip_final_snapshot       = false
+  final_snapshot_identifier = "${var.project_name}-${var.environment}-aurora-final"
+  tags                      = { Name = "${var.project_name}-${var.environment}-aurora", HerokuApp = "{{heroku_app}}" }
+}
+
+resource "aws_rds_cluster_instance" "{{app_sanitized}}_aurora" {
+  count              = 2
+  identifier         = "${var.project_name}-${var.environment}-aurora-${count.index + 1}"
+  cluster_identifier = aws_rds_cluster.{{app_sanitized}}_aurora.id
+  instance_class     = "{{instance_class}}"
+  engine             = aws_rds_cluster.{{app_sanitized}}_aurora.engine
+  engine_version     = aws_rds_cluster.{{app_sanitized}}_aurora.engine_version
+  tags               = { Name = "${var.project_name}-${var.environment}-aurora-${count.index + 1}" }
+}
+
+# === APPEND when aws_config.rds_proxy == true ===
+resource "aws_db_proxy" "{{app_sanitized}}_postgres" {
+  name                   = "${var.project_name}-${var.environment}-proxy"
+  debug_logging          = false
+  engine_family          = "POSTGRESQL"
+  idle_client_timeout    = 1800
+  require_tls            = true
+  role_arn               = aws_iam_role.rds_proxy.arn
+  vpc_security_group_ids = [aws_security_group.database.id]
+  vpc_subnet_ids         = {{private_subnet_refs}}
+  auth {
+    auth_scheme = "SECRETS"
+    iam_auth    = "DISABLED"
+    secret_arn  = aws_secretsmanager_secret.db_credentials.arn
+  }
+  tags = { Name = "${var.project_name}-${var.environment}-proxy", HerokuApp = "{{heroku_app}}" }
+}
+
+resource "aws_db_proxy_default_target_group" "{{app_sanitized}}_postgres" {
+  db_proxy_name = aws_db_proxy.{{app_sanitized}}_postgres.name
+  connection_pool_config {
+    max_connections_percent = 100
+  }
+}
+
+resource "aws_db_proxy_target" "{{app_sanitized}}_postgres" {
+  db_proxy_name          = aws_db_proxy.{{app_sanitized}}_postgres.name
+  target_group_name      = aws_db_proxy_default_target_group.{{app_sanitized}}_postgres.name
+  db_instance_identifier = aws_db_instance.{{app_sanitized}}_postgres.identifier
+}
+
+resource "aws_secretsmanager_secret" "db_credentials" {
+  name = "${var.project_name}-${var.environment}/db-credentials"
+  tags = { Name = "${var.project_name}-${var.environment}-db-credentials" }
+}
+
+resource "aws_secretsmanager_secret_version" "db_credentials" {
+  secret_id     = aws_secretsmanager_secret.db_credentials.id
+  secret_string = jsonencode({ username = var.db_username, password = var.db_password })
+}
+
+resource "aws_iam_role" "rds_proxy" {
+  name = "${var.project_name}-${var.environment}-rds-proxy"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{ Action = "sts:AssumeRole", Effect = "Allow", Principal = { Service = "rds.amazonaws.com" } }]
+  })
+  tags = { Name = "${var.project_name}-${var.environment}-rds-proxy-role" }
+}
+
+resource "aws_iam_role_policy" "rds_proxy_secrets" {
+  name = "secrets-access"
+  role = aws_iam_role.rds_proxy.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"]
+      Resource = [aws_secretsmanager_secret.db_credentials.arn]
+    }]
+  })
+}

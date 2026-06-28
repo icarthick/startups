@@ -98,6 +98,18 @@ Data files the phase MAY reference. Each item is `{file, _when}`. Load `file`
 false — they're irrelevant and waste context. A bare `file:` with no `_when`
 loads always.
 
+## `_templates`
+
+Output-skeleton files (in `templates/<phase>/...`) the phase EMITS to disk,
+filling `{{key}}` placeholders — HCL `.tf.tmpl`, doc/markdown templates, shell
+scripts. Same reference-don't-inline rule as `_knowledge`, and the same
+`{file, _when}` conditional-load shape (load a template only when its target
+artifact will be produced). A template is DATA (an output skeleton), distinct
+from knowledge (lookup data consumed to compute a value): a generate fragment is
+the ROUTING ALGORITHM selecting + filling templates; the templates carry the
+boilerplate. "Emit exactly one of N variants" = the routing selects a named
+template; repetition within a template uses a documented `REPEAT` marker.
+
 ## `_on_error`
 
 A top-level REFERENCE TABLE mapping each error-action name (`_halt_and_inform`,

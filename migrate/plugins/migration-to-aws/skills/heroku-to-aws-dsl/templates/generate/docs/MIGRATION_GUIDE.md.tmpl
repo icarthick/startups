@@ -1,0 +1,202 @@
+<!-- MIGRATION_GUIDE.md template. {{key}} = fill; {{IF cond}}...{{ENDIF}} = include
+     section only when cond holds; {{FOR x IN list}}...{{ENDFOR}} = repeat. The
+     generate-docs fragment resolves these from aws-design/preferences/inventory.
+     Conditional sections: include a data-store section ONLY when its flag is true;
+     OMIT the heading+content entirely otherwise (no empty sections). -->
+# Migration Guide: Heroku to AWS
+
+Step-by-step instructions for migrating your Heroku application(s) to AWS.
+
+## Table of Contents
+
+- [Prerequisites](#prerequisites)
+- [Phase 1: Infrastructure Provisioning](#phase-1-infrastructure-provisioning)
+{{IF has_any_datastore}}- [Phase 2: Data Migration](#phase-2-data-migration){{ENDIF}}
+- [Phase 3: Application Deployment](#phase-3-application-deployment)
+- [Phase 4: Verification](#phase-4-verification)
+- [Phase 5: Cutover](#phase-5-cutover)
+{{IF deferred_addons}}- [Manual Migration Items](#manual-migration-items){{ENDIF}}
+
+---
+
+## Prerequisites
+
+### AWS Account Setup
+
+- [ ] AWS account with IAM permissions for resource creation
+- [ ] AWS CLI installed and configured
+- [ ] Terraform >= 1.5.0 installed
+- [ ] Target region selected: `{{target_region}}`
+
+### Heroku Access
+
+- [ ] Heroku CLI installed and authenticated
+- [ ] Access to source application(s): {{heroku_apps_comma_separated}}
+{{IF has_postgres}}- [ ] Database credentials (`heroku pg:credentials:url -a <app>`){{ENDIF}}
+{{IF has_redis}}- [ ] Redis URL (`heroku redis:credentials -a <app>`){{ENDIF}}
+{{IF has_kafka}}- [ ] Kafka details (`heroku kafka:info -a <app>`){{ENDIF}}
+
+### Network / Application
+
+- [ ] VPC and subnet configuration confirmed (see `terraform/`)
+- [ ] Security group rules reviewed
+- [ ] Application Docker image built and pushed to ECR
+- [ ] Env vars mapped to Secrets Manager / Parameter Store
+- [ ] Health check endpoints identified
+
+{{IF needs_containerization}}
+### Containerization Prerequisites
+
+Your app uses Heroku buildpacks (no Dockerfile). Create one for Fargate. Common
+Procfile -> Dockerfile patterns: Node (`node:20-alpine`), Python
+(`python:3.12-slim` + gunicorn), Ruby (`ruby:3.3-slim` + puma), Go (multi-stage
+`golang:1.22` -> alpine), Java (`eclipse-temurin:21-jre`). Key differences: set
+`PORT` explicitly (Heroku injects it); Docker needs explicit COPY+install; no
+slug-size limit but keep images small.
+{{ENDIF}}
+
+{{IF interim_cutover}}
+### ⚠️ Platform Risk Advisory
+
+> Heroku is in sustaining engineering (stability-and-support only). Your selected
+> approach (database first, app stays on Heroku temporarily) is a BOUNDED interim
+> phase. Target exit date: **{{target_exit_date}}**. Limit hybrid operation to
+> weeks, not quarters.
+{{ENDIF}}
+
+---
+
+## Phase 1: Infrastructure Provisioning
+
+```bash
+cd terraform/
+terraform init
+terraform plan -out=tfplan
+terraform apply tfplan
+terraform output
+```
+
+Record the output values — needed for data migration and deployment.
+
+{{IF has_any_datastore}}
+---
+
+## Phase 2: Data Migration
+
+{{IF has_postgres}}
+### PostgreSQL Migration (Heroku Postgres -> {{pg_target}})
+
+Run `./scripts/migrate-postgres.sh`, or manually `pg_dump -Fc --no-owner --no-acl`
+from the source and `pg_restore` to the target. Verify with row-count comparison
+(`SELECT SUM(n_live_tup) FROM pg_stat_user_tables`).
+
+{{IF interim_cutover}}
+#### Interim Database Exposure (Public RDS + TLS)
+
+RDS is temporarily publicly accessible so Heroku dynos can reach it (password +
+TLS protected). Set `rds.force_ssl = 1`, use the RDS CA bundle, and include
+`?sslmode=verify-full&sslrootcert=...` in `DATABASE_URL`. Inbound 5432 from
+`0.0.0.0/0` is temporary. ⚠️ CRITICAL: after the app migrates off Heroku, set RDS
+"Not publicly accessible" and remove the `0.0.0.0/0` rule.
+{{ENDIF}}
+
+{{IF migration_method_dms}}
+#### Alternative: AWS DMS (large DBs)
+
+⚠️ DMS CANNOT do continuous replication (CDC) with Heroku Postgres (no
+`REPLICATION` role) — one-time bulk copy + final cutover only. Copy schema first
+(`pg_dump --schema-only`), migration type "Migrate existing data", run
+pre-migration assessment, then final cutover.
+{{ENDIF}}
+{{IF migration_method_bucardo}}
+#### Alternative: Bucardo (near-zero downtime)
+
+Trigger-based replication on a dedicated EC2 instance; initial full copy then
+delta-push until cutover. No LOB support; migrate functions via
+`pg_dump --schema-only`.
+{{ENDIF}}
+{{IF migration_method_wal_g}}
+#### Alternative: WAL-G (large DBs, minimal downtime)
+
+WAL-based replication via a dedicated EC2 + S3 archive; continuous catch-up with
+a minimal final cutover window.
+{{ENDIF}}
+
+#### Heroku CLI Cutover Sequence
+
+`heroku maintenance:on` -> `heroku pg:backups:capture` -> final migration/sync ->
+verify -> `heroku config:set DATABASE_URL=...` -> `heroku maintenance:off` ->
+verify. After full migration: `heroku addons:detach DATABASE` (destroy only once
+all data is confirmed in AWS).
+{{ENDIF}}
+
+{{IF has_redis}}
+### Redis Migration (Heroku Redis -> ElastiCache)
+
+Run `./scripts/migrate-redis.sh`. Small (<1GB): key-by-key `DUMP`/`RESTORE`.
+Large (>=1GB): `redis-cli --rdb` snapshot via S3. Verify `DBSIZE` matches.
+{{ENDIF}}
+
+{{IF has_kafka}}
+### Kafka Migration (Heroku Kafka -> Amazon MSK)
+
+Option A (recommended): recreate topics on MSK (matching partitions/replication),
+repoint producers, replay via offset reset. Option B: MirrorMaker 2 for
+zero-downtime with large backlogs. Verify topic list + message counts.
+{{ENDIF}}
+{{ENDIF}}
+
+---
+
+## Phase 3: Application Deployment
+
+Build + push the image to ECR, then `aws ecs update-service --force-new-deployment`.
+Migrate config vars: `heroku config --json` -> Secrets Manager (sensitive) +
+SSM Parameter Store (non-sensitive), referenced in the ECS task definition.
+
+> ECS Express Mode (optional): a Heroku-like deploy experience over the same
+> Fargate + ALB infra; no design changes needed; identical cost model.
+
+---
+
+## Phase 4: Verification
+
+- [ ] App responds on ALB endpoint; health check returns 200
+{{IF has_postgres}}- [ ] DB connectivity confirmed; row counts match source{{ENDIF}}
+{{IF has_redis}}- [ ] Redis connectivity confirmed; key counts match source{{ENDIF}}
+{{IF has_kafka}}- [ ] Kafka producers/consumers working; topic config matches{{ENDIF}}
+- [ ] App test suite passes against AWS; CloudWatch logs/metrics healthy
+
+---
+
+## Phase 5: Cutover
+
+DNS: point `{{app_domain}}` CNAME at `{{ALB_DNS_NAME}}` (low TTL before cutover).
+
+### Post-Migration Lockdown
+
+- [ ] Disable public access on RDS/Aurora ("Not publicly accessible")
+- [ ] Remove any `0.0.0.0/0` inbound DB rules; allow VPC-internal only
+- [ ] Confirm automated backups + private VPC connectivity
+
+### Decommission Heroku
+
+After 48–72h parallel running: `heroku ps:scale web=0 worker=0`, then
+`heroku addons:destroy` / `heroku apps:destroy` when confident.
+
+{{IF deferred_addons}}
+---
+
+## Manual Migration Items
+
+The following add-ons require manual migration:
+
+| Add-On | Plan | Provider | Reason | Recommendation |
+| ------ | ---- | -------- | ------ | -------------- |
+{{FOR addon IN deferred_addons}}
+| {{addon.addon_name}} | {{addon.addon_plan}} | {{addon.provider}} | {{addon.reason}} | {{addon.recommendation}} |
+{{ENDFOR}}
+
+For each: identify the AWS/third-party replacement, provision it, migrate
+data/config, repoint the app, verify, then decommission the Heroku add-on.
+{{ENDIF}}

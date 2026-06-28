@@ -1,0 +1,27 @@
+# Resource outputs. migration_summary is ALWAYS emitted; per-service connection
+# outputs are appended by the routing ONLY for services present in aws-design.json.
+# Mark connection strings sensitive = true.
+
+output "migration_summary" {
+  description = "Summary of migrated Heroku resources"
+  value = {
+    source_platform   = "heroku"
+    target_region     = var.aws_region
+    migration_id      = var.migration_id
+    services_migrated = {{services_migrated_count}}
+  }
+}
+
+# --- Per-service outputs (emit only for services in the design) ---
+# ALB (web):
+# output "alb_dns_name" { description = "ALB DNS name", value = aws_lb.{{app_sanitized}}_web.dns_name }
+# RDS:
+# output "rds_endpoint" { description = "RDS endpoint", value = aws_db_instance.{{app_sanitized}}_postgres.endpoint, sensitive = true }
+# Aurora:
+# output "aurora_endpoint" { description = "Aurora endpoint", value = aws_rds_cluster.{{app_sanitized}}_aurora.endpoint, sensitive = true }
+# RDS Proxy (if rds_proxy):
+# output "rds_proxy_endpoint" { description = "RDS Proxy endpoint", value = aws_db_proxy.{{app_sanitized}}_postgres.endpoint, sensitive = true }
+# ElastiCache:
+# output "elasticache_endpoint" { description = "Redis primary endpoint", value = aws_elasticache_replication_group.{{app_sanitized}}_redis.primary_endpoint_address, sensitive = true }
+# MSK:
+# output "msk_bootstrap_brokers" { description = "MSK bootstrap brokers", value = aws_msk_cluster.{{app_sanitized}}_kafka.bootstrap_brokers_tls, sensitive = true }

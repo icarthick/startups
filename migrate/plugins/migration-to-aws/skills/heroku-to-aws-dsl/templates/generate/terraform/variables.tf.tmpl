@@ -1,0 +1,44 @@
+# Input variables.
+# Core variables are ALWAYS emitted. Per-service variable blocks are appended by
+# the generate-terraform routing for each designed service (see the routing's
+# variable-extraction rules) — naming: <resource_type>_<heroku_app_sanitized>_<attribute>.
+
+variable "aws_region" {
+  description = "AWS region for all resources"
+  type        = string
+  default     = "{{target_region}}"
+}
+
+variable "project_name" {
+  description = "Project name used for resource naming"
+  type        = string
+  default     = "{{project_name}}"
+}
+
+variable "environment" {
+  description = "Environment name (e.g., production, staging)"
+  type        = string
+  default     = "{{environment}}"
+}
+
+variable "migration_id" {
+  description = "Migration run identifier"
+  type        = string
+  default     = "{{migration_id}}"
+}
+
+# --- Per-service variables (REPEAT: one block per designed service attribute) ---
+# Example shape the routing emits per Fargate service (image is a placeholder at
+# generation time; values default from aws-design.json aws_config):
+#
+# variable "container_image_{{app_sanitized}}_{{process_type}}" {
+#   description = "Container image for {{heroku_app}} {{process_type}}"
+#   type        = string
+#   default     = "placeholder:{{heroku_app}}-{{process_type}}"
+# }
+#
+# Database: db_instance_class, db_storage_gb, db_engine_version, db_multi_az
+# Cache:    cache_node_type, cache_engine_version, cache_multi_az
+# Messaging: msk_broker_instance_type, msk_broker_count, msk_storage_gb
+# Network (existing VPC only): existing_vpc_id, existing_subnet_ids
+# Network (new VPC): vpc_cidr

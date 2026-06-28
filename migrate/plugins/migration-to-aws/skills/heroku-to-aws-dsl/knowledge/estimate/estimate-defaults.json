@@ -1,0 +1,156 @@
+{
+  "_comment": "Tunable policy + heuristics for the estimate phase (the knobs an org adjusts independently of the cost algorithm). KNOWLEDGE per docs/unit-taxonomy-spec.md. Rates live in aws-pricing.json; output SHAPE in schemas/estimation-infra.schema.json.",
+
+  "pricing_source": {
+    "_comment": "The DSL has no guaranteed network at tool time. Cached rates (aws-pricing.json) are the DEFAULT and the deterministic path. IF an awspricing MCP is available the LLM MAY refresh stale/missing rates; record pricing_source per service. This is the faithful adaptation of upstream's cache-vs-live hierarchy.",
+    "default": "cached",
+    "hierarchy": [
+      { "priority": 1, "source": "aws-pricing.json cache", "when": "service rate present in cache", "value": "cached" },
+      {
+        "priority": 2,
+        "source": "awspricing MCP get_pricing",
+        "when": "rate NOT in cache AND MCP available",
+        "value": "live"
+      },
+      {
+        "priority": 3,
+        "source": "cache after MCP failure",
+        "when": "MCP attempted+failed, rate IS in cache",
+        "value": "cached_fallback"
+      },
+      { "priority": 4, "source": "none", "when": "NOT in cache AND MCP failed/absent", "value": "unavailable" }
+    ],
+    "staleness": "if cache _meta.last_updated > staleness_days old, set status cached_stale + note (infra rates still reliable).",
+    "note": "For typical heroku->aws (Fargate/RDS/Aurora/ElastiCache/ALB/NAT/MSK/S3/CloudWatch/SES/EventBridge/OpenSearch/MQ) ALL rates are cached -> zero MCP calls needed; the cached path is fully deterministic and is what the cold-test exercises."
+  },
+
+  "tiers": {
+    "_comment": "Three pricing SCENARIOS for the SAME architecture (not three stacks). Balanced is the primary; generated Terraform aligns with Balanced. ROUNDING: round each tier monthly to 2dp, THEN multiply by 12 for annual (round-then-multiply) so stored monthly and annual reconcile.",
+    "balanced": { "multiplier": 1.00, "desc": "on-demand, Multi-AZ where configured, standard monitoring" },
+    "premium": { "multiplier": 1.50, "desc": "highest resilience, latest-gen, no Spot, enhanced monitoring" },
+    "optimized": { "multiplier": 0.70, "desc": "reserved/Spot assumption ~30% discount, S3-IA cold data" },
+    "_premium_note": "1.5x and 0.7x are scenario factors applied to the balanced total for the headline tier figures; per-service breakdown is computed at balanced."
+  },
+
+  "observability": {
+    "_comment": "CloudWatch observability is added ONCE post-loop (like NAT), replacing any per-service CloudWatch-Logs entry — never double-count. Log volume is heuristic (Heroku's logging model differs, so billing data doesn't apply).",
+    "log_volume_gb_per_service": {
+      "fargate_service": 3,
+      "rds_or_aurora_service": 1,
+      "alb_service": 2,
+      "nat_gateway": 1,
+      "elasticache_service": 0.5,
+      "msk_broker": 2
+    },
+    "_log_volume_note": "Counted PER DESIGNED SERVICE (not per running task / desired_count); msk is per broker. A CloudWatch Logs design service contributes 0 here — it is the log sink, subsumed into this block.",
+    "custom_metrics": "max(10, service_count * 5)",
+    "alarms": "max(5, service_count * 2)",
+    "retention_months": "preferences.operational.log_retention_days / 30 (default 1)",
+    "formula": "log_ingestion = sum(log_gb)*0.50; log_storage = sum(log_gb)*0.03*retention_months; metrics = custom_metrics*0.30; alarms = alarm_count*0.10; tracing = 0 unless tracing detected; total = sum",
+    "accuracy": "±30%",
+    "breakdown_low_high": { "low": 0.7, "high": 1.5 }
+  },
+
+  "complexity_tiers": {
+    "_comment": "Evaluate Large -> Medium -> Small, first match wins.",
+    "large": {
+      "any_of": [
+        "service_count >= 9",
+        "monthly_spend > 10000",
+        "multi_region (services span 2+ regions)",
+        "compliance != none"
+      ]
+    },
+    "medium": {
+      "not_large_and_any_of": [
+        "service_count 4-8",
+        "monthly_spend 1000-10000",
+        "has_databases",
+        "availability in {multi-az, multi-az-ha}"
+      ]
+    },
+    "small": {
+      "all_of": [
+        "service_count <= 3",
+        "monthly_spend < 1000",
+        "no databases/stateful-replication",
+        "availability single-az or unspecified",
+        "compliance none"
+      ]
+    },
+    "has_databases_services": [
+      "RDS PostgreSQL",
+      "Aurora PostgreSQL",
+      "ElastiCache Redis",
+      "Amazon MQ",
+      "Amazon OpenSearch"
+    ],
+    "timeline_weeks": { "small": "2-6", "medium": "6-12", "large": "12-18" }
+  },
+
+  "optimization_catalog": {
+    "_comment": "Include ONLY opportunities relevant to the designed architecture.",
+    "compute_savings_plans": {
+      "when": "Fargate in design",
+      "target": ["Fargate"],
+      "savings_percent": "20-66%",
+      "commitment": "1 or 3 year",
+      "timing": "post-migration (30-90d baseline)",
+      "effort": "low"
+    },
+    "database_savings_plans": {
+      "when": "RDS/Aurora in design AND projected > $50/mo",
+      "target": ["RDS", "Aurora"],
+      "savings_percent": "up to 35% serverless / 20% provisioned",
+      "commitment": "1-year no-upfront",
+      "timing": "post-migration or after right-sizing",
+      "effort": "low",
+      "alternative": "RDS Reserved Instances up to 69% (locked to family/region)"
+    },
+    "fargate_spot": {
+      "when": "worker (non-web) Fargate tasks exist",
+      "target": ["Fargate"],
+      "savings_percent": "60-70%",
+      "commitment": "none",
+      "timing": "during migration",
+      "effort": "medium",
+      "prereq": "worker tasks fault-tolerant + idempotent"
+    },
+    "s3_intelligent_tiering": {
+      "when": "S3 in design",
+      "target": ["S3"],
+      "savings_percent": "38-50%",
+      "timing": "during migration"
+    }
+  },
+
+  "recommendation_logic": {
+    "migrate_optimized": "AWS cheaper OR operational benefits justify",
+    "migrate_phased": "complex stack, app-by-app safer",
+    "stay": "AWS more expensive AND cost is the sole metric",
+    "paths": {
+      "migrate_optimized": "Migrate with Optimizations",
+      "migrate_phased": "Phased Migration",
+      "stay": "Stay on Heroku"
+    },
+    "operational_efficiency_factors": [
+      "VPC/SG/IAM control",
+      "auto-scaling granularity",
+      "broader AWS integration",
+      "Spot/Savings Plans/RIs levers",
+      "reduced vendor lock-in"
+    ],
+    "non_cost_benefits": [
+      "25+ regions",
+      "compliance certifications (SOC2/HIPAA/PCI/FedRAMP)",
+      "enterprise integration (Direct Connect, Transit Gateway, Organizations)",
+      "200+ services",
+      "scaling flexibility"
+    ]
+  },
+
+  "migration_cost_note": {
+    "billing_available": "Heroku platform fees during parallel operation (both running during cutover). Subscription-based; no Heroku egress fees.",
+    "billing_unavailable": "Parallel-operation costs depend on Heroku billing. Provide invoices for dual-run projections."
+  }
+}

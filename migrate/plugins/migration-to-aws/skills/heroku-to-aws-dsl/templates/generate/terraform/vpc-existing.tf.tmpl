@@ -1,0 +1,24 @@
+# VPC — Referencing existing VPC from Heroku Private Space peering
+# (vpc_design.mode == "existing_vpc"). Selected by the routing when peering is
+# detected. Does NOT create VPC resources — references existing by id.
+
+variable "existing_vpc_id" {
+  description = "Existing AWS VPC ID (from Heroku Private Space peering)"
+  type        = string
+  default     = "{{existing_vpc_id}}"
+}
+
+variable "existing_subnet_ids" {
+  description = "Existing subnet IDs within the peered VPC"
+  type        = list(string)
+  default     = {{existing_subnet_ids_hcl_list}}
+}
+
+data "aws_vpc" "existing" {
+  id = var.existing_vpc_id
+}
+
+data "aws_subnet" "existing" {
+  for_each = toset(var.existing_subnet_ids)
+  id       = each.value
+}

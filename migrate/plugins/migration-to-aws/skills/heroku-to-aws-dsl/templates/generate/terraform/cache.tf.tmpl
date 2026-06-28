@@ -1,0 +1,46 @@
+# cache.tf — ElastiCache Redis. Emitted when the design has ElastiCache Redis.
+# {{private_subnet_refs}} per vpc_design.mode; {{maintenance_window}} formatted
+# from preferences. num_cache_clusters = 2 when multi_az else 1.
+
+resource "aws_elasticache_subnet_group" "main" {
+  name       = "${var.project_name}-${var.environment}-cache-subnet"
+  subnet_ids = {{private_subnet_refs}}
+  tags       = { Name = "${var.project_name}-${var.environment}-cache-subnet" }
+}
+
+resource "aws_elasticache_replication_group" "{{app_sanitized}}_redis" {
+  replication_group_id = "${var.project_name}-${var.environment}-redis"
+  description          = "Redis cluster for ${var.project_name} (migrated from Heroku Redis)"
+
+  engine             = "redis"
+  engine_version     = "{{engine_version}}"
+  node_type          = "{{node_type}}"
+  num_cache_clusters = {{num_cache_clusters}}
+  port               = 6379
+
+  automatic_failover_enabled = {{automatic_failover}}
+  multi_az_enabled           = {{multi_az}}
+
+  at_rest_encryption_enabled = true
+  transit_encryption_enabled = {{transit_encryption}}
+
+  subnet_group_name  = aws_elasticache_subnet_group.main.name
+  security_group_ids = [aws_security_group.cache.id]
+
+  maintenance_window       = "{{maintenance_window}}"
+  snapshot_retention_limit = 7
+  snapshot_window          = "03:00-05:00"
+  parameter_group_name     = aws_elasticache_parameter_group.{{app_sanitized}}_redis.name
+
+  tags = { Name = "${var.project_name}-${var.environment}-redis", HerokuApp = "{{heroku_app}}" }
+}
+
+resource "aws_elasticache_parameter_group" "{{app_sanitized}}_redis" {
+  name   = "${var.project_name}-${var.environment}-redis-params"
+  family = "redis{{major_version}}"
+  parameter {
+    name  = "maxmemory-policy"
+    value = "volatile-lru"
+  }
+  tags = { Name = "${var.project_name}-${var.environment}-redis-params" }
+}

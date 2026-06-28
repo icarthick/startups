@@ -21,14 +21,16 @@ now isolated to specific phases (design, estimate).
 
 ## of 6 phases done
 
-| Phase        | State                                                                                                                                                                                                                                                                                                                                                                                                      |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **discover** | ✅ DONE — authored, refactored to the unit taxonomy, cold-LLM validated (incl. billing + re-entry)                                                                                                                                                                                                                                                                                                         |
-| **clarify**  | ✅ DONE — ported as 1 fragment (interview) + no-op/validator assembler; cold-LLM validated; new `preferences.schema.json`. See `test-output/clarify-verdict.md`.                                                                                                                                                                                                                                           |
-| **design**   | ✅ DONE — ported as 1 mapping fragment + validator assembler (route gates) + 5 `knowledge/design/*.json` tables + `aws-design.schema.json`; EKS branch is a loud-halt stub (not authored). Cold-LLM validated on TWO fixtures incl. a hard one (clamp + re-derive trap + distinct RDS/Aurora cols + peering + Fir). Arithmetic-probe + verdict in `test-output/`. The DSL thesis HOLDS for the math phase. |
-| estimate     | ⏳ not started. Cost arithmetic + aws-pricing knowledge. Builds on design.                                                                                                                                                                                                                                                                                                                                 |
-| generate     | ⏳ not started. Multi-fragment + multi-artifact (terraform/ + guide + scripts) — the real stress test of the assembler's multi-artifact case.                                                                                                                                                                                                                                                              |
-| feedback     | ⏳ not started.                                                                                                                                                                                                                                                                                                                                                                                            |
+| Phase        | State                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **discover** | ✅ DONE — authored, refactored to the unit taxonomy, cold-LLM validated (incl. billing + re-entry)                                                                                                                                                                                                                                                                                                                                                         |
+| **clarify**  | ✅ DONE — ported as 1 fragment (interview) + no-op/validator assembler; cold-LLM validated; new `preferences.schema.json`. See `test-output/clarify-verdict.md`.                                                                                                                                                                                                                                                                                           |
+| **design**   | ✅ DONE — ported as 1 mapping fragment + validator assembler (route gates) + 5 `knowledge/design/*.json` tables + `aws-design.schema.json`; EKS branch is a loud-halt stub (not authored). Cold-LLM validated on TWO fixtures incl. a hard one (clamp + re-derive trap + distinct RDS/Aurora cols + peering + Fir). Arithmetic-probe + verdict in `test-output/`. The DSL thesis HOLDS for the math phase.                                                 |
+| **estimate** | ✅ DONE — 1 cost-engine fragment + validator assembler (Property-16 + every-service-priced gates) + `knowledge/estimate/{aws-pricing,estimate-defaults}.json` + `estimation-infra.schema.json`. Full scope, EKS-aware, cache+optional-MCP. Arithmetic-probe caught the multi-AZ convention hazard (rds baked-in vs elasticache ×2 vs aurora intrinsic) — encoded per-service. Cold-LLM validated end-to-end. Verdict in `test-output/estimate-verdict.md`. |
+| **generate** | ✅ DONE — the MULTI-ARTIFACT phase: 2 fragments (terraform                                                                                                                                                                                                                                                                                                                                                                                                 |
+| estimate     | ⏳ not started. Cost arithmetic + aws-pricing knowledge. Builds on design.                                                                                                                                                                                                                                                                                                                                                                                 |
+| generate     | ⏳ not started. Multi-fragment + multi-artifact (terraform/ + guide + scripts) — the real stress test of the assembler's multi-artifact case.                                                                                                                                                                                                                                                                                                              |
+| feedback     | ⏳ not started.                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 ## The DSL architecture (settled this session)
 
@@ -68,6 +70,11 @@ now isolated to specific phases (design, estimate).
   `## Step:`* — nothing else. No `## Output`/`## Scope` trailing sections
   (they duplicated `_produces`/`_scope`); no normative rule in H1/Orientation.
   All 11 existing unit files conform; design re-cold-tested behavior-preserving.
+- **templates/ home** (4th content category, `_templates` key): generated-output
+  skeletons (HCL `.tf.tmpl`, doc/markdown, shell scripts) live in
+  `templates/<phase>/...` with `{{key}}` placeholders, referenced not inlined.
+  Used by generate; the fragment is the routing algorithm, the templates carry
+  the boilerplate. Distinct from knowledge (lookup data) and schemas (contract).
 
 ## Files
 
@@ -144,13 +151,10 @@ promote it to a real docs location.
 ## How to resume
 
 1. Read `INTERPRETER.md` (the vocabulary) + `docs/unit-taxonomy-spec.md`.
-2. Next phase: **estimate** — the GENUINELY harder arithmetic (chained
-   multiply/sum/round cost math, premium/optimized tier derivation, post-loop
-   cluster costs + aws-pricing knowledge). Design passing did NOT pre-clear it;
-   probe estimate's chained math the same way (isolate, cold-test) BEFORE
-   building generate on top. design is done. Also outstanding: author the EKS
-   design branch (currently a loud-halt stub) — all-or-nothing port of upstream
-   design-eks.md + eks-mapping-table.md, mirror the MCP refactor's EKS approach.
+2. Next phase: **feedback** — the last phase (small, LLM-driven: collect a
+   reaction / plan-share, write feedback.json). Then the EKS cross-phase pass
+   (design branch + generate-eks; estimate handling is already authored). All of
+   discover/clarify/design/estimate/generate are done + cold-validated.
 3. Source of truth for what each phase must do: the upstream markdown at
    `skills/heroku-to-aws/references/phases/<phase>/`.
 4. Every phase: author → cold-LLM test from a fresh subagent (sandbox blocks

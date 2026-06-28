@@ -187,6 +187,19 @@ NOT extracted to a "template" file. The procedure REFERENCES the schema; it does
 not re-list every field. (Re-listing creates an MD↔template↔schema drift surface
 — strictly worse.)
 
+A fourth home covers GENERATED OUTPUT skeletons: **templates** in
+`templates/<phase>/...` (e.g. HCL `.tf.tmpl`, markdown/doc templates, shell
+scripts). When a phase's job is to EMIT files (generate), the body of those files
+is parameterized boilerplate that evolves independently of the routing algorithm
+(a provider-version bump, a tag change, a reworded guide section) — so it is
+DATA, like knowledge, and lives outside the procedure. The fragment is the
+ROUTING ALGORITHM (which template fires for which input, how vars are filled);
+the templates are referenced via `_templates`, not inlined. Placeholders are
+`{{key}}`; "emit exactly one of N variants" = named template blocks/files the
+routing selects; repetition = a documented REPEAT marker. (Distinction from
+knowledge: knowledge is LOOKUP DATA consumed to compute a value; a template is an
+OUTPUT skeleton emitted to disk. Both are referenced, never inlined.)
+
 ### The three homes
 
 | Category      | Test result                             | Home                              | Example                                                                                                                                                                                              |
