@@ -37,7 +37,7 @@ vocabulary. **You (the LLM) are the interpreter.** There is no runtime engine.
 | Design   | `phases/design.phase.md`   | `aws-design.json`                | ✅ authored + cold-LLM validated (2 fixtures)                      |
 | Estimate | `phases/estimate.phase.md` | `estimation-infra.json`          | ✅ authored + cold-LLM validated (multi-AZ trap caught)            |
 | Generate | `phases/generate.phase.md` | `terraform/`, guides, scripts    | ✅ authored + cold-LLM validated (SG ref-integrity caught + fixed) |
-| Feedback | `phases/feedback.phase.md` | `feedback.json`                  | ⏳ not yet ported                                                  |
+| Feedback | `phases/feedback.phase.md` | `feedback.json`                  | ✅ authored + cold-LLM validated (terminal; shell-out encode)      |
 
 **Clarify is a mandatory gate** before Design/Estimate/Generate — enforced by
 each downstream phase's `_requires_phase`, not by trust.

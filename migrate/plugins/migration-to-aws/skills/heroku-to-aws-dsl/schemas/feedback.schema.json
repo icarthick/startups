@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "feedback.schema.json",
+  "title": "Feedback Record",
+  "description": "Terminal-phase feedback record: the survey URL presented, whether the trace and share link were produced. Telemetry/UX only — no migration artifacts.",
+  "type": "object",
+  "required": [
+    "timestamp",
+    "skill",
+    "survey_url",
+    "phases_completed_at_feedback",
+    "trace_included",
+    "share_link_presented"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "timestamp": { "type": "string", "minLength": 1 },
+    "skill": { "type": "string" },
+    "survey_url": { "type": "string", "pattern": "^https://" },
+    "phases_completed_at_feedback": { "type": "array", "items": { "type": "string" } },
+    "trace_included": { "type": "boolean" },
+    "share_link_presented": { "type": "boolean" },
+    "share_link_generated_at": { "type": ["string", "null"] },
+    "share_checkpoint": { "type": ["string", "null"], "enum": ["after_estimate", "after_generate", null] }
+  }
+}

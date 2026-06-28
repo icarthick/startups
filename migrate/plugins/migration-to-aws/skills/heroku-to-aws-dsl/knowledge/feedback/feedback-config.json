@@ -1,0 +1,79 @@
+{
+  "_comment": "Config/policy DATA for the feedback phase (survey URL, IDE detection, share-link payload rules, redaction). KNOWLEDGE per docs/unit-taxonomy-spec.md (URLs/thresholds/patterns evolve independently of the collect algorithm). Output SHAPES: schemas/feedback.schema.json + schemas/feedback-trace.schema.json.",
+  "survey": {
+    "base_url": "https://pulse.amazon/survey/MY0ZY7UA",
+    "query": "?ide={ide}&version={plugin_version}",
+    "_note": "ide + plugin_version are hidden URL fields the user never sees; sanitize both to [a-zA-Z0-9._~-]."
+  },
+  "ide_detection": {
+    "_comment": "Detect from environment if available (NOT deterministic across environments — read env, else fallback). First match wins.",
+    "rules": [
+      {
+        "env": "CLAUDE_CODE",
+        "ide": "claude-code"
+      },
+      {
+        "env": "CURSOR_TRACE_ID",
+        "ide": "cursor"
+      },
+      {
+        "context": "Kiro agent context",
+        "ide": "kiro"
+      }
+    ],
+    "fallback": "unknown",
+    "sanitize": "[a-zA-Z0-9._~-]"
+  },
+  "plugin_version": {
+    "source": "search UPWARD from the skill root for the nearest plugin.json; if multiple variants exist at the same level, precedence .claude-plugin > .codex > .cursor; read its version",
+    "fallback": "0.0.0",
+    "sanitize": "[a-zA-Z0-9._~-]"
+  },
+  "share_link": {
+    "_comment": "OPTIONAL + NON-BLOCKING — failures NEVER halt the phase. Runs when an OBSERVABLE share signal is present: preferences.json + estimation-infra.json exist AND a share was requested (.phase-status.json.share_requested == true OR preferences.metadata.share_requested == true). If no such flag, default to NOT generating the link (skip). The trigger must be an observable artifact value — never invocation provenance.",
+    "enabled_when": "preferences.json AND estimation-infra.json exist AND (.phase-status.json.share_requested == true OR preferences.metadata.share_requested == true); else skip",
+    "base_url": "https://aws.amazon.com/startups/migrate/connect#{base64url_payload}",
+    "schema_version": "1.0",
+    "encode": {
+      "_comment": "The encoding is real computation a cold LLM cannot do by hand — SHELL OUT. Minify JSON, then gzip, then Base64URL. Strip newlines AND padding (portable across GNU/BSD base64).",
+      "steps": "minify the payload JSON -> gzip -> base64url",
+      "shell": "printf '%s' \"$MINIFIED_JSON\" | gzip -c | base64 | tr -d '\\n' | tr '+/' '-_' | tr -d '='",
+      "on_failure": "skip the share link (non-blocking); record share_link_presented=false"
+    },
+    "size_cap_chars": 8192,
+    "truncation_order": [
+      "truncate resource_names",
+      "then truncate the longest clarify_answers",
+      "then cap detected_services at 20",
+      "if still > cap, skip the share link entirely"
+    ],
+    "spend_band_thresholds": {
+      "under-10k": "< 10000",
+      "10k-50k": "10000-50000",
+      "50k-100k": "50000-100000",
+      "over-100k": "> 100000",
+      "unknown": "no projected monthly available"
+    },
+    "share_checkpoint_values": [
+      "after_estimate",
+      "after_generate"
+    ],
+    "workload_types": [
+      "infra"
+    ]
+  },
+  "redaction": {
+    "_comment": "Scan clarify_answers (and anything echoed into the payload/trace) for secrets; replace with '[REDACTED]'. The trace NEVER includes resource names, file paths, account IDs, or secrets at all.",
+    "patterns": [
+      "AWS key id (AKIA...)",
+      "private key headers (-----BEGIN ... PRIVATE KEY-----)",
+      "passwords in connection strings",
+      "high-entropy tokens"
+    ],
+    "replacement": "[REDACTED]"
+  },
+  "completion": {
+    "advances_to_value": "complete",
+    "done_message": "Thank you for helping improve this tool. Migration planning is complete."
+  }
+}
