@@ -14,9 +14,10 @@ should have caught this).
 
 You execute the phase TOP TO BOTTOM in this order:
 `_init` (first phase only) → `_re_entry_guard` → `_preconditions` →
-the `_fragments` (in listed order, skipping false triggers; each WRITES its
-artifacts) → the `_assemble` unit (reads/mutates/creates files) →
-`_postconditions` → (on full pass) advance per `_advances_to`.
+**read `_input` content + evaluate `_knowledge`/`_templates` guards and load the
+guard-true files** → the `_fragments` (in listed order, skipping false triggers;
+each WRITES its artifacts) → the `_assemble` unit (reads/mutates/creates files)
+→ `_postconditions` → (on full pass) advance per `_advances_to`.
 
 A phase composes its work from `_fragments` + exactly one `_assemble` (see the
 unit-taxonomy section below). Fragment and assembler files are first-class DSL
@@ -41,10 +42,15 @@ re-run before it overwrites this phase's own artifact. See its section below.
 
 ## `_input`
 
-A list of artifact filenames this phase consumes from `$MIGRATION_DIR/`. You
-will read them during the steps. (Existence is enforced by `_preconditions`.)
-Glob patterns (e.g. `**/*.tf`) are workspace-relative source files the phase
-reads directly rather than run artifacts.
+A list of artifact filenames this phase consumes from `$MIGRATION_DIR/`.
+**Load timing:** immediately AFTER `_preconditions` pass (which enforce the
+inputs EXIST + parse), read every `_input` artifact's CONTENT into context —
+before evaluating `_knowledge`/`_templates` guards and before running the
+fragments. (Earlier wording said "read them during the steps"; that is too late
+— the `_when` guards are predicates over input CONTENT, so the content must be
+in context first. Existence-only is not enough to evaluate a guard.) Glob
+patterns (e.g. `**/*.tf`) are workspace-relative source files the phase reads
+directly rather than run artifacts.
 
 ## `_init`
 
@@ -91,24 +97,45 @@ When preconditions pass, set `phases.<_phase> = "in_progress"` and
 
 ## `_knowledge`
 
-Data files the phase MAY reference. Each item is `{file, _when}`. Load `file`
-(read it into context) ONLY IF its `_when` guard is true for THIS inventory.
-`_when` is a plain-language condition you evaluate against the input artifacts
-(e.g. "inventory has a heroku-redis addon"). Do NOT load files whose guard is
-false — they're irrelevant and waste context. A bare `file:` with no `_when`
-loads always.
+Data files the phase MAY reference (lookup tables, tunable-constant sheets).
+Declared ONLY in the PHASE frontmatter. Each item is `{file, _when}`.
+
+**The phase `_knowledge` is the SOLE load decision.** A `file` enters context
+IFF its `_when` guard is true; a bare `file:` (no `_when`) always loads. Evaluate
+guards right after `_input` is read (see `_input` load timing), BEFORE the
+fragments run. Do NOT load guard-false files — they're irrelevant and waste
+context. Once a file is in context, NEVER re-read it.
+
+**Guard scope (so the LLM always has enough to evaluate it):** a `_when` guard
+MAY reference ONLY the phase's `_input` artifacts (inventory, preferences, source
+globs) — which are in context by the time guards are evaluated. A guard MUST NOT
+reference a fragment's output, an `_assemble` result, or any value computed later
+in the run (the LLM cannot evaluate what doesn't exist yet). If a load decision
+depends on a derived value, the file isn't phase-knowledge — rethink the split.
+
+**Step-level `_knowledge` is a USES annotation, NOT a second load decision.** A
+`## Step:` `meta` block may carry `_knowledge: [files]` to declare "this step
+consults these (already-loaded) files." It NEVER triggers a fetch and NEVER
+overrides a phase guard: a step naming a file whose phase guard was false this
+run simply does not use it on that branch (the file is not in context). Every
+file a step lists MUST be declared in the phase `_knowledge` (CI-checkable
+subset rule — see the conformance checklist). This single-owner split is why the
+phase guard and a step list can never contradict: one loads, the other only
+uses.
 
 ## `_templates`
 
 Output-skeleton files (in `templates/<phase>/...`) the phase EMITS to disk,
 filling `{{key}}` placeholders — HCL `.tf.tmpl`, doc/markdown templates, shell
-scripts. Same reference-don't-inline rule as `_knowledge`, and the same
-`{file, _when}` conditional-load shape (load a template only when its target
-artifact will be produced). A template is DATA (an output skeleton), distinct
-from knowledge (lookup data consumed to compute a value): a generate fragment is
-the ROUTING ALGORITHM selecting + filling templates; the templates carry the
-boilerplate. "Emit exactly one of N variants" = the routing selects a named
-template; repetition within a template uses a documented `REPEAT` marker.
+scripts. Same loading contract as `_knowledge`: declared in the PHASE frontmatter
+as the sole load decision (`{file, _when}`, guard-scope = `_input` only, loaded
+before the fragments, never re-read); a step `_templates` list is a uses-subset
+annotation, never a second load. Reference-don't-inline. A template is DATA (an
+output skeleton), distinct from knowledge (lookup data consumed to compute a
+value): a generate fragment is the ROUTING ALGORITHM selecting + filling
+templates; the templates carry the boilerplate. "Emit exactly one of N variants"
+= the routing selects a named template; repetition within a template uses a
+documented `REPEAT` marker.
 
 ## `_on_error`
 

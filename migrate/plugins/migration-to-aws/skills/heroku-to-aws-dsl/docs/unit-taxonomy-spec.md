@@ -257,6 +257,19 @@ drift surface and a conformance failure.
    design emitted `db.m6g.*` RDS classes the estimate table lacked → silent
    `unpriced`. The structural gates can't catch a legitimately-`unpriced` line;
    this consistency check is the guard.)
+6. **Single load owner.** `_knowledge`/`_templates` `_when` guards exist ONLY in
+   phase frontmatter — a step `meta` block may carry `_knowledge`/`_templates`
+   but those entries carry NO `_when` and are USES annotations, never a second
+   load decision.
+7. **Uses-subset.** Every file named in any step's `_knowledge`/`_templates`
+   MUST be declared in its phase's `_knowledge`/`_templates` (a step may not
+   reference a file the phase doesn't know about). Catches the
+   guard-vs-step contradiction statically.
+8. **Guard scope.** Every phase `_when` guard references ONLY the phase's
+   `_input` artifacts (inventory, preferences, source globs) — never a fragment
+   output or an in-run-computed value (which wouldn't exist when the guard is
+   evaluated). Makes "does the LLM have enough to evaluate the guard?" a
+   checkable property (guard mentions only `_input`).
 
 ## Unit file regions (whole-file grammar)
 
