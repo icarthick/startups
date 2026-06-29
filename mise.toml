@@ -7,6 +7,7 @@ min_version = "2026.2.4"
 node = "24"
 "npm:markdownlint-cli2" = "0.17"
 "npm:dprint" = "0.51"
+"npm:typescript" = "5"
 "pipx:pre-commit" = "4"
 "pipx:bandit[sarif]" = "1"
 "pipx:checkov" = "3"
@@ -43,13 +44,18 @@ description = "Lint Markdown files with auto-fix"
 run = "markdownlint-cli2 '**/*.md' '#node_modules' --fix"
 
 [tasks."lint:dsl"]
-description = "Validate the heroku-to-aws DSL skill (regions, single-load-owner, _uses markers, guard-scope, cross-table coverage)"
-run = ["python3 migrate/plugins/migration-to-aws/skills/heroku-to-aws-dsl/scripts/validate_dsl.py migrate/plugins/migration-to-aws/skills/heroku-to-aws-dsl"]
+description = "Validate the heroku-to-aws DSL skill (typed: regions, single-load-owner, _uses markers, guard-scope, produces-ownership, fragment-ref resolution, cross-table coverage)"
+run = ["node migrate/plugins/migration-to-aws/skills/heroku-to-aws-dsl/scripts/dsl-validator/validate.ts migrate/plugins/migration-to-aws/skills/heroku-to-aws-dsl"]
+
+[tasks."lint:types"]
+description = "Type-check the DSL validator (tsc --noEmit, strict)"
+run = ["cd migrate/plugins/migration-to-aws/skills/heroku-to-aws-dsl/scripts/dsl-validator && tsc --noEmit"]
 
 [tasks.lint]
 description = "Run all linters"
 run = [
   { task = "lint:md" },
+  { task = "lint:types" },
   { task = "lint:dsl" },
 ]
 

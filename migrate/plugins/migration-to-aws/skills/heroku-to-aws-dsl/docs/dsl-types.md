@@ -1029,3 +1029,39 @@ values in frontmatter; numerics live inside JSON knowledge files, parsed by
 > run — preserves the architecture property); parser-first so every check runs on
 > real parsed phase files; two layers (syntax reader + DSL binders) so each has
 > one job; binders built bottom-up like the types.
+
+## The check layer + orchestrator (COMPLETE)
+
+Checks consume typed `Unit`s (the binders already validated shape +
+closed-vocabulary) and emit `Finding`s for the SEMANTIC / CROSS-REFERENCE rules.
+
+**Intra-unit** (`checks/`): `regions` (phase=0 steps, frag/asm≥1), `uses`
+(`[_uses:F]` ∈ step meta), `assert-post-only`, `interlock` (re-entry action is
+STOP, via `ERROR_ACTION_SEMANTICS`).
+
+**Cross-unit**: `fragment-ref` (refs resolve: file/kind/`_of_phase`/id),
+`subset` (step files ⊆ owning-phase `Guarded` — single-load-owner), `guard-scope`
+(a `_when` guard naming a produced-not-input artifact — warning), `produces`
+(phase `_produces` == union of fragment/assembler produces+mutates, EXEMPTING
+assembler-`_reads` intermediates + directory-prefix coverage), `phase-chain`
+(`_advances_to`/`_requires_phase` consistency), `xtable` (producer-emits ∈
+consumer-keys — the RDS-gap catcher, ported from the Python validator).
+
+**Orchestrator + CLI** (`validate.ts`): discover unit files -> `bindUnit` each
+(collecting bind-time findings) -> run all checks -> report -> exit non-zero on
+any error (`--strict` also fails on warnings). Runs as
+`node scripts/dsl-validator/validate.ts <root>`; reports `22 unit files / OK`.
+
+> EVIDENCE CORRECTION (`produces`): the literal ownership-identity rule
+> (INTERPRETER 222–224) was too strict — it flagged `billing-profile.json` /
+> `_eks-design.json` (assembler-`_reads` INTERMEDIATES, fragment->assembler
+> handoffs, often `_`-prefixed) and `terraform/eks.tf` (covered by the `terraform/`
+> DIRECTORY in `_produces`). Refined: exempt assembler-read intermediates; honor
+> directory-prefix coverage. The check layer caught this against the real DSL —
+> the third evidence-driven correction (after `_unrecoverable` and `_writes`).
+>
+> MIGRATION: `lint:dsl` in `mise.toml` now runs the TS validator
+> (`validate.ts`) instead of the Python `scripts/validate_dsl.py`; `npm:typescript`
+> added + a `lint:types` (`tsc --noEmit`) gate wired into `lint`. `mise.toml` is
+> admin-owned (`@awslabs/startups-admins`) — flagged. The Python `validate_dsl.py`
+> is SUPERSEDED (kept for now; retire in a follow-up).
