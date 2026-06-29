@@ -38,7 +38,7 @@ the default Fargate path stays dependency-clean. Does NOT update
 _templates: [templates/generate/terraform/eks.tf.tmpl, templates/generate/terraform/helm-provider.tf.tmpl]
 ```
 
-Fill `eks.tf.tmpl` from `aws-design.json.eks_cluster` + `vpc_design`:
+Fill `eks.tf.tmpl` `[_uses: eks.tf.tmpl]` from `aws-design.json.eks_cluster` + `vpc_design`:
 `{{cluster_name}}`, `{{kubernetes_version}}`, `{{subnet_refs}}` (per
 `vpc_design.mode`), `{{vpc_id_reference}}`, `{{vpc_cidr_block}}`, and the node
 group fields (`{{node_instance_types_hcl}}` = `node_groups[0].instance_types` as

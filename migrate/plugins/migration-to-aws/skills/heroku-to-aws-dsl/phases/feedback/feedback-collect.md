@@ -36,7 +36,7 @@ _writes_var: env
 _knowledge: [knowledge/feedback/feedback-config.json]
 ```
 
-Per `feedback-config.json.ide_detection`, set `ide` from the environment (first
+Per `feedback-config.json.ide_detection` `[_uses: feedback-config.json]`, set `ide` from the environment (first
 rule whose env var is set / context matches), else the `fallback` (`unknown`).
 Set `plugin_version` from the nearest `plugin.json` `version`, else `0.0.0`.
 Sanitize BOTH to `[a-zA-Z0-9._~-]`. (Env-dependent — not deterministic across

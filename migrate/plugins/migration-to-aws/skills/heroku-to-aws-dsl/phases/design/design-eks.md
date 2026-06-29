@@ -45,7 +45,7 @@ _knowledge: [knowledge/design/eks-pod-sizing.json]
 ```
 
 For each `resource_type == "formation"` resource, look up `config.dyno_type` in
-`eks-pod-sizing.json.rows` (exact, case-insensitive). NOT found → warn per
+`eks-pod-sizing.json.rows` `[_uses: eks-pod-sizing.json]` (exact, case-insensitive). NOT found → warn per
 `_on_not_found`, produce no entry, continue (`_warn_and_skip`). Found → read
 `req_cpu`/`req_mem`/`lim_cpu`/`lim_mem`/`node_type` DIRECTLY from the row. Append
 an EKS service entry (shape per `aws-design.schema.json`):
@@ -77,7 +77,7 @@ _knowledge: [knowledge/design/eks-pod-sizing.json]
 ```
 
 Build the single `eks_cluster` aggregate from the collected data + the
-`cluster` / `node_sizing` rules in `eks-pod-sizing.json`:
+`cluster` / `node_sizing` rules in `eks-pod-sizing.json` `[_uses: eks-pod-sizing.json]`:
 
 - `cluster_name` = `cluster.cluster_name`; `kubernetes_version` =
   `cluster.kubernetes_version` (the documented constant).

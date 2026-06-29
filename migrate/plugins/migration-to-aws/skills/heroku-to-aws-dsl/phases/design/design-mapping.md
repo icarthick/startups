@@ -110,9 +110,9 @@ For each branch:
 when the EKS gate is active; the `eks-mapping` fragment handles formations then):
 
 1. If the app has NO formation resources at all (empty Procfile), reject the
-   app's formations: warn with `design-defaults.json.messages.empty_procfile`
+   app's formations: warn with `design-defaults.json.messages.empty_procfile` `[_uses: design-defaults.json]`
    (filling `{app}`) and skip. (`_warn_and_skip`)
-2. Look up `config.dyno_type` in `dyno-fargate-sizing.json.rows` (exact,
+2. Look up `config.dyno_type` in `dyno-fargate-sizing.json.rows` `[_uses: dyno-fargate-sizing.json]` (exact,
    case-insensitive). NOT found → reject this formation, warn per the table's
    `_on_not_found`, produce NO entry, continue. (`_warn_and_skip`)
 3. Found → read `fargate_cpu` + `fargate_memory` DIRECTLY from the matched row
@@ -132,7 +132,7 @@ when the EKS gate is active; the `eks-mapping` fragment handles formations then)
 
 **`addon` →** branch on `config.addon_service`:
 
-- **`heroku-postgresql`** — look up `config.plan` in `postgres-rds-sizing.json`
+- **`heroku-postgresql`** — look up `config.plan` in `postgres-rds-sizing.json` `[_uses: postgres-rds-sizing.json]`
   (exact, case-insensitive). NOT found → `_defer` (specialist gate) + warn per
   the table. Found → select engine via the table's `_engine_selection` (source =
   `data.database_ha` if set else `global.availability`; unset/unrecognized →
@@ -146,7 +146,7 @@ when the EKS gate is active; the `eks-mapping` fragment handles formations then)
   `rds_proxy`, and `engine_version` from
   `design-defaults.json.engine_versions.rds_postgresql`.
 
-- **`heroku-redis`** — look up `config.plan` in `redis-elasticache-sizing.json`.
+- **`heroku-redis`** — look up `config.plan` in `redis-elasticache-sizing.json` `[_uses: redis-elasticache-sizing.json]`.
   NOT found → `_defer` + warn. Found → append an entry (shape per the schema):
   `service_id` = `elasticache:{app}:redis`, `aws_service` = `ElastiCache Redis`,
   `aws_config` with `region`, `node_type` from the row, `multi_az` +
@@ -154,7 +154,7 @@ when the EKS gate is active; the `eks-mapping` fragment handles formations then)
   `transit_encryption` per `_transit_encryption`, and `engine_version`
   compatible with the row `redis_version`.
 
-- **`heroku-kafka`** — look up `config.plan` in `kafka-msk-sizing.json`. NOT
+- **`heroku-kafka`** — look up `config.plan` in `kafka-msk-sizing.json` `[_uses: kafka-msk-sizing.json]`. NOT
   found → `_defer` + warn. Found → append an entry (shape per the schema):
   `service_id` = `msk:{app}:kafka`, `aws_service` = `Amazon MSK`, `aws_config`
   with `region`, `broker_instance_type` + `storage_per_broker_gb` from the row,
@@ -163,7 +163,7 @@ when the EKS gate is active; the `eks-mapping` fragment handles formations then)
   `_topology_preservation`.
 
 - **any other `addon_service`** — fast-path: NORMALIZE the name per
-  `fast-path-addons.json._normalize` + `_prefix_aliases`, then EXACT
+  `fast-path-addons.json._normalize` `[_uses: fast-path-addons.json]` + `_prefix_aliases`, then EXACT
   case-insensitive match against `rows` (partial matches INVALID). Matched →
   `single` produces one entry, `composite` produces one entry listing all
   `aws_services`; confidence `deterministic`. Use a DETERMINISTIC `service_id`:
@@ -199,6 +199,7 @@ true length of `services[]`; recompute it in `finalize_and_write`.
 
 ```meta
 _writes_var: design
+_knowledge: [knowledge/design/design-defaults.json]
 ```
 
 After the loop, design `design.vpc_design` from the collected `spaces` +
@@ -209,7 +210,7 @@ After the loop, design `design.vpc_design` from the collected `spaces` +
    Else (no peering / no spaces) → `new_vpc`.
 2. **existing_vpc:** `{ mode, existing_vpc_id, subnet_ids, security_groups }`
    (use the space `vpc_id` + `preferences.network.subnet_ids`).
-3. **new_vpc:** build from `design-defaults.json.new_vpc` — `cidr_block`, the
+3. **new_vpc:** build from `design-defaults.json.new_vpc` `[_uses: design-defaults.json]` — `cidr_block`, the
    `subnets` list (each subnet's `az` = `{target_region}` + the row's
    `az_suffix`, with its `cidr`/`type`), `route_table`, and `internet_gateway`.
    Plus `security_groups`.
@@ -229,12 +230,13 @@ After the loop, design `design.vpc_design` from the collected `spaces` +
 
 ```meta
 _writes_var: design
+_knowledge: [knowledge/design/design-defaults.json]
 ```
 
 Scan `inventory.apps[]` for `heroku_generation == "fir"`.
 
 - Fir apps exist → add each name to `metadata.fir_workloads_detected[]`; set
-  `metadata.fir_generation_note` to `design-defaults.json.fir.deferral_note`;
+  `metadata.fir_generation_note` to `design-defaults.json.fir.deferral_note` `[_uses: design-defaults.json]`;
   add a warning listing the app names.
 - No Fir → `fir_workloads_detected: []`, note =
   `design-defaults.json.fir.none_note`.

@@ -123,6 +123,24 @@ subset rule — see the conformance checklist). This single-owner split is why t
 phase guard and a step list can never contradict: one loads, the other only
 uses.
 
+**The `[_uses: <file>]` prose marker.** When a step's PROSE references a
+structure-owned file (a knowledge/template/schema file), it MUST tag the
+reference with an inline marker binding it back to the step's `meta`
+`_knowledge`/`_templates`:
+
+> Look up `config.dyno_type` in `dyno-fargate-sizing.json.rows` `[_uses: dyno-fargate-sizing.json]`
+
+The marker (a) keeps the domain sentence readable (the reference stays inline,
+not lifted into a field) while (b) making the reference a CHECKABLE link, not
+free-floating prose. CI enforces: every `[_uses: F]` names a file declared in
+that step's `meta` `_knowledge`/`_templates`; and a bare backtick filename in a
+step body that is NOT tagged is a violation (that untagged-ref is the drift
+surface — it can name a file the structure doesn't own / a guard suppressed).
+The author still writes pure domain logic; the marker is the structural tether,
+not extra meta-prose. (Filenames that are themselves the step's `_writes`/
+`_produces` output, or appear inside fenced code blocks, are not `_uses`
+references and are not tagged.)
+
 ## `_templates`
 
 Output-skeleton files (in `templates/<phase>/...`) the phase EMITS to disk,

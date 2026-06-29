@@ -150,12 +150,16 @@ promote it to a real docs location.
 
 1. Read `INTERPRETER.md` (the vocabulary) + `docs/unit-taxonomy-spec.md`.
 2. **All six phases AND both compute paths (Fargate + EKS) are authored +
-   cold-validated.** Remaining work (all optional / loose ends):
-   (a) a CI validator implementing the conformance checklists in
-   `docs/unit-taxonomy-spec.md` (the checkability is specified, not yet enforced).
-   (b) the clarify `migration_urgency` fast-path field (no schema property,
+   cold-validated. The conformance checks are now ENFORCED** by
+   `scripts/validate_dsl.py` (wired into `mise run lint`/`build`): regions
+   grammar, single-load-owner, uses-subset, `[_uses: F]` prose markers,
+   guard-scope, orphan/dangling knowledge, JSON validity, no-rule-restatement +
+   cross-table coverage (heuristic). Remaining work (loose ends):
+   (a) the clarify `migration_urgency` fast-path field (no schema property,
    untested) — add to schema or drop.
-   (c) before any merge: repoint any forked `.mcp.json`/source pins to upstream.
+   (b) before any merge: repoint any forked `.mcp.json`/source pins to upstream.
+   (c) extend the validator's cross-table-coverage check from advisory to hard
+   (it's the one that would auto-catch a future RDS-style rate gap).
 3. Source of truth for what each phase must do: the upstream markdown at
    `skills/heroku-to-aws/references/phases/<phase>/`.
 4. Every phase: author → cold-LLM test from a fresh subagent (sandbox blocks

@@ -42,10 +42,15 @@ run = "markdownlint-cli2 '**/*.md' '#node_modules' '#.git'"
 description = "Lint Markdown files with auto-fix"
 run = "markdownlint-cli2 '**/*.md' '#node_modules' --fix"
 
+[tasks."lint:dsl"]
+description = "Validate the heroku-to-aws DSL skill (regions, single-load-owner, _uses markers, guard-scope, cross-table coverage)"
+run = ["python3 migrate/plugins/migration-to-aws/skills/heroku-to-aws-dsl/scripts/validate_dsl.py migrate/plugins/migration-to-aws/skills/heroku-to-aws-dsl"]
+
 [tasks.lint]
 description = "Run all linters"
 run = [
   { task = "lint:md" },
+  { task = "lint:dsl" },
 ]
 
 # =========

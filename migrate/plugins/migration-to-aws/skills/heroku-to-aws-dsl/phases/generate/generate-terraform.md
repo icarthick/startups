@@ -40,7 +40,7 @@ _templates: [templates/generate/terraform/main.tf.tmpl, templates/generate/terra
 
 Emit the `always_emit` templates from the routing (main/variables/outputs/
 .gitignore/tfvars.example), filling their `{{placeholders}}` from
-`generate-routing.json.template_var_sources` (resolved against
+`generate-routing.json.template_var_sources` `[_uses: generate-routing.json]` (resolved against
 `preferences.json`, `aws-design.json`, `.phase-status.json`).
 
 Then emit EXACTLY ONE `vpc.tf` (the `vpc-new` template when
@@ -61,7 +61,7 @@ _templates: [templates/generate/terraform/compute.tf.tmpl, templates/generate/te
 ```
 
 Route each service in `aws-design.json.services[]` by `aws_service` per
-`generate-routing.json.service_to_file`, and emit the domain file once per
+`generate-routing.json.service_to_file` `[_uses: generate-routing.json]`, and emit the domain file once per
 present type (compute.tf for Fargate/ALB, database.tf for RDS/Aurora, cache.tf
 for ElastiCache, messaging.tf for MSK). Within each domain template, fill the
 REPEAT blocks once per matching service, resolving per-service `{{placeholders}}`

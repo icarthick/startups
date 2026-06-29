@@ -237,7 +237,8 @@ drift surface and a conformance failure.
 
 ### Conformance checklist (CI) — knowledge separation
 
-(Global conformance checks 9–12, continuing the lists above.)
+(Global conformance checks 9–12, continuing the lists above. ENFORCED by
+`scripts/validate_dsl.py`, wired into `mise run lint` / `build`.)
 
 1. No bare literal in `## Step:` prose that is a tunable constant (engine
    version, CIDR, port, clamp bound, region, regex) — such values MUST resolve

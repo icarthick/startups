@@ -55,7 +55,7 @@ _writes: [MIGRATION_GUIDE.md, README.md]
 _templates: [templates/generate/docs/MIGRATION_GUIDE.md.tmpl, templates/generate/docs/README.md.tmpl]
 ```
 
-Fill `MIGRATION_GUIDE.md.tmpl` and `README.md.tmpl`, resolving `{{key}}` and
+Fill `MIGRATION_GUIDE.md.tmpl` `[_uses: MIGRATION_GUIDE.md.tmpl]` and `README.md.tmpl` `[_uses: README.md.tmpl]`, resolving `{{key}}` and
 evaluating `{{IF cond}}`/`{{FOR x IN list}}` against `doc_flags` + the inputs.
 **Strict no-empty-sections rule:** include a data-store migration section (and
 its ToC entry) ONLY when its flag is true; OMIT the entire heading+content
@@ -73,7 +73,7 @@ _templates: [templates/generate/scripts/migrate-postgres.sh, templates/generate/
 ```
 
 Write `$MIGRATION_DIR/scripts/migrate-postgres.sh` when `has_postgres`, and
-`scripts/migrate-redis.sh` when `has_redis` (copy the templates verbatim — their
+`scripts/migrate-redis.sh` `[_uses: migrate-redis.sh]` when `has_redis` (copy the templates verbatim — their
 `{{...}}` connection params are filled by the USER, not at generation time). Make
 each written script executable (chmod +x). Kafka gets NO standalone script
 (MirrorMaker config is environment-specific; the guide covers it).

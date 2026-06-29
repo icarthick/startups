@@ -42,7 +42,7 @@ _writes_var: pricing_source
 _knowledge: [knowledge/estimate/aws-pricing.json, knowledge/estimate/estimate-defaults.json]
 ```
 
-Per `estimate-defaults.json.pricing_source`: the cached `aws-pricing.json` rates
+Per `estimate-defaults.json.pricing_source` `[_uses: estimate-defaults.json]`: the cached `aws-pricing.json` `[_uses: aws-pricing.json]` rates
 are the DEFAULT and deterministic source (`status: "cached"`). Check the cache
 `_meta.last_updated` vs `staleness_days`: if stale, set `status: "cached_stale"`
 and note it (infra rates still reliable). For any service whose rate is NOT in
@@ -86,7 +86,7 @@ _knowledge: [knowledge/estimate/aws-pricing.json]
 ```
 
 For each service in `aws-design.json.services[]`, compute its BALANCED monthly
-cost by applying the matching `aws-pricing.json` formula. Apply each rate
+cost by applying the matching `aws-pricing.json` `[_uses: aws-pricing.json]` formula. Apply each rate
 EXACTLY; do not improvise. **Multi-AZ:** read the service's `multi_az_handling`
 and apply it correctly (this is the trap — see the probe):
 
@@ -157,7 +157,7 @@ _knowledge: [knowledge/estimate/aws-pricing.json, knowledge/estimate/estimate-de
 Add ONE CloudWatch observability entry (post-loop; it is the SINGLE home for all
 logging cost — a design `CloudWatch Logs` service does NOT get its own line, it
 is subsumed here, so never double-count), per
-`estimate-defaults.json.observability`:
+`estimate-defaults.json.observability` `[_uses: estimate-defaults.json]`:
 
 - `log_gb` = sum over designed services of
   `estimate-defaults.json.observability.log_volume_gb_per_service` (3/Fargate
@@ -182,7 +182,7 @@ _knowledge: [knowledge/estimate/estimate-defaults.json]
 - `aws_monthly_balanced` = SUM of all breakdown `mid` values, EXCLUDING any
   `unpriced` lines. This is the **Property-16 invariant**: the total MUST equal
   the arithmetic sum of the per-line balanced costs.
-- Apply `estimate-defaults.json.tiers` multipliers to the balanced total:
+- Apply `estimate-defaults.json.tiers` `[_uses: estimate-defaults.json]` multipliers to the balanced total:
   `aws_monthly_premium = balanced * 1.50`; `aws_monthly_optimized = balanced *
   0.70`. Round each tier monthly to 2dp, THEN multiply by 12 for annual figures
   (round-then-multiply, so stored monthly and annual reconcile):
@@ -201,7 +201,7 @@ _knowledge: [knowledge/estimate/estimate-defaults.json]
   `monthly_difference = tier - heroku`, `annual_difference = monthly_difference *
   12`, `percent_change`. Omit/null if baseline unavailable.
 - **migration_cost_considerations**: per
-  `estimate-defaults.json.migration_cost_note` (billing-available vs not).
+  `estimate-defaults.json.migration_cost_note` `[_uses: estimate-defaults.json]` (billing-available vs not).
 - **roi_analysis**: monthly/annual differences (balanced + optimized; negative =
   AWS cheaper), plus the qualitative `operational_efficiency_factors` +
   `non_cost_benefits` from defaults (do NOT assign dollar values to these).
@@ -223,7 +223,7 @@ _writes: estimation-infra.json
 _knowledge: [knowledge/estimate/estimate-defaults.json]
 ```
 
-Form the **recommendation** per `estimate-defaults.json.recommendation_logic`:
+Form the **recommendation** per `estimate-defaults.json.recommendation_logic` `[_uses: estimate-defaults.json]`:
 choose `path` (migrate_optimized / migrate_phased / stay) + its `path_label`,
 write a one-sentence `roi_justification`, `confidence`, and stack-specific
 `migrate_if` / `stay_if` arrays + `next_steps`.

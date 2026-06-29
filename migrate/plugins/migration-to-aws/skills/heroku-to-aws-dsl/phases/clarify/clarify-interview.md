@@ -62,6 +62,7 @@ Read `preferences-draft.json`. Tell the user:
 
 ```meta
 _writes_var: inventory_facts
+_knowledge: [knowledge/clarify/clarify-questions.json]
 ```
 
 Read `heroku-resource-inventory.json` (guaranteed present by the phase
@@ -78,7 +79,8 @@ If `billing_profile.available == true`, also show:
 > **Top cost categories:** [top 3 line_items by cost]
 
 Record into `inventory_facts` the values listed under `inventory_facts` in
-`knowledge/clarify/clarify-questions.json` (derive each from
+`knowledge/clarify/clarify-questions.json` `[_uses: clarify-questions.json]`
+(derive each from
 `heroku-resource-inventory.json` per that file's descriptions): `total_apps`,
 `has_postgres`, `has_redis`, `has_kafka`, `has_space`, `peering_detected`,
 `peering_vpc_id`, `has_fir`, `postgres_plan`. Later steps reference these by name
@@ -92,7 +94,7 @@ _knowledge: [knowledge/clarify/clarify-questions.json]
 ```
 
 Evaluate fast-path eligibility using `fast_path.eligible_when` in
-`knowledge/clarify/clarify-questions.json` (against `inventory_facts`).
+`knowledge/clarify/clarify-questions.json` `[_uses: clarify-questions.json]` (against `inventory_facts`).
 
 **If eligible**, offer it using `fast_path.offer_prompt` (fill `{N}` =
 `total_apps`) and `fast_path.offer_options`.
@@ -114,7 +116,7 @@ _writes_var: active_questions
 _knowledge: [knowledge/clarify/clarify-questions.json]
 ```
 
-For every question in `knowledge/clarify/clarify-questions.json.questions`,
+For every question in `knowledge/clarify/clarify-questions.json.questions` `[_uses: clarify-questions.json]`,
 evaluate its `trigger` against `inventory_facts`: `"always"` is always active;
 any other trigger is a plain-language condition over `inventory_facts` (e.g.
 `has_postgres`, `peering_detected AND peering_vpc_id is null`). A question whose
@@ -132,7 +134,7 @@ _collect: [answers, questions_asked, questions_defaulted]
 _knowledge: [knowledge/clarify/clarify-questions.json]
 ```
 
-Iterate `knowledge/clarify/clarify-questions.json.batches` IN ORDER. For each
+Iterate `knowledge/clarify/clarify-questions.json.batches` `[_uses: clarify-questions.json]` IN ORDER. For each
 batch, present only its ACTIVE questions (from `determine_active_questions`);
 skip a batch with no active questions, and skip any batch already covered by
 `metadata.batches_completed` (draft resume). See `_batch_notes` in the JSON.
