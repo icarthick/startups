@@ -37,8 +37,8 @@ export interface Meta {
   readonly collect?: readonly string[];
 
   // --- outputs ---
-  /** `_writes` — artifact written to $MIGRATION_DIR/. */
-  readonly writes?: string;
+  /** `_writes` — artifact(s) written to $MIGRATION_DIR/ (a file or a list). */
+  readonly writes?: string | readonly string[];
   /** `_writes_var` — in-run STATE later steps reference (not a file). */
   readonly writesVar?: string;
 

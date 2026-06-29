@@ -627,7 +627,7 @@ Meta {
   branchOn?: string        # _branch_on  — discriminant field; case bodies are PROSE (no _cases in 2b)
   collect?: string[]       # _collect    — accumulator lists appended across iteration
   # outputs
-  writes?: string          # _writes     — artifact written to $MIGRATION_DIR/
+  writes?: string|string[] # _writes     — artifact(s) written to $MIGRATION_DIR/ (file or list)
   writesVar?: string       # _writes_var — in-run STATE later steps reference
   # assembler-step IO (assembler steps only)
   reads?: string[]         # _reads      — files this step reads
@@ -658,6 +658,13 @@ All fields optional — a step may have an empty meta block (pure-prose step).
 > NUANCE (`_when` fourth context): step-level `_when` reuses `WhenCondition` — the
 > FOURTH context (trigger, knowledge-guard, re-entry `if`, step-gate). Scope here =
 > phase inputs + in-run state. The shared atom now serves four contexts.
+>
+> NUANCE (`_writes` is list-or-scalar): evidence (`generate-docs.md`:
+> `_writes: [MIGRATION_GUIDE.md, README.md]`) shows a step may write MULTIPLE
+> artifacts. The original model had `_writes: string` (too narrow — same class as
+> the Type-1 `_unrecoverable` error, caught when bindUnit ran on the real file);
+> corrected to `string | string[]`. The binder normalizes a scalar to a
+> one-element list.
 
 **Validation power this unlocks:**
 
