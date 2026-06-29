@@ -303,7 +303,7 @@ outputs in `_produces`/step `_writes`; nowhere else.
 
 ### Conformance checklist (CI) — unit file regions
 
-(Global conformance checks 13–16, continuing the lists above.)
+(Global conformance checks 13–17, continuing the lists above.)
 
 1. A unit file is exactly: frontmatter, then an optional H1, then at most ONE
    `## Orientation`, then zero-or-more `## Step:` sections — and nothing else.
@@ -316,3 +316,15 @@ outputs in `_produces`/step `_writes`; nowhere else.
    frontmatter or a `## Step:`. (Heuristic-flag for review.)
 4. Nothing appears after the last `## Step:` (or after `## Orientation` when a
    unit has no steps).
+5. **No interpreter-rule restatement in a `## Step:` body.** A step body is
+   fragment-SPECIFIC procedure; it must NOT re-state a universal interpreter
+   rule as if it were a local instruction (e.g. "the phase _knowledge is the sole
+   load decision; the step list is a USES annotation", "advance only after
+   HANDOFF_OK", "load only the guard-true tables"). The interpreter already
+   applies those everywhere; restating them is duplication AND a drift surface
+   (it is how a step's prose can silently contradict the contract — e.g. a step
+   saying "load" when the phase guard owns loading). Authors write only what is
+   unique to the step. (Orientation MAY descriptively recap contract behavior
+   when it points at the authoritative key — that is reader-orientation, not a
+   step re-legislating. Heuristic-flag: load/gate/advance rule-language in a step
+   body.)
