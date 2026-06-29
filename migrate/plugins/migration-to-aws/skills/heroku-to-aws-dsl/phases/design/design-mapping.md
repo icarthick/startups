@@ -88,6 +88,7 @@ the global kubernetes preference governs. Fir stays a deferred notation
 ```meta
 _for_each: inventory.resources
 _branch_on: resource_type
+_branch_cases: [formation, addon, pipeline, space, _default]
 _collect: [services, deferred, warnings, spaces]
 _knowledge: [knowledge/design/design-defaults.json, knowledge/design/dyno-fargate-sizing.json, knowledge/design/postgres-rds-sizing.json, knowledge/design/redis-elasticache-sizing.json, knowledge/design/kafka-msk-sizing.json, knowledge/design/fast-path-addons.json]
 ```
@@ -151,8 +152,9 @@ when the EKS gate is active; the `eks-mapping` fragment handles formations then)
   `service_id` = `elasticache:{app}:redis`, `aws_service` = `ElastiCache Redis`,
   `aws_config` with `region`, `node_type` from the row, `multi_az` +
   `automatic_failover` per the table's `_ha` (row `ha` OR `config.ha_enabled`),
-  `transit_encryption` per `_transit_encryption`, and `engine_version`
-  compatible with the row `redis_version`.
+  `transit_encryption` per `_transit_encryption`, and `engine_version` from
+  `design-defaults.json.engine_versions.elasticache_redis` `[_uses: design-defaults.json]`
+  (pinned; the row `redis_version` is provenance only).
 
 - **`heroku-kafka`** — look up `config.plan` in `kafka-msk-sizing.json` `[_uses: kafka-msk-sizing.json]`. NOT
   found → `_defer` + warn. Found → append an entry (shape per the schema):
@@ -221,10 +223,15 @@ After the loop, design `design.vpc_design` from the collected `spaces` +
      mapped service, else `fallback_primary_app`). Add an inbound rule for a
      `ports` entry ONLY when its `include_port_when` condition holds for THIS
      design: `app_https` (always), `postgres` (if an RDS/Aurora service exists),
-     `redis` (if ElastiCache exists), `kafka` (if MSK exists). Rule `cidr` per
-     `restricted_cidr_source`.
+     `redis` (if ElastiCache exists), `kafka` (if MSK exists). Rule `cidr`
+     resolves `restricted_cidr_source` mechanically: use its `primary` field-path
+     (`space.config.peering.peer_cidr`) if non-null, else its `fallback`
+     (`vpc_design.cidr_block`) `[_uses: design-defaults.json]`. Do NOT substitute
+     any other CIDR.
    - If NO Private Space: default SG `name` per `default_name_pattern` — inbound
-     `app_https` + `app_http` from `default_inbound_cidr`; egress = `outbound_all`.
+     `app_https` + `app_http`, each with `cidr` = `default_inbound_cidr`
+     (`0.0.0.0/0`) verbatim `[_uses: design-defaults.json]`; egress =
+     `outbound_all`. Do NOT substitute the VPC CIDR or any other value.
 
 ## Step: note_fir
 

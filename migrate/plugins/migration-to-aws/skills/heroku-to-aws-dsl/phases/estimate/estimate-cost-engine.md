@@ -109,9 +109,11 @@ Per service type:
 - **Amazon MSK** → `brokers[broker_instance_type] * hours_per_month *
   broker_count + storage_per_broker_gb * broker_count * storage_per_gb_month`.
 - **Fast-path services** (CloudWatch Logs, S3, SES, EventBridge, MQ, OpenSearch,
-  CloudFront, Secrets Manager, ElastiCache Memcached) — use
-  `aws-pricing.json.fast_path_services` (flat/minimal estimates; mark these as
-  estimates). EXCEPTION: a `CloudWatch Logs` service (e.g. a Papertrail mapping)
+  CloudFront, Secrets Manager, ElastiCache Memcached) — use the entry's pinned
+  `monthly_baseline_est` (or `instance_monthly_est` for MQ/OpenSearch) from
+  `aws-pricing.json.fast_path_services` `[_uses: aws-pricing.json]` as the line's
+  `mid`; mark the line as an estimate (these are stated assumptions, not measured
+  rates). EXCEPTION: a `CloudWatch Logs` service (e.g. a Papertrail mapping)
   is NOT given its own breakdown line — its logging cost is SUBSUMED into the
   single post-loop observability block (Step `observability_cost`). It still
   counts as PRICED for the every-service-priced gate (record it in the
@@ -164,7 +166,11 @@ is subsumed here, so never double-count), per
   SERVICE — one count per Fargate service regardless of desired_count;
   1/RDS-or-Aurora service, 2/ALB service, 1/NAT, 0.5/ElastiCache service, 2/MSK
   broker). Count PER DESIGNED SERVICE, not per running task.
-- `custom_metrics = max(10, service_count*5)`; `alarms = max(5, service_count*2)`.
+- `custom_metrics = max(10, service_count*5)`; `alarms = max(5, service_count*2)`
+  — where `service_count` is `aws-design.json.metadata.total_services` (the
+  CANONICAL definition, identical to the one `comparison_roi_complexity` uses;
+  it INCLUDES ALB entries, so a web formation contributes 2). Do NOT recount
+  services here — read the canonical field.
 - `retention_months = preferences.operational.log_retention_days / 30` (default 1).
 - `log_ingestion = log_gb*0.50`; `log_storage = log_gb*0.03*retention_months`;
   `metrics_cost = custom_metrics*0.30`; `alarms_cost = alarms*0.10`; `tracing =

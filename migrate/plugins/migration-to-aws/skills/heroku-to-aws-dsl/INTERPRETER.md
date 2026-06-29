@@ -265,9 +265,15 @@ An ordered list. Execute each step in order. A step has:
 - `_knowledge: [files]` — (optional) the knowledge (DATA) file(s) THIS step uses.
 - `_for_each: <collection>` — (optional) run the step body once per item in the
   named collection, in input order.
-- `_branch_on: <field>` + `_cases: {value: {...}}` — (optional) within the
-  iteration, branch on the item's field; run the matching case's body. Unlisted
-  values are skipped (unless a `_default` case is given).
+- `_branch_on: <field>` + `_branch_cases: [values]` — (optional) within the
+  iteration, branch on the item's field; the matching case's body is the PROSE
+  under the step (FORM 2b — case bodies are prose, NOT a frontmatter `_cases`
+  map). `_branch_cases` declares the discriminant VALUES the prose arms cover
+  (labels only); include `_default` when there is a catch-all arm. Unlisted
+  values are skipped. A `_branch_on` MUST carry `_branch_cases` so coverage is
+  checkable (CI flags a bare `_branch_on` — unverifiable arms are how a case gets
+  silently dropped). (The bare `_cases: {value: {...}}` map is the FORM-1-only
+  shape and is INVALID in a 2b meta block.)
 - `_collect: [names]` — (optional) declares the accumulator lists this step
   appends to (e.g. `services`, `warnings`), maintained across the iteration.
 - `_writes_var: <name>` — the step produces in-run STATE (not a file) that later
@@ -377,9 +383,9 @@ the frontmatter, the steps live in the MARKDOWN BODY instead. In that case:
   `## Step:` sections appear in the body (top to bottom).
 - Immediately under the heading, a fenced `` ```meta `` block holds the
   step's machine contract (the same `_`-keys you'd otherwise see inline:
-  `_collect`, `_for_each`, `_branch_on`, `_when`, `_writes`, `_writes_var`,
-  `_knowledge`). Parse it as YAML. Unknown `_`-keys there are invalid (Golden
-  rule 4) exactly as in the frontmatter.
+  `_collect`, `_for_each`, `_branch_on`, `_branch_cases`, `_when`, `_writes`,
+  `_writes_var`, `_knowledge`). Parse it as YAML. Unknown `_`-keys there are
+  invalid (Golden rule 4) exactly as in the frontmatter.
 - Everything AFTER the `meta` block, until the next `## Step:` heading, is the
   step's `_reason` instruction prose. (There is no separate `_reason:` key in
   2b — the body prose IS the reason.)

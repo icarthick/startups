@@ -180,7 +180,8 @@
         { "label": "Bucardo (trigger-based, near-zero downtime; extra EC2)", "value": "bucardo" },
         { "label": "WAL-G (WAL-based, minimal downtime large DBs; extra EC2)", "value": "wal_g" }
       ],
-      "size_hint": "use postgres_plan max storage as an UPPER-BOUND estimate: < 10GB -> recommend pg_dump_restore; >= 10GB -> recommend dms; near-zero-downtime regardless -> bucardo/wal_g. If user gives an actual size, use it and set data.db_size_source='user_override', else 'plan_derived'.",
+      "size_hint": "METHOD CHOICE ONLY (does not set any stored value): use postgres_plan max storage as an upper-bound to recommend a method — < 10GB -> pg_dump_restore; >= 10GB -> dms; near-zero-downtime regardless -> bucardo/wal_g.",
+      "db_size_resolution": "PINNED: estimated_db_size_gb = the matched postgres-rds-sizing.json row's storage_gb when db_size_source=='plan_derived'; = the user's number when they give one (then db_size_source=='user_override'). NEVER the method-choice upper-bound threshold (the 10GB figure above is for method selection, not the stored size).",
       "design_impact": "dms selection carries the CDC-limitation warning (Heroku does not grant the REPLICATION role).",
       "default": "pg_dump_restore"
     },

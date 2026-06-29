@@ -13,6 +13,7 @@ declare module "node:fs" {
     path: string,
     options: { withFileTypes: true },
   ): { name: string; isDirectory(): boolean }[];
+  export function statSync(path: string): { isDirectory(): boolean };
 }
 
 declare const process: {

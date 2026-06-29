@@ -15,12 +15,14 @@ import { regionsCheck } from "./checks/regions.ts";
 import { usesCheck } from "./checks/uses.ts";
 import { assertPostOnlyCheck } from "./checks/assert-post-only.ts";
 import { interlockCheck } from "./checks/interlock.ts";
+import { branchCoverageCheck } from "./checks/branch-coverage.ts";
 import { fragmentRefCheck } from "./checks/fragment-ref.ts";
 import { subsetCheck } from "./checks/subset.ts";
 import { guardScopeCheck } from "./checks/guard-scope.ts";
 import { producesCheck } from "./checks/produces.ts";
 import { phaseChainCheck } from "./checks/phase-chain.ts";
 import { makeXtableCheck } from "./checks/xtable.ts";
+import { makeRefResolveCheck } from "./checks/ref-resolve.ts";
 
 /** Discover every unit file under <root>/phases: the phase files + nested units. */
 export function discoverUnitFiles(root: string): string[] {
@@ -50,8 +52,8 @@ export function validate(root: string): readonly Finding[] {
     else findings.push(...r.findings);
   }
 
-  const intra = [regionsCheck, usesCheck, assertPostOnlyCheck, interlockCheck];
-  const cross = [fragmentRefCheck, subsetCheck, guardScopeCheck, producesCheck, phaseChainCheck, makeXtableCheck(root)];
+  const intra = [regionsCheck, usesCheck, assertPostOnlyCheck, interlockCheck, branchCoverageCheck];
+  const cross = [fragmentRefCheck, subsetCheck, guardScopeCheck, producesCheck, phaseChainCheck, makeXtableCheck(root), makeRefResolveCheck(root)];
   findings.push(...runChecks(loaded, intra, cross));
 
   return findings;

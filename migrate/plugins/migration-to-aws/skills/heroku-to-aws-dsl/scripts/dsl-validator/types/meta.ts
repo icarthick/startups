@@ -33,6 +33,14 @@ export interface Meta {
   readonly forEach?: string;
   /** `_branch_on` — discriminant field; the case bodies are PROSE (no `_cases` in 2b). */
   readonly branchOn?: string;
+  /**
+   * `_branch_cases` — the discriminant VALUES the prose arms cover (labels only,
+   * NOT bodies — distinct from the FORM-1-only `_cases` which carried bodies).
+   * Makes branch coverage checkable: a `_branch_on` without `_branch_cases` is a
+   * coverage hole (the silent-drop class that bit the old design.py). Include
+   * `_default` in the list when the branch has a catch-all arm.
+   */
+  readonly branchCases?: readonly string[];
   /** `_collect` — accumulator lists appended across the iteration. */
   readonly collect?: readonly string[];
 
@@ -63,6 +71,7 @@ export const META_KEYS: readonly string[] = [
   "_templates",
   "_for_each",
   "_branch_on",
+  "_branch_cases",
   "_collect",
   "_writes",
   "_writes_var",

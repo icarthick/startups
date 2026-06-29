@@ -3,7 +3,8 @@
 
   "engine_versions": {
     "_comment": "Default engine versions for designed managed services. Bump on the provider's release cadence — unrelated to the mapping algorithm. (See the MCP refactor's EKS k8s-version port-time-constant lesson.)",
-    "rds_postgresql": "15"
+    "rds_postgresql": "15",
+    "elasticache_redis": "7.0"
   },
 
   "new_vpc": {
@@ -32,7 +33,11 @@
       "kafka": { "port": 9092, "protocol": "tcp", "include_port_when": "an MSK service is in the design" }
     },
     "outbound_all": { "port": 0, "protocol": "-1", "cidr": "0.0.0.0/0" },
-    "restricted_cidr_source": "space config.peering.peer_cidr if present, else the VPC/app CIDR",
+    "restricted_cidr_source": {
+      "_comment": "Pinned selector (was prose 'peer_cidr if present, else the VPC/app CIDR' — ambiguous noun). Resolve mechanically: use primary if its path is non-null, else fallback. Both are exact field-paths, never an interpreted noun.",
+      "primary": "space.config.peering.peer_cidr",
+      "fallback": "vpc_design.cidr_block"
+    },
     "default_inbound_cidr": "0.0.0.0/0"
   },
 

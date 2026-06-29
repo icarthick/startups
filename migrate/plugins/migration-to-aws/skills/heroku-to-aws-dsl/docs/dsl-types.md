@@ -278,6 +278,7 @@ pre/postcondition item = INVALID (closed vocab, Golden rule 4).
 - every pre/postcondition item's verb is one of these 7 (closed-set check);
 - `_assert` may appear ONLY in `_postconditions` (context check);
 - `_validate_schema`'s `schema` must resolve under the skill `schemas/` dir;
+  [BUILT: `checks/ref-resolve.ts`, code `REF_RESOLVE`]
 - `_check_source_exists`'s shape is consistent between its check-verb and trigger
   uses (cross-context shape check).
 
@@ -499,6 +500,7 @@ Guarded {
   shared `WhenCondition` atom makes it ONE check, parameterized by "allowed
   scope," runnable across all three `_when` contexts.
 - `file` path resolves on disk AND is declared exactly once (single load owner).
+  [resolution BUILT: `checks/ref-resolve.ts`, code `REF_RESOLVE`]
 - `role == "knowledge"` -> path under `knowledge/<phase>/`; `role == "template"`
   -> path under `templates/<phase>/`.
 
@@ -525,6 +527,9 @@ be the single load owner). The type holds `file: string`; checks validate the va
 - guard-scope enforced mechanically (the hand-fixed drift becomes a build check);
 - single-load-owner (each knowledge/template file declared once across the phase);
 - knowledge-vs-template path conventions;
+- referenced knowledge/template files exist on disk + referenced knowledge/schema
+  JSON parses; every `knowledge/` file is referenced by some phase (orphan sweep)
+  [BUILT: `checks/ref-resolve.ts`, codes `REF_RESOLVE`/`JSON_INVALID`/`ORPHAN`];
 - combined with step `_knowledge` (later): the uses-subset rule (every step file
   ⊆ the phase `Guarded` files).
 
@@ -625,6 +630,9 @@ Meta {
   # iteration / branching
   forEach?: string         # _for_each   — collection to iterate, input order
   branchOn?: string        # _branch_on  — discriminant field; case bodies are PROSE (no _cases in 2b)
+  branchCases?: string[]   # _branch_cases — discriminant VALUES the prose arms cover (labels only, NOT
+                           #   bodies; distinct from FORM-1 _cases). _branch_on MUST carry this
+                           #   (BRANCH_COVERAGE check) so coverage is verifiable; include _default.
   collect?: string[]       # _collect    — accumulator lists appended across iteration
   # outputs
   writes?: string|string[] # _writes     — artifact(s) written to $MIGRATION_DIR/ (file or list)
@@ -1045,7 +1053,10 @@ STOP, via `ERROR_ACTION_SEMANTICS`).
 (phase `_produces` == union of fragment/assembler produces+mutates, EXEMPTING
 assembler-`_reads` intermediates + directory-prefix coverage), `phase-chain`
 (`_advances_to`/`_requires_phase` consistency), `xtable` (producer-emits ∈
-consumer-keys — the RDS-gap catcher, ported from the Python validator).
+consumer-keys — the RDS-gap catcher, ported from the Python validator),
+`ref-resolve` (every `_validate_schema`/`_knowledge`/`_templates` ref resolves to
+an on-disk file; referenced knowledge/schema JSON parses; every `knowledge/` file
+is referenced by some phase — the orphan sweep).
 
 **Orchestrator + CLI** (`validate.ts`): discover unit files -> `bindUnit` each
 (collecting bind-time findings) -> run all checks -> report -> exit non-zero on
@@ -1065,3 +1076,20 @@ any error (`--strict` also fails on warnings). Runs as
 > added + a `lint:types` (`tsc --noEmit`) gate wired into `lint`. `mise.toml` is
 > admin-owned (`@awslabs/startups-admins`) — flagged. The Python `validate_dsl.py`
 > is SUPERSEDED (kept for now; retire in a follow-up).
+>
+> COVERAGE GAP CLOSED (`ref-resolve`, 2026-06-29): the validator bound + checked
+> the 22 unit files but never confirmed the files they POINT AT — schema refs
+> (`_validate_schema.schema`), knowledge/template refs (`Guarded.file`) — existed
+> or parsed, and the `ORPHAN` `FindingCode` was declared-but-dead. The
+> "validation power this unlocks" notes on `ValidateSchema` (Type 2) and `Guarded`
+> (Type 6) promised exactly this resolution; it is now wired as one cross-unit
+> check (a FACTORY over the skill root, like `xtable`, since it reads disk). New
+> `FindingCode`s: `REF_RESOLVE` (missing referenced file), `JSON_INVALID`
+> (referenced knowledge/schema JSON does not parse — previously SWALLOWED by
+> `xtable`'s `readJson`-returns-null). Scope: all three ref kinds use skill-root-
+> relative paths (`schemas/…`, `knowledge/…`, `templates/…`), resolved directly.
+> NON-GOAL: schema/template paths mentioned only inside `_assert` PROSE (e.g.
+> feedback-collect's trace-schema mention) are not structured refs and are
+> intentionally not resolved — prose is not a machine contract. A 4-defect probe
+> (orphan / broken schema ref / malformed JSON / broken template ref) confirmed
+> each rule fires; `statSync` added to `node-shims.d.ts` for the orphan walk.

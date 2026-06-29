@@ -19,6 +19,8 @@ _postconditions:
   - _assert: "if vpc_design.mode == existing_vpc -> existing_vpc_id non-empty"
   - _assert: "if vpc_design.mode == new_vpc -> >=2 subnets across separate AZs"
   - _assert: "metadata.total_services == services[].length"
+  - _assert: "PINNED VALUE: every non-Private-Space (standard) SG inbound rule cidr == design-defaults.json security_group.default_inbound_cidr (no VPC-CIDR or other substitution); every restricted SG inbound cidr == the resolved restricted_cidr_source (primary peer_cidr if non-null else vpc_design.cidr_block)"
+  - _assert: "PINNED VALUE: every ElastiCache service aws_config.engine_version == design-defaults.json engine_versions.elasticache_redis"
   - _assert: "no ARM/Graviton/CNB targeting anywhere in output (Fir detect-only)"
   - _assert: "ROUTE GATE: if inventory had formations -> services[] has >=1 Fargate (Fargate path) OR EKS (eks path) entry, unless ALL dyno types were unrecognized"
   - _assert: "if any EKS service exists -> aws-design.json has an eks_cluster (merged from _eks-design.json) and NO Fargate formation entries (all-or-nothing)"

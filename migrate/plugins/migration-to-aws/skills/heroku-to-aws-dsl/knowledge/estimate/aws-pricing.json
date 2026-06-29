@@ -133,35 +133,45 @@
     "formula": "hosted_zone_monthly + query_estimate (when dns_strategy == route53)"
   },
   "fast_path_services": {
-    "_comment": "Minimal/flat estimates for fast-path-mapped add-ons.",
+    "_comment": "Flat monthly_baseline_est per fast-path add-on — PINNED stated assumptions for the stopgap (these are estimates, not measured rates; an external pricing source will replace them). per-unit rates kept as documentation of the basis. Use monthly_baseline_est as the breakdown mid; mark the line as an estimate.",
     "s3": {
       "storage_per_gb_month": 0.023,
-      "formula": "storage_gb * rate + request estimate"
+      "monthly_baseline_est": 5.0,
+      "_basis": "assumes ~50GB + light requests; storage_per_gb_month is the rate basis",
+      "formula": "monthly_baseline_est (flat)"
     },
     "ses": {
       "per_1000_emails": 0.1,
-      "formula": "flat minimal baseline from SendGrid mapping"
+      "monthly_baseline_est": 5.0,
+      "_basis": "assumes <50k emails/mo @ per_1000_emails; flat placeholder pending usage data",
+      "formula": "monthly_baseline_est (flat)"
     },
     "eventbridge": {
       "per_million_events": 1.0,
-      "formula": "minimal for cron jobs"
+      "monthly_baseline_est": 1.0,
+      "_basis": "assumes ~1M cron-scale events/mo @ per_million_events",
+      "formula": "monthly_baseline_est (flat)"
     },
     "amazon_mq": {
       "instance_monthly_est": 130.0,
-      "formula": "instance_rate * 730 + storage (CloudAMQP mapping; verify via MCP)"
+      "formula": "instance_monthly_est + storage (CloudAMQP mapping; verify via external pricing)"
     },
     "opensearch": {
       "instance_monthly_est": 100.0,
-      "formula": "instance_rate * 730 + storage (Bonsai mapping; verify via MCP)"
+      "formula": "instance_monthly_est + storage (Bonsai mapping; verify via external pricing)"
     },
     "cloudfront": {
       "per_gb_first_10tb": 0.085,
-      "formula": "transfer_gb * rate + request costs"
+      "monthly_baseline_est": 10.0,
+      "_basis": "assumes ~100GB egress/mo @ per_gb_first_10tb + light requests",
+      "formula": "monthly_baseline_est (flat)"
     },
     "secrets_manager": {
       "per_secret_month": 0.4,
       "per_10k_api_calls": 0.05,
-      "formula": "secret_count * per_secret_month + api_estimate"
+      "monthly_baseline_est": 2.0,
+      "_basis": "assumes ~3 secrets @ per_secret_month + light API calls",
+      "formula": "monthly_baseline_est (flat)"
     },
     "elasticache_memcached": {
       "_use": "same node rates as elasticache (Memcachier mapping)"

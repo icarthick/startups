@@ -237,8 +237,13 @@ drift surface and a conformance failure.
 
 ### Conformance checklist (CI) — knowledge separation
 
-(Global conformance checks 9–12, continuing the lists above. ENFORCED by
-`scripts/validate_dsl.py`, wired into `mise run lint` / `build`.)
+(Global conformance checks 9–12, continuing the lists above. STATUS: items 4-8
+(reference resolution, single-load-owner, uses-subset, guard-scope, cross-table
+coverage) ARE enforced by the TypeScript validator (`scripts/dsl-validator/`,
+run via `mise run lint:dsl`). Items 1-3 (no-bare-literal, no-duplication,
+schema-as-authority) are CONVENTIONS — NOT yet machine-enforced (they were
+attributed to the now-retired `scripts/validate_dsl.py`); treat them as authoring
+discipline until ported to TS as heuristic checks.)
 
 1. No bare literal in `## Step:` prose that is a tunable constant (engine
    version, CIDR, port, clamp bound, region, regex) — such values MUST resolve

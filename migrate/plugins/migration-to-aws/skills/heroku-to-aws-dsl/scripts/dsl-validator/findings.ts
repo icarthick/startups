@@ -27,11 +27,14 @@ export type FindingCode =
   | "GUARD_SCOPE" // a _when guard references out-of-scope values
   | "SINGLE_OWNER" // a knowledge/template file declared more than once
   | "ORPHAN" // dangling / unreferenced knowledge file
+  | "REF_RESOLVE" // a _knowledge/_templates/_validate_schema ref names a file not on disk
+  | "JSON_INVALID" // a referenced knowledge/schema file does not parse as JSON
   // cross-unit / cross-phase
   | "FRAGMENT_REF" // _id / _of_phase / file resolution
   | "PRODUCES" // _produces ownership-identity mismatch
   | "KIND_MATCH" // unit kind != frontmatter kind
   | "INTERLOCK" // re-entry guard action is not a STOP action
+  | "BRANCH_COVERAGE" // a _branch_on step does not declare _branch_cases (uncheckable coverage)
   | "XTABLE"; // cross-table key coverage (producer emits -> consumer keys)
 
 export interface Location {

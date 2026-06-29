@@ -55,6 +55,7 @@ export function bindMeta(metaText: string, loc: Location): Result<Meta> {
   const templates = strList("_templates");
   const forEach = str("_for_each");
   const branchOn = str("_branch_on");
+  const branchCases = strList("_branch_cases");
   const collect = strList("_collect");
   const writes = strList("_writes");
   const writesVar = str("_writes_var");
@@ -74,6 +75,7 @@ export function bindMeta(metaText: string, loc: Location): Result<Meta> {
     ...(templates !== undefined ? { templates } : {}),
     ...(forEach !== undefined ? { forEach } : {}),
     ...(branchOn !== undefined ? { branchOn } : {}),
+    ...(branchCases !== undefined ? { branchCases } : {}),
     ...(collect !== undefined ? { collect } : {}),
     ...(writes !== undefined ? { writes } : {}),
     ...(writesVar !== undefined ? { writesVar } : {}),
