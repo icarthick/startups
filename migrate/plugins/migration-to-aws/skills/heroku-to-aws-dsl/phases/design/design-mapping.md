@@ -95,9 +95,12 @@ _knowledge: [knowledge/design/design-defaults.json, knowledge/design/dyno-fargat
 Process each resource in `inventory.resources[]` in INPUT ORDER. Branch on
 `resource_type` (`_branch_on`); the per-case handling is the prose below (FORM
 2b — the body prose IS the case bodies). Cases handled: `formation`, `addon`,
-`pipeline`, `space`; everything else falls to the default (skip). Load only the
-knowledge tables whose `_when` guard (in the phase `_knowledge`) is true for this
-inventory.
+`pipeline`, `space`; everything else falls to the default (skip). The phase
+`_knowledge` guards already loaded the tables relevant to this inventory (the
+phase is the sole load decision); the `_knowledge` list above is a USES
+annotation — each branch CONSULTS its table from what is already in context, it
+does NOT load anything. A guard-false table (e.g. dyno-fargate-sizing.json on an
+EKS run) is simply not in context and its branch does not run.
 
 DETERMINISM RULE (binding for every branch below): each numeric/string result
 MUST be a DIRECT LOOKUP from the matched knowledge-table row, a documented clamp,
