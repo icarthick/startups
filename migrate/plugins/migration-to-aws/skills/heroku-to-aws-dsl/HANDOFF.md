@@ -701,6 +701,23 @@ the prose skill, two sub-problems:
   in `design-eks.md` PHASE PROSE, not the table file).
 
   **AGREED PLAN (2026-06-30), revising the original "1a = 7 tables, ONE PR":**
+
+  **REPOINT SHAPE (Option A, agreed 2026-06-30):** ONE copy of the data, in JSON;
+  the `.md` keeps its PROSE and POINTS at the JSON. Concretely, each
+  `references/design-refs/<x>-table.md` keeps its Description / Interpretation
+  Notes / Error Handling prose but its `## Lookup Table` section's markdown table
+  is REPLACED by a pointer line to the JSON (the rows live ONLY in JSON — NOT
+  duplicated in the `.md`). The `.md` stays the load target, so design.md/SKILL.md
+  reference lines are UNCHANGED (no Kind-B procedure-prose surgery). One-hop
+  indirection (LLM loads the `.md`, follows the pointer to the `.json`) is
+  accepted over either (B) deleting the `.md` + moving notes prose into procedure
+  (Kind-B risk, deferred to a later rung) or (C) keeping the table in BOTH
+  (duplication — the exact drift Rung 1 exists to kill).
+  **JSON PATH:** prose-skill JSON lives at `heroku-to-aws/knowledge/design/*.json`
+  — MIRRORS the DSL skill's layout so Rung 9 (rename dsl→prose) is a clean rename,
+  not rename+file-moves. New top-level `knowledge/` dir in the prose skill; pointer
+  from a design-ref `.md` is `../../knowledge/design/<x>.json`.
+
   - **Rung 1a (mechanical)** = the 5 clean standalone tables → JSON + repoint refs:
     dyno-type, postgres, redis, kafka, fast-path. Pure "same numbers, now JSON."
     Call out the two pinned-interpretation notes (postgres `_rds_proxy`, redis
