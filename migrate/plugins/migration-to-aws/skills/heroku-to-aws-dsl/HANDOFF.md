@@ -688,8 +688,39 @@ the prose skill, two sub-problems:
   DSL skill ALREADY has the JSON equivalents (`knowledge/design/*.json`,
   `knowledge/estimate/aws-pricing.json`) — so 1a brings that data into the prose
   skill and the two skills then share ONE source of truth.
-  - **Rung 1a = these 7 tables → JSON, repoint prose refs. ONE PR. The first
-    real work.**
+
+  **DATA DIFF DONE (2026-06-30) — verdict SPLIT; see
+  `.agents/scratchpad/rung1a-data-diff.md` for the full 7-pair record.** 6 of 7
+  pairs are clean mechanical MD→JSON (table values identical); the PRICING pair
+  is a RECONCILIATION carrying material rate ADDITIONS (RDS-gap m6g/r6g/x2g
+  classes, a net-new MSK section, EKS node rates, fast-path flat baselines — all
+  `_note`/`_basis`-flagged). Two pairs (postgres, redis) also pin an interpretation
+  the prose left ambiguous (`_rds_proxy` source; redis `_engine_version`) with NO
+  table-value change. The EKS pair straddles Kind-A (19 pod rows in
+  `eks-mapping-table.md`) and Kind-B (cluster constants + node-sizing formula live
+  in `design-eks.md` PHASE PROSE, not the table file).
+
+  **AGREED PLAN (2026-06-30), revising the original "1a = 7 tables, ONE PR":**
+  - **Rung 1a (mechanical)** = the 5 clean standalone tables → JSON + repoint refs:
+    dyno-type, postgres, redis, kafka, fast-path. Pure "same numbers, now JSON."
+    Call out the two pinned-interpretation notes (postgres `_rds_proxy`, redis
+    `_engine_version`) in the PR description so a reviewer signs off on the
+    RESOLUTION, not just the format. No row values change.
+  - **Rung 1a-pricing (SEPARATE PR)** = adopt `aws-pricing.json` into the prose
+    skill, repoint heroku refs ONLY. `pricing-cache.md` is a SYMLINK shared with
+    gcp-to-aws and STAYS (gcp still uses it); the two pricing sources coexist until
+    gcp migrates (out of scope). Split out so the rate ADDITIONS get focused
+    review instead of being buried among mechanical diffs (two-audiences logic:
+    mechanical pairs need "same numbers?" review, pricing needs "are these NEW
+    numbers right?" review — different cognition). PR carries a "Data changes
+    (not format)" table enumerating every added rate + its basis.
+  - **Rung 1b.x (EKS, DEFERRED whole)** = `eks-mapping-table.md` rows +
+    `design-eks.md` cluster constants extracted TOGETHER as one coherent unit,
+    later in the ladder. Consequence ACCEPTED: the clean Kind-A pod rows wait for a
+    PR that also edits phase-procedure prose (Kind-B), so EKS convergence lands
+    later + heavier — chosen for coherence (one EKS source of truth, no
+    half-migrated file) over speed, consistent with the "don't split knowledge
+    across PRs / structure stays co-located" principle.
 - **Kind B — interleaved in phase prose** (HIGHER risk, one phase per PR):
   `design-defaults`, `estimate-defaults`, `clarify-questions`,
   `generate-routing`, `feedback-config` were extracted DURING the DSL work and
@@ -723,11 +754,15 @@ first (`dyno-type-table.md` vs `dyno-fargate-sizing.json`) to learn the shape.
 ## How to resume
 
 0. **ACTIVE FRONT: Rung 1 of the incremental rollout (see the section above).**
-   Next 3 actions, in order: (1) run the data diff — DSL JSON vs prose MD tables
-   (read-only, both reachable from the DSL branch via git) to learn if Rung 1a is
-   clean-conversion or reconciliation; (2) create the worktree
-   `../startups-rung1` on `feat/heroku-knowledge-extract-tables` off `origin/main`;
-   (3) start Rung 1a (the 7 tables → JSON + repoint prose refs). This session
+   The data diff is DONE (2026-06-30, verdict SPLIT — see
+   `.agents/scratchpad/rung1a-data-diff.md` + the revised Rung-1 decomposition
+   above). Plan agreed: Rung 1a (mechanical, 5 tables), Rung 1a-pricing (separate
+   PR), Rung 1b.x (EKS deferred whole). Next 3 actions, in order: (1) create the
+   worktree `../startups-rung1` on `feat/heroku-knowledge-extract-tables` off
+   `origin/main`; (2) start Rung 1a-mechanical (the 5 clean tables — dyno,
+   postgres, redis, kafka, fast-path — → JSON + repoint prose refs; flag the
+   postgres `_rds_proxy` + redis `_engine_version` pinned interpretations in the
+   PR description); (3) Rung 1a-pricing as its own follow-up PR. This session
    committed the deep-dive (guide + type-graph + debt list) on the DSL branch;
    tree is clean; both validators green. NOT pushed.
    SCOPE GUARDRAIL: Rung 1 extracts only the knowledge DATA (lookup tables) into
