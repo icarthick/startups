@@ -1,0 +1,36 @@
+{
+  "level": "type",
+  "semanticEdges": [
+    {
+      "from": "CheckVerb",
+      "to": "Trigger",
+      "type": "shares-shape",
+      "via": "SourceExistsArg",
+      "label": "_check_source_exists shares {glob,containing?} — verb (fail if absent) vs trigger (skip if absent)"
+    },
+    {
+      "from": "Trigger",
+      "to": "WhenCondition",
+      "type": "shared-atom",
+      "label": "Trigger's _when form — the INDIRECT 4th WhenCondition context (FragmentRef->Trigger->_when); structural graph shows only the 3 direct refs"
+    },
+    {
+      "from": "Guarded",
+      "to": "Meta",
+      "type": "dual-nature",
+      "label": "_knowledge/_templates: Guarded[] at PHASE level (a load decision, with _when) vs string[] at STEP level (a uses-annotation, never loads). Same key, different type by position; subset-check ties step ⊆ phase."
+    },
+    {
+      "from": "ErrorAction",
+      "to": "OnErrorTable",
+      "type": "dual-nature",
+      "label": "_on_error tokens: EXECUTED (one ErrorAction in _on_failure / step prose) vs DOCUMENTED (OnErrorTable maps each name to {effect,status}). Same vocabulary, imperative vs glossary."
+    },
+    {
+      "from": "WhenCondition",
+      "to": "WhenCondition",
+      "type": "shared-atom",
+      "label": "ONE atom, FOUR contexts with DIFFERENT scope rules: knowledge-guard (_input only), step-gate (+ in-run state), re-entry if (DOWNSTREAM/status — inverse), fragment-trigger _when. Shape shared; allowed-scope is a per-context check."
+    }
+  ]
+}

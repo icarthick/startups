@@ -1,0 +1,530 @@
+{
+  "level": "key",
+  "nodes": [
+    {
+      "id": "_assert",
+      "group": "check-verb"
+    },
+    {
+      "id": "_check_file_exists",
+      "group": "check-verb"
+    },
+    {
+      "id": "_check_phase_completed",
+      "group": "check-verb"
+    },
+    {
+      "id": "_check_single_active_phase",
+      "group": "check-verb"
+    },
+    {
+      "id": "_validate_json",
+      "group": "check-verb"
+    },
+    {
+      "id": "_validate_schema",
+      "group": "check-verb"
+    },
+    {
+      "id": "_meta_block",
+      "group": "container"
+    },
+    {
+      "id": "_on_failure",
+      "group": "container"
+    },
+    {
+      "id": "_postconditions",
+      "group": "container"
+    },
+    {
+      "id": "_preconditions",
+      "group": "container"
+    },
+    {
+      "id": "_trigger",
+      "group": "container"
+    },
+    {
+      "id": "phase-frontmatter",
+      "group": "container"
+    },
+    {
+      "id": "_default_and_warn",
+      "group": "error-action"
+    },
+    {
+      "id": "_defer",
+      "group": "error-action"
+    },
+    {
+      "id": "_halt_and_inform",
+      "group": "error-action"
+    },
+    {
+      "id": "_unrecoverable",
+      "group": "error-action"
+    },
+    {
+      "id": "_warn_and_skip",
+      "group": "error-action"
+    },
+    {
+      "id": "_file",
+      "group": "fragment-entry"
+    },
+    {
+      "id": "_id",
+      "group": "fragment-entry"
+    },
+    {
+      "id": "_advances_to",
+      "group": "frontmatter"
+    },
+    {
+      "id": "_assemble",
+      "group": "frontmatter"
+    },
+    {
+      "id": "_forbids_files",
+      "group": "frontmatter"
+    },
+    {
+      "id": "_fragments",
+      "group": "frontmatter"
+    },
+    {
+      "id": "_init",
+      "group": "frontmatter"
+    },
+    {
+      "id": "_input",
+      "group": "frontmatter"
+    },
+    {
+      "id": "_on_error",
+      "group": "frontmatter"
+    },
+    {
+      "id": "_phase",
+      "group": "frontmatter"
+    },
+    {
+      "id": "_produces",
+      "group": "frontmatter"
+    },
+    {
+      "id": "_re_entry_guard",
+      "group": "frontmatter"
+    },
+    {
+      "id": "_requires_phase",
+      "group": "frontmatter"
+    },
+    {
+      "id": "_scope",
+      "group": "frontmatter"
+    },
+    {
+      "id": "_title",
+      "group": "frontmatter"
+    },
+    {
+      "id": "file",
+      "group": "guarded-entry"
+    },
+    {
+      "id": "_branch_cases",
+      "group": "meta"
+    },
+    {
+      "id": "_branch_on",
+      "group": "meta"
+    },
+    {
+      "id": "_collect",
+      "group": "meta"
+    },
+    {
+      "id": "_for_each",
+      "group": "meta"
+    },
+    {
+      "id": "_knowledge",
+      "group": "meta"
+    },
+    {
+      "id": "_mutates",
+      "group": "meta"
+    },
+    {
+      "id": "_reads",
+      "group": "meta"
+    },
+    {
+      "id": "_templates",
+      "group": "meta"
+    },
+    {
+      "id": "_writes",
+      "group": "meta"
+    },
+    {
+      "id": "_writes_var",
+      "group": "meta"
+    },
+    {
+      "id": "action",
+      "group": "reentry"
+    },
+    {
+      "id": "if",
+      "group": "reentry"
+    },
+    {
+      "id": "on_confirm",
+      "group": "reentry"
+    },
+    {
+      "id": "reason",
+      "group": "reentry"
+    },
+    {
+      "id": "_always",
+      "group": "trigger-form"
+    },
+    {
+      "id": "_artifact_exists",
+      "group": "trigger-form"
+    },
+    {
+      "id": "_check_source_exists",
+      "group": "trigger-form"
+    },
+    {
+      "id": "_glob",
+      "group": "trigger-form"
+    },
+    {
+      "id": "_when",
+      "group": "trigger-form"
+    }
+  ],
+  "edges": [
+    {
+      "from": "_fragments",
+      "to": "_file",
+      "kind": "contains"
+    },
+    {
+      "from": "_fragments",
+      "to": "_id",
+      "kind": "contains"
+    },
+    {
+      "from": "_fragments",
+      "to": "_trigger",
+      "kind": "contains"
+    },
+    {
+      "from": "_knowledge",
+      "to": "_when",
+      "kind": "contains"
+    },
+    {
+      "from": "_knowledge",
+      "to": "file",
+      "kind": "contains"
+    },
+    {
+      "from": "_meta_block",
+      "to": "_branch_cases",
+      "kind": "contains"
+    },
+    {
+      "from": "_meta_block",
+      "to": "_branch_on",
+      "kind": "contains"
+    },
+    {
+      "from": "_meta_block",
+      "to": "_collect",
+      "kind": "contains"
+    },
+    {
+      "from": "_meta_block",
+      "to": "_for_each",
+      "kind": "contains"
+    },
+    {
+      "from": "_meta_block",
+      "to": "_knowledge",
+      "kind": "contains"
+    },
+    {
+      "from": "_meta_block",
+      "to": "_mutates",
+      "kind": "contains"
+    },
+    {
+      "from": "_meta_block",
+      "to": "_reads",
+      "kind": "contains"
+    },
+    {
+      "from": "_meta_block",
+      "to": "_templates",
+      "kind": "contains"
+    },
+    {
+      "from": "_meta_block",
+      "to": "_when",
+      "kind": "contains"
+    },
+    {
+      "from": "_meta_block",
+      "to": "_writes",
+      "kind": "contains"
+    },
+    {
+      "from": "_meta_block",
+      "to": "_writes_var",
+      "kind": "contains"
+    },
+    {
+      "from": "_postconditions",
+      "to": "_on_failure",
+      "kind": "contains"
+    },
+    {
+      "from": "_preconditions",
+      "to": "_on_failure",
+      "kind": "contains"
+    },
+    {
+      "from": "_re_entry_guard",
+      "to": "action",
+      "kind": "contains"
+    },
+    {
+      "from": "_re_entry_guard",
+      "to": "if",
+      "kind": "contains"
+    },
+    {
+      "from": "_re_entry_guard",
+      "to": "on_confirm",
+      "kind": "contains"
+    },
+    {
+      "from": "_re_entry_guard",
+      "to": "reason",
+      "kind": "contains"
+    },
+    {
+      "from": "phase-frontmatter",
+      "to": "_advances_to",
+      "kind": "contains"
+    },
+    {
+      "from": "phase-frontmatter",
+      "to": "_assemble",
+      "kind": "contains"
+    },
+    {
+      "from": "phase-frontmatter",
+      "to": "_forbids_files",
+      "kind": "contains"
+    },
+    {
+      "from": "phase-frontmatter",
+      "to": "_fragments",
+      "kind": "contains"
+    },
+    {
+      "from": "phase-frontmatter",
+      "to": "_init",
+      "kind": "contains"
+    },
+    {
+      "from": "phase-frontmatter",
+      "to": "_input",
+      "kind": "contains"
+    },
+    {
+      "from": "phase-frontmatter",
+      "to": "_knowledge",
+      "kind": "contains"
+    },
+    {
+      "from": "phase-frontmatter",
+      "to": "_on_error",
+      "kind": "contains"
+    },
+    {
+      "from": "phase-frontmatter",
+      "to": "_phase",
+      "kind": "contains"
+    },
+    {
+      "from": "phase-frontmatter",
+      "to": "_postconditions",
+      "kind": "contains"
+    },
+    {
+      "from": "phase-frontmatter",
+      "to": "_preconditions",
+      "kind": "contains"
+    },
+    {
+      "from": "phase-frontmatter",
+      "to": "_produces",
+      "kind": "contains"
+    },
+    {
+      "from": "phase-frontmatter",
+      "to": "_re_entry_guard",
+      "kind": "contains"
+    },
+    {
+      "from": "phase-frontmatter",
+      "to": "_requires_phase",
+      "kind": "contains"
+    },
+    {
+      "from": "phase-frontmatter",
+      "to": "_scope",
+      "kind": "contains"
+    },
+    {
+      "from": "phase-frontmatter",
+      "to": "_templates",
+      "kind": "contains"
+    },
+    {
+      "from": "phase-frontmatter",
+      "to": "_title",
+      "kind": "contains"
+    },
+    {
+      "from": "_always",
+      "to": "_trigger",
+      "kind": "member-of"
+    },
+    {
+      "from": "_artifact_exists",
+      "to": "_trigger",
+      "kind": "member-of"
+    },
+    {
+      "from": "_assert",
+      "to": "_postconditions",
+      "kind": "member-of"
+    },
+    {
+      "from": "_assert",
+      "to": "_preconditions",
+      "kind": "member-of"
+    },
+    {
+      "from": "_check_file_exists",
+      "to": "_postconditions",
+      "kind": "member-of"
+    },
+    {
+      "from": "_check_file_exists",
+      "to": "_preconditions",
+      "kind": "member-of"
+    },
+    {
+      "from": "_check_phase_completed",
+      "to": "_postconditions",
+      "kind": "member-of"
+    },
+    {
+      "from": "_check_phase_completed",
+      "to": "_preconditions",
+      "kind": "member-of"
+    },
+    {
+      "from": "_check_single_active_phase",
+      "to": "_postconditions",
+      "kind": "member-of"
+    },
+    {
+      "from": "_check_single_active_phase",
+      "to": "_preconditions",
+      "kind": "member-of"
+    },
+    {
+      "from": "_check_source_exists",
+      "to": "_postconditions",
+      "kind": "member-of"
+    },
+    {
+      "from": "_check_source_exists",
+      "to": "_preconditions",
+      "kind": "member-of"
+    },
+    {
+      "from": "_check_source_exists",
+      "to": "_trigger",
+      "kind": "member-of"
+    },
+    {
+      "from": "_default_and_warn",
+      "to": "_on_failure",
+      "kind": "member-of"
+    },
+    {
+      "from": "_defer",
+      "to": "_on_failure",
+      "kind": "member-of"
+    },
+    {
+      "from": "_glob",
+      "to": "_trigger",
+      "kind": "member-of"
+    },
+    {
+      "from": "_halt_and_inform",
+      "to": "_on_failure",
+      "kind": "member-of"
+    },
+    {
+      "from": "_unrecoverable",
+      "to": "_on_failure",
+      "kind": "member-of"
+    },
+    {
+      "from": "_validate_json",
+      "to": "_postconditions",
+      "kind": "member-of"
+    },
+    {
+      "from": "_validate_json",
+      "to": "_preconditions",
+      "kind": "member-of"
+    },
+    {
+      "from": "_validate_schema",
+      "to": "_postconditions",
+      "kind": "member-of"
+    },
+    {
+      "from": "_validate_schema",
+      "to": "_preconditions",
+      "kind": "member-of"
+    },
+    {
+      "from": "_warn_and_skip",
+      "to": "_on_failure",
+      "kind": "member-of"
+    },
+    {
+      "from": "_when",
+      "to": "_trigger",
+      "kind": "member-of"
+    }
+  ]
+}

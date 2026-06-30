@@ -1,0 +1,197 @@
+{
+  "level": "type",
+  "nodes": [
+    {
+      "id": "CheckVerb",
+      "tier": 1,
+      "kind": "value",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
+      "id": "ErrorAction",
+      "tier": 1,
+      "kind": "value",
+      "inDegree": 2,
+      "outDegree": 0
+    },
+    {
+      "id": "Trigger",
+      "tier": 1,
+      "kind": "value",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
+      "id": "WhenCondition",
+      "tier": 1,
+      "kind": "value",
+      "inDegree": 3,
+      "outDegree": 0
+    },
+    {
+      "id": "AssemblerRef",
+      "tier": 2,
+      "kind": "entry",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
+      "id": "Condition",
+      "tier": 2,
+      "kind": "entry",
+      "inDegree": 1,
+      "outDegree": 2
+    },
+    {
+      "id": "FragmentRef",
+      "tier": 2,
+      "kind": "entry",
+      "inDegree": 1,
+      "outDegree": 1
+    },
+    {
+      "id": "Guarded",
+      "tier": 2,
+      "kind": "entry",
+      "inDegree": 1,
+      "outDegree": 1
+    },
+    {
+      "id": "OnErrorTable",
+      "tier": 2,
+      "kind": "entry",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
+      "id": "ReEntryGuard",
+      "tier": 2,
+      "kind": "entry",
+      "inDegree": 1,
+      "outDegree": 2
+    },
+    {
+      "id": "Frontmatter",
+      "tier": 3,
+      "kind": "subdoc",
+      "inDegree": 1,
+      "outDegree": 6
+    },
+    {
+      "id": "Meta",
+      "tier": 3,
+      "kind": "subdoc",
+      "inDegree": 1,
+      "outDegree": 1
+    },
+    {
+      "id": "Orientation",
+      "tier": 3,
+      "kind": "subdoc",
+      "inDegree": 1,
+      "outDegree": 0
+    },
+    {
+      "id": "Step",
+      "tier": 3,
+      "kind": "subdoc",
+      "inDegree": 1,
+      "outDegree": 1
+    },
+    {
+      "id": "Unit",
+      "tier": 4,
+      "kind": "unit",
+      "inDegree": 0,
+      "outDegree": 3
+    }
+  ],
+  "edges": [
+    {
+      "from": "Condition",
+      "to": "CheckVerb",
+      "kind": "field"
+    },
+    {
+      "from": "Condition",
+      "to": "ErrorAction",
+      "kind": "field"
+    },
+    {
+      "from": "FragmentRef",
+      "to": "Trigger",
+      "kind": "field"
+    },
+    {
+      "from": "Frontmatter",
+      "to": "AssemblerRef",
+      "kind": "field"
+    },
+    {
+      "from": "Frontmatter",
+      "to": "Condition",
+      "kind": "field"
+    },
+    {
+      "from": "Frontmatter",
+      "to": "FragmentRef",
+      "kind": "field"
+    },
+    {
+      "from": "Frontmatter",
+      "to": "Guarded",
+      "kind": "field"
+    },
+    {
+      "from": "Frontmatter",
+      "to": "OnErrorTable",
+      "kind": "field"
+    },
+    {
+      "from": "Frontmatter",
+      "to": "ReEntryGuard",
+      "kind": "field"
+    },
+    {
+      "from": "Guarded",
+      "to": "WhenCondition",
+      "kind": "field"
+    },
+    {
+      "from": "Meta",
+      "to": "WhenCondition",
+      "kind": "field"
+    },
+    {
+      "from": "ReEntryGuard",
+      "to": "ErrorAction",
+      "kind": "field"
+    },
+    {
+      "from": "ReEntryGuard",
+      "to": "WhenCondition",
+      "kind": "field"
+    },
+    {
+      "from": "Step",
+      "to": "Meta",
+      "kind": "field"
+    },
+    {
+      "from": "Unit",
+      "to": "Frontmatter",
+      "kind": "field"
+    },
+    {
+      "from": "Unit",
+      "to": "Orientation",
+      "kind": "field"
+    },
+    {
+      "from": "Unit",
+      "to": "Step",
+      "kind": "field"
+    }
+  ]
+}
