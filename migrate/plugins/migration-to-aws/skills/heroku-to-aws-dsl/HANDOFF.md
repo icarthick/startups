@@ -362,12 +362,232 @@ inverse guard-scope); (4) reconcile the over-claimed enforcement (3B); (5) make
 - **Before merge:** repoint any forked `.mcp.json`/source pins to upstream.
 - **`on_confirm` is spec-fuzzy** (named reset vs inline artifact list) — a
   candidate for spec tightening; modeled permissively for now.
+- **`_re_entry_guard` sub-key naming wart** (grammar uniformity) — its children
+  are BARE and idiosyncratic (`if`, `action`, `reason`, `on_confirm`) on TWO
+  axes: `if` is a one-off spelling of what is semantically a `_when` (same
+  `WhenCondition` type), and none of the sub-keys carry the `_` prefix that every
+  other composite's sub-keys use (`_fragments`' `_id`/`_trigger`/`_file`). It is
+  the one place the closed-vocab `_`-prefix convention breaks. No runtime impact
+  (the binder reads `if`, maps it to `WhenCondition`, the LLM evaluates it like
+  any guard), but it weakens the "a `_`-key IS the recognizable structural token"
+  invariant and forces the LLM-interpreter to learn the re-entry condition as a
+  distinct thing rather than "another `_when`." `dsl-types.md` records it as an
+  INCONSISTENCY ("recorded; does not change the type"). Fix: rename to
+  `{_when, _action, _reason, _on_confirm}` for uniformity (mechanical rename
+  across the type field, binder, INTERPRETER.md, and the one usage in
+  `discover.phase.md`); cosmetic-correctness, not behavioral, so fold into the
+  next grammar pass. Would also enable a future "structural sub-keys must be
+  `_`-prefixed" check that nothing enforces today.
 - **XTABLE's producer→consumer links are a manual list** in `checks/xtable.ts` —
   the one spot whose own coverage can silently rot if a new sizing→pricing table
   is added without declaring its link.
 - Re-entry "explicit confirmation" prompt/token is still undefined.
 - `line_item_csv` billing format detected but unparsed — INHERITED from upstream,
   NOT a regression; do not invent parse logic.
+- **Position-2 prose error-actions have no `[_uses:]`-style tether** (grammar
+  consistency + closed-vocab anchoring). `ErrorAction` appears in THREE positions:
+  (1) `_on_failure` on a condition (structured, checkable); (2) MENTIONED IN STEP
+  PROSE as a parenthetical/verb (`(\`_warn_and_skip\`)` in design-mapping.md
+  map_resources, or `_defer` written as the verb in the addon branch); (3) the
+  `_on_error:` documentation table. Position 2 is the gap: the action token is
+  prose DECORATION, not a reference — nothing checks it is a valid
+  `ErrorActionKind` or that it is declared in this unit's `_on_error` table. This
+  is an ASYMMETRY: the SIBLING problem (a closed-vocab thing named in prose) is
+  already solved for FILE references by the `[_uses: F]` marker, but actions got
+  no equivalent. FIX (minimal, modeled on the uses-marker): an inline action
+  marker (action-tag carrying the token) replacing the bare parenthesized token;
+  reads identically, but a new check (`ACTION_REF`) verifies (a) closed-vocab,
+  (b) the action is declared in the unit's on-error table, (c) optional: a STOP
+  action inside a for-each body warns (control-flow mismatch). Mechanically a
+  near-clone of `checks/uses.ts` + a `Step.actions` projection like `uses`.
+  CRITICAL BOUNDARY -- do NOT lift error POLICY into a structured error-rules
+  block: the error branches ARE the algorithm (interleaved with the lookup/clamp
+  steps), and extracting them fragments the procedure (violates the
+  knowledge/contract/procedure readability guardrail). Tether the TOKEN inline;
+  leave the condition + message + placement as prose. Also requires the
+  untagged-action drift rule (a bare backticked action token in prose that is NOT
+  action-tagged is a violation -- exactly as `uses` flags untagged file
+  backticks), else authors just don't tag and nothing is gained. Five-place drift
+  contract applies (Step type, binder extraction, INTERPRETER.md, dsl-types.md,
+  new check+FindingCode) + migration churn (dozens of existing prose mentions).
+- **`_on_error` documentation table duplicates canonical semantics with NO drift
+  check** (no-duplication, error layer). Every unit's `_on_error:` block restates
+  each action's `{effect, status}` (e.g. discover.phase.md:90
+  `_halt_and_inform: { effect: "stop; surface diagnostic", status:
+  retain_in_progress }`) — the SAME canonical meaning re-typed by hand across
+  ~10+ units. Nothing checks these match the canonical `ERROR_ACTION_SEMANTICS`
+  table in `types/error-action.ts`; a unit could typo `_halt_and_inform`'s status
+  as `revert_to_pending` and pass green. This is the no-duplication rule violated
+  in the error layer (same class as the estimate formula duplication). It is also
+  a LISTED-BUT-UNBUILT "validation power this unlocks" note in dsl-types.md Type 11
+  (`OnErrorTable`). FIX: a check comparing each `OnErrorTable` entry's
+  `{effect,status}` against `ERROR_ACTION_SEMANTICS` (the canonical source per
+  INTERPRETER.md line 165), OR — better — stop re-typing it: make `_on_error`
+  declare only WHICH actions the unit uses (a name list) and let the canonical
+  table own the `{effect,status}`, removing the duplication at the source.
+- **NEW DOC (planned, capstone deliverable): top-down narrative on-ramp.** A
+  THIRD doc above `docs/dsl-language-guide.md`, for a teammate who has never
+  opened the files. Tells the story in COMPREHENSION order (migration → phase →
+  fragment/assembler → the frontmatter contract keys → descend to leaves like
+  `_when`/`ErrorAction`/`Trigger` as they ARISE), motivated by need. Rationale:
+  leaf nodes are defined by their CONTEXT OF USE, not their shape — `_when` is a
+  trivial string whose entire interest is WHERE it sits and WHAT it gates, so it
+  is meaningless cold but obvious once the phase that contains it is on the
+  table. The three-layer stack: (1) this top-down narrative = "what is this, why,
+  where do I look"; (2) `dsl-language-guide.md` (bottom-up tiers) = grammar+type+
+  binding per construct; (3) `dsl-types.md` (bottom-up canonical) = the spec.
+  HARD CONSTRAINT to prevent the 3-doc drift trap (cf. the stale
+  `validate_dsl.py` over-claim): the new doc OWNS NARRATIVE ONLY (motivation,
+  ordering, connective tissue) and must NOT restate any fact that lives
+  authoritatively elsewhere — NO type signatures, NO closed `_`-key vocab, NO
+  binding examples, NO check names. The moment it needs one, it LINKS DOWN to the
+  guide/spec instead of copying. Litmus test per paragraph: "is this fact also in
+  the guide/spec?" yes → link; pure motivation/sequencing → belongs here. Top-
+  down tolerates forward references (a human reads linearly with a teacher's
+  framing); the spec can't, which is WHY they stay separate docs. Requires
+  `dsl-language-guide.md` sections to have stable, clean heading anchors as link
+  targets (mostly true — numbered sections — verify on build). SEQUENCING: author
+  this LAST, after the construct-by-construct deep-dive, so it DISTILLS the
+  accumulated motivation (e.g. the `_when` "four contexts / one shape / why
+  INTERPRETER.md explains it four times" thread is exactly the connective tissue
+  it wants) rather than being written ahead of the understanding.
+- **Resolution-class field metadata** (legibility + enforcement-gap finder) —
+  make the build-time-checked vs LLM-runtime-interpreted boundary a FIRST-CLASS,
+  visible fact. Today it is implicit/tribal: you must know that
+  `WhenCondition.condition` and `_assert`'s `condition` are opaque to CI (LLM
+  evaluates them) while `ValidateSchema.schema` IS resolved at build time. The
+  boundary bisects several types FIELD-BY-FIELD (e.g. `Condition.verb` is
+  build-time/closed-set but its `_assert` `condition` payload is LLM; `Guarded`
+  `file` is REF_RESOLVE'd but `when` is LLM; `ReEntryGuard` `action` is
+  build-time but `if` is LLM). Do NOT add a per-instance field on the value type
+  (the mode is CONSTANT per field — `WhenCondition` is ALWAYS llm — so an
+  instance tag carries zero info and muddies the "types are pure shape" rule).
+  Instead: (A) adopt a closed `@resolution` JSDoc vocabulary on each FIELD —
+  `build-time` (CI fully checks), `build-time-partial` (CI checks shape/existence
+  not correctness), `llm-runtime` (opaque; LLM evaluates), `cosmetic` (no
+  meaning, e.g. H1 title); (B) derive a per-field matrix in
+  `docs/dsl-language-guide.md` (field × resolution-class × the enforcing
+  `FindingCode`, or "none — LLM"). The matrix DOUBLES as an enforcement-gap
+  finder: any field tagged `build-time` with NO check is a documented-but-
+  unenforced gap (would systematically surface the `_assert`-body and
+  formula-duplication holes the review found by hand). Optional (C, expensive):
+  a meta-check asserting every `build-time` field names a check. Start with A+B.
+  NEXT STEP: draft + pressure-test the 4-class `@resolution` vocabulary against
+  the tricky mixed types (`Condition`, `ReEntryGuard`, `Meta`) before tagging.
+  WORKED EXAMPLE — `Trigger` is the CLEANEST case for this work: its five forms
+  ALREADY split mechanical-vs-judgment along the existing token discriminant —
+  `_always`/`_glob`/`_artifact_exists`/`_check_source_exists` are
+  `deterministic-runtime` (a file is there or it isn't; two faithful runs always
+  agree), while `_when` is `llm-runtime` (opaque prose judgment). The grammar
+  thus DERIVABLY differentiates them (distinct tokens) but does NOT (a) NAME the
+  split anywhere, (b) model it — the union treats all five as PEERS and even
+  `TRIGGER_META` records only `target` (workspace_source/run_artifact/input_value),
+  not mechanical-vs-judgment, nor (c) ACT on it — the validator binds + closed-
+  vocab's all five identically; `guard-scope` skips the trigger `_when` context
+  entirely. This flattening is consequential because the risk is ASYMMETRIC: a
+  misfired mechanical trigger needs a filesystem discrepancy (≈impossible between
+  faithful runs), but a misjudged `_when` trigger needs only interpretive
+  disagreement on prose AND fails OPEN — silently dropping an ENTIRE fragment
+  (e.g. the EKS compute path) with no error. Same `_fragments` list, identical-
+  looking `_trigger: {...}`, identical validation, wildly different blast radius.
+  So for `Trigger` the `@resolution` tag needs NO new derivation mechanism (it
+  lines up with the token); the value is in NAMING it + letting checks ACT:
+  scope-check `_when` triggers like `_when` guards, and WARN if a fragment's ONLY
+  trigger is a `_when` (a misjudgment then silently drops the whole unit of
+  work). `Trigger` joins `CheckVerb`'s `_assert` and `_when`'s four contexts as a
+  third concrete instance of "one type whose variants straddle the
+  mechanical/judgment boundary with nothing marking which side each is on."
+- **Derive the phase set + check phase-name references** (closed-vocab anchoring
+  for the most load-bearing implicit vocabulary). Phase NAMES are referenced as
+  bare strings in many positions — `_check_phase_completed: X`, `_requires_phase:
+  X`, `_advances_to: X` (plus `_phase` itself, the `on_confirm` cascade prose,
+  and the `_init` `.phase-status.json` write) — but the phase SET is never a
+  closed declared vocabulary like `ERROR_ACTION_KINDS`/`TRIGGER_KINDS`.
+  CORRECTION (verified against phase-chain.ts): `phase-chain` ALREADY derives
+  `phaseSet = { phase | kind==="phase" }` and ALREADY checks `_advances_to`
+  (vs phaseSet ∪ terminal {complete,done,end}) and `_requires_phase` (vs phaseSet
+  ∪ null), PLUS a reachability/orphan WARNING (a non-first phase no one advances
+  to). So the derive-and-check pattern EXISTS. The REMAINING gap is narrower than
+  first recorded: **`_check_phase_completed`'s argument is NOT checked against
+  phaseSet** (phase-chain covers only advances/requires) — a
+  `_check_phase_completed: discovr` in a precondition binds + passes, fails only
+  at runtime. FIX: extend phase-chain (it already has `phaseSet`) to also resolve
+  every `_check_phase_completed` arg ∈ phaseSet. Small, isolated. DERIVE, do NOT
+  add a `phases:` manifest (a second source of truth that drifts from the actual
+  `_phase` declarations — the `_on_error` duplication mistake). The pattern is
+  the same as `fragment-ref.ts` (collect `_fragment` decls → check `_fragments[]`
+  refs) and REF_RESOLVE (paths vs disk).
+  STILL-UNBUILT cross-phase chain-integrity (phase-chain does membership +
+  reachability, NOT these): (a) advances/requires MUTUAL consistency + acyclicity
+  — PROMOTED to its own item below; (b) the parked `on_confirm` cascade ==
+  ⋃ downstream `_produces`; (c) `_init`-iff-first-phase (`_init` present ⇔
+  `requiresPhase===null` — neither binder nor any check enforces). CAVEAT (all of
+  the above): rests on the `phases/`-only discovery scope — same assumption every
+  cross-unit check already makes.
+  WHEN A MANIFEST WOULD BE RIGHT INSTEAD (not now): if phases became a reusable
+  LIBRARY composed into different migrations (set primary, files are members)
+  rather than six files in one linear chain (files primary, set is their union).
+- **Phase-chain MUTUAL-CONSISTENCY check** (`_advances_to` ⇔ `_requires_phase`
+  biconditional) — HIGH value, distinct from what phase-chain does today.
+  phase-chain currently checks each pointer for MEMBERSHIP (names a real phase)
+  and REACHABILITY (orphan warning), but NEVER checks the two pointers AGREE WITH
+  EACH OTHER. The chain is a set of bidirectional edges: discover
+  `_advances_to: clarify` and clarify `_requires_phase: discover` are the forward
+  and backward halves of ONE edge and must be mutually consistent. INVARIANT: for
+  every phase A, `A._advances_to == B` ⇔ `B._requires_phase == A`. Broken cases
+  that PASS today: (i) forward link with no matching back-link (discover→clarify
+  but clarify requires design); (ii) asymmetric skip (discover→design while
+  clarify still requires discover); (iii) back-link with no forward link. WHY IT
+  MATTERS (runtime lifecycle bug, not cosmetic): `_requires_phase` is a runtime
+  GATE (clarify confirms phases.discover==completed) and `_advances_to` writes
+  `current_phase` — an inconsistent edge yields a phase that can never satisfy its
+  own precondition, or a handoff pointing at a phase that rejects it; it also
+  corrupts the `on_confirm` cascade's transitive-downstream walk. FIX: two loops
+  in phase-chain (it already has every phase's advancesTo + requiresPhase) — each
+  forward edge has a matching back edge, each back edge a matching forward edge;
+  new code e.g. `CHAIN_CONSISTENCY`. BONUS: a mutually-consistent chain with
+  exactly one head (`_requires_phase: null`) and one terminal
+  (`_advances_to: complete`) IS a single acyclic linear list — so this check +
+  a one-head/one-terminal check together give ACYCLICITY nearly for free
+  (subsumes the old separate acyclicity item).
+- **Missing-`_on_failure`-on-non-`_assert` warning** (unbuilt, documented in
+  dsl-types.md Type 4 `Condition`). A `Condition` (one pre/postcondition item) is
+  `CheckVerb` + optional `ErrorAction`. Only `_assert` has a DOCUMENTED default
+  action when `_on_failure` is omitted (emit `GATE_FAIL | reason=invalid`, halt).
+  For the other six verbs, omitting `_on_failure` is allowed by the binder but
+  the failure action is underspecified — in practice the LLM halts a failed
+  precondition, but the grammar never PINS that for non-`_assert` verbs the way
+  it does for `_assert`. dsl-types.md specifies a WARN ("non-`_assert` verb with
+  no `_on_failure` → warn; no documented default") but no check is wired. FIX: an
+  intra-unit check over each unit's pre/postconditions: `verb.kind !== "_assert"
+  && onFailure === undefined` → WARN. Low-consequence (most real conditions omit
+  `_on_failure` and the LLM halts anyway), but it is a clean isolated
+  documented-but-unbuilt item — same class as the other "validation power this
+  unlocks" notes. RELATED (already implied by the duplicate-`_assert` item):
+  postcondition PLACEMENT rules (fragment checks its own writes / assembler
+  checks final state / phase checks cross-cutting, per unit-taxonomy-spec) are
+  CONVENTIONS not checks — `Condition` is unit-agnostic (its `context` tag is
+  only pre-vs-post, NOT which-unit-kind), so a cross-cutting assertion sitting in
+  a fragment's postconditions goes undetected.
+- **`Guarded` minor items** (uniformity + one unbuilt check, from the `Guarded`
+  / `GuardedRole` deep-dive). Two things:
+  (a) **Path-convention check is UNBUILT though `role` was added to enable it.**
+  `GuardedRole` (`knowledge`|`template`) is documented as driving "path +
+  semantic checks," and it IS read in `ref-resolve.ts` for orphan-sweep scoping
+  (`if (g.role === "knowledge") referencedKnowledge.add(...)`) and to gate
+  `JSON_INVALID` to knowledge files only (templates aren't JSON) — both real.
+  BUT the THIRD advertised use, PATH CONVENTIONS, has NO check: nothing verifies
+  a `knowledge` file lives under `knowledge/<phase>/` or a `template` under
+  `templates/<phase>/`. Clean isolated unbuilt check, exactly what `role` was
+  supposedly added to enable. FIX: in ref-resolve (it already has role + path),
+  assert the path prefix matches the role.
+  (b) **`file` vs `_file` bare-vs-underscored inconsistency** — `Guarded` uses a
+  BARE `file:` key whose VALUE is fully structural (REF_RESOLVE'd, orphan-swept),
+  while `FragmentRef`/`AssemblerRef` use `_file:` for the analogous thing. Same
+  bare-vs-underscored wart as `_re_entry_guard`'s sub-keys — a bare key that is
+  actually structural muddies the "`_`-keys are structural, bare keys are author
+  content" rule. Fold into the same uniformity pass: candidate rename `file` →
+  `_file` for consistency across all file-ref sub-keys.
 
 ## How to resume
 
