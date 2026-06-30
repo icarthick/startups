@@ -589,6 +589,42 @@ inverse guard-scope); (4) reconcile the over-claimed enforcement (3B); (5) make
   content" rule. Fold into the same uniformity pass: candidate rename `file` →
   `_file` for consistency across all file-ref sub-keys.
 
+## Decisions / anticipated review questions
+
+Things that WILL come up in PR review (reviewers reach for them independently);
+recorded so they don't get re-litigated each time.
+
+- **Q: Why not pull the structural contract into a sibling `.meta` file**
+  **(`foo.md` + `foo.meta.md`, like `foo.js`/`foo.test.js`)?** A teammate
+  proposed exactly this in response to the rollout proposal; expect it again.
+  ANSWER: we DO separate the part that benefits — the lookup DATA (pricing,
+  sizing tables) comes out of prose into its own files (that's Rung 1). But the
+  STRUCTURAL contract (the closed `_`-vocabulary: preconditions, produces,
+  fragments, meta fences) is DELIBERATELY co-located with the prose (FORM-2b:
+  frontmatter = contract, body = procedure). Splitting it into a sibling file
+  REINTRODUCES DRIFT — prose and contract silently disagreeing — which is the
+  exact failure mode the DSL exists to prevent. Co-location means they're
+  reviewed together and the `[_uses:]` marker + the validator tether prose refs
+  to the contract so they can't diverge. The `foo.test.js` analogy actually
+  SUPPORTS this: a test file is separate but MECHANICALLY TETHERED to its source
+  and CI runs them together — "separate file kept in sync by a checker" is
+  precisely the knowledge-JSON + ref-resolve/xtable/subset model, NOT a reason to
+  split the contract. The "runtime noise" cost of co-located frontmatter is real
+  but small (the LLM reads past it trivially); the drift cost of splitting is the
+  thing we're eliminating.
+- **Q: Can we auto-verify the metadata with a code-based tool?** Same teammate
+  asked for "a unified flow to turn the metadata into an executable validation
+  script." ANSWER: already built — `scripts/dsl-validator/` runs in CI via
+  `mise run lint:dsl`. It validates STRUCTURE + DATA INTEGRITY (closed vocab,
+  refs resolve, cross-table coverage, orphan/JSON-validity), NOT migration
+  output or prose judgment (that's the separate cold-run reproducibility
+  discipline — calibrate expectations). The data-integrity slice running on the
+  Rung-1 JSON IS Rung 2.
+- **Signal:** the teammate above, seeing only the Slack proposal, independently
+  asked for (1) extract data into separate files and (2) a code tool to
+  auto-verify it — i.e. Rungs 1 and 2. The data-first ordering is intuitive to
+  the team; the early rungs will land with a receptive reviewer.
+
 ## Incremental rollout plan (replace prose heroku-to-aws with the DSL)
 
 Status: PLAN agreed 2026-06-30. The DSL skill exists today as a THIRD, parallel
@@ -694,6 +730,11 @@ first (`dyno-type-table.md` vs `dyno-fargate-sizing.json`) to learn the shape.
    (3) start Rung 1a (the 7 tables → JSON + repoint prose refs). This session
    committed the deep-dive (guide + type-graph + debt list) on the DSL branch;
    tree is clean; both validators green. NOT pushed.
+   SCOPE GUARDRAIL: Rung 1 extracts only the knowledge DATA (lookup tables) into
+   separate files. Keeping the STRUCTURAL contract co-located with prose is a
+   SETTLED decision (drift prevention — see "Decisions / anticipated review
+   questions" above); do NOT pull structure into sibling files even if a reviewer
+   suggests it or it seems cleaner.
 
 1. Read `INTERPRETER.md` + `docs/unit-taxonomy-spec.md` + `docs/dsl-types.md`.
 2. Run `mise run lint:dsl` and `mise run lint:types` — both should be green
