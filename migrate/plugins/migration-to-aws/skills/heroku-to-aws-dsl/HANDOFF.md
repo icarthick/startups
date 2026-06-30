@@ -723,14 +723,48 @@ the prose skill, two sub-problems:
     Call out the two pinned-interpretation notes (postgres `_rds_proxy`, redis
     `_engine_version`) in the PR description so a reviewer signs off on the
     RESOLUTION, not just the format. No row values change.
-  - **Rung 1a-pricing (SEPARATE PR)** = adopt `aws-pricing.json` into the prose
-    skill, repoint heroku refs ONLY. `pricing-cache.md` is a SYMLINK shared with
-    gcp-to-aws and STAYS (gcp still uses it); the two pricing sources coexist until
-    gcp migrates (out of scope). Split out so the rate ADDITIONS get focused
-    review instead of being buried among mechanical diffs (two-audiences logic:
-    mechanical pairs need "same numbers?" review, pricing needs "are these NEW
-    numbers right?" review — different cognition). PR carries a "Data changes
-    (not format)" table enumerating every added rate + its basis.
+  - **Rung 1a-pricing (SEPARATE PR) — DESIGN AGREED 2026-06-30.** Pricing is NOT
+    a clean mechanical move like the 5 tables — it is Kind-A (a shared cache file)
+    + Kind-B (rates HARDCODED INLINE in `estimate.md`) + reviewable additions.
+    Audit findings:
+    * THREE pricing locations today: (1) `references/shared/pricing-cache.md` — a
+      SYMLINK to `gcp-to-aws/.../pricing-cache.md`, the canonical AWS-rate source
+      SHARED with gcp (one of SIX heroku→gcp shared symlinks); (2)
+      `references/shared/heroku-pricing-cache.md` — a REAL file, SOURCE-side Heroku
+      plan prices (for `heroku_monthly_estimated`), NOT AWS rates — OUT OF SCOPE;
+      (3) rates HARDCODED INLINE in `estimate.md` (cost-formula table lines
+      ~122-140, EKS node-rate table ~159-163, CloudWatch block ~226-229).
+    * DRIFT ALREADY REAL: the EKS m6i/r6i node rates exist ONLY inline in
+      estimate.md (+ the DSL JSON); the shared cache has NO m6i/r6i (only m5.*).
+      So the procedure's numbers are already partly independent of the cache it
+      claims to read. MSK / Amazon MQ / OpenSearch are also ABSENT from the cache.
+    * OVERLAP AUDIT (gcp vs heroku): big shared INFRA core (Fargate, RDS, Aurora,
+      EC2, EKS, ElastiCache, S3, ALB, NAT, Route53, CloudFront, Secrets,
+      CloudWatch, X-Ray) used by BOTH; heroku-only = MSK/MQ/OpenSearch; gcp-only =
+      the entire Bedrock AI-model table + Lambda/DynamoDB/Redshift/Athena/SageMaker
+      + Security Baseline (~60% of the cache is gcp-only AI).
+    AGREED DESIGN:
+    * SHAPE: one SHARED INFRA JSON = the infra intersection + heroku's
+      MSK/MQ/OpenSearch (infra; gcp just won't read those keys). AI-models/Lambda/
+      DynamoDB/Redshift/Athena/SageMaker/Security STAY in gcp's markdown cache.
+    * LOCATION: NEW NEUTRAL `skills/shared/pricing/aws-infra-pricing.json` (neither
+      skill owns it). Ships because the plugin packages ALL of `skills/`
+      (codex plugin.json `"skills": "./skills/"`). CONSEQUENCE ACCEPTED: diverges
+      from the 6 existing heroku→gcp symlinks — a future-consistency item (migrate
+      the other 5 to neutral later), NOT this PR.
+    * GAP STRATEGY: heroku migrates NOW, gcp LATER; ACCEPT short-lived two-copy
+      drift (markdown cache keeps infra rates for gcp until it migrates). TRACKED
+      FOLLOW-UP so "migrate gcp soon" doesn't become "never" (the failure mode of
+      this choice).
+    * THIS PR TOUCHES (heroku): (a) add the shared JSON; (b) remove heroku's
+      `pricing-cache.md` symlink; (c) repoint `estimate.md` Step 0a AND STRIP the
+      inline rates from the cost-formula table / EKS node table / CloudWatch block,
+      pointing them at the JSON (Kind-B prose surgery — the hard part);
+      `heroku-pricing-cache.md` UNTOUCHED (out of scope).
+    * REVIEWABLE ADDITIONS ("Data changes (not format)" section): m6i/r6i EKS node
+      rates, MSK, MQ, OpenSearch, fast-path `monthly_baseline_est` — present in the
+      JSON, absent/inline-only in the markdown today. Same two-audiences logic:
+      pricing review = "are these NEW numbers right?" not "same numbers?".
   - **Rung 1b.x (EKS, DEFERRED whole)** = `eks-mapping-table.md` rows +
     `design-eks.md` cluster constants extracted TOGETHER as one coherent unit,
     later in the ladder. Consequence ACCEPTED: the clean Kind-A pod rows wait for a
