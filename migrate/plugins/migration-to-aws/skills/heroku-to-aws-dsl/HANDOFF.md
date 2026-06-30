@@ -776,6 +776,15 @@ the prose skill, two sub-problems:
       rates, MSK, MQ, OpenSearch, fast-path `monthly_baseline_est` — present in the
       JSON, absent/inline-only in the markdown today. Same two-audiences logic:
       pricing review = "are these NEW numbers right?" not "same numbers?".
+  - **Rung 1b-eks — PR #89 OPEN 2026-06-30 (awaiting review).** Built per the
+    drift audit below + the agreed split (rows + cluster constants + node-rank →
+    `knowledge/design/eks-pod-sizing.json`; sizing ALGORITHM stays prose). All 3
+    decisions applied: (1) `kubernetes_version` kept query-live, JSON key named
+    `kubernetes_version_fallback` so it can't read as a pin; (2) node-sizing clamp
+    `desired_size = max(min_size, ceil(total_pods/4))` bugfix; (3) node-rank
+    tie-break pinned in `node_size_rank`. Cold-validated 3 fixtures (small-clamp,
+    multi-class tie, ram-only tie) — all matched ground truth EXACTLY; mise build
+    green. (Original deferral rationale + drift audit retained below.)
   - **Rung 1b.x (EKS, DEFERRED whole)** = `eks-mapping-table.md` rows +
     `design-eks.md` cluster constants extracted TOGETHER as one coherent unit,
     later in the ladder. Consequence ACCEPTED: the clean Kind-A pod rows wait for a
