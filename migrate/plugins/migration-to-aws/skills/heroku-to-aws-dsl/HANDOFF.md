@@ -812,6 +812,26 @@ the prose skill, two sub-problems:
     DSL value'), confirming deferring-it-whole was right — splitting the clean rows
     out would orphan the decisions. The PR needs a "Data decisions" section like
     the pricing PR.
+
+  - **Rung 1b-estimate (estimate-defaults extraction) — IDENTIFIED 2026-06-30,
+    deferred to its own PR.** While reviewing PR #88 we asked "is the formula
+    knowledge?" → settled NO (algorithm lives in prose; the LLM executes it; a
+    formula-as-JSON-string would force a pointless parse step). But "are the OTHER
+    estimate.md tables knowledge?" → mostly YES. Audit (vs the DSL
+    `estimate-defaults.json`, which already extracted them): estimate.md has TWO
+    knowledge bodies — (a) AWS RATES (PR #88, done) and (b) ESTIMATE DEFAULTS =
+    tunable org assumptions. Tables that are DATA → a prose-skill
+    `estimate-defaults.json`: cost-tier multipliers (1.5/1.0/0.7),
+    log-volume-per-service constants (Fargate 3GB / RDS 1GB / ALB 2GB / NAT 1GB /
+    ElastiCache 0.5GB / MSK 2GB), custom-metrics/alarms heuristics, complexity-tier
+    bands + timeline weeks, optimization savings catalog (20-66% etc.),
+    has-databases service set. Tables that STAY PROSE (algorithm/decision-logic):
+    per-service cost formulas, pricing hierarchy, recommendation-path logic. MCP
+    recipe table stays (MCP config). WHY ITS OWN PR, not folded into #88: different
+    knowledge category (org-tunable, heroku-specific — NOT shared with gcp, so NOT
+    in `skills/shared/`; the DSL keeps rates and defaults in two files for this
+    reason), more Kind-B prose surgery on the complexity/optimization sections, and
+    #88 is already validated + open. Sibling of the EKS Kind-B PR.
 - **Kind B — interleaved in phase prose** (HIGHER risk, one phase per PR):
   `design-defaults`, `estimate-defaults`, `clarify-questions`,
   `generate-routing`, `feedback-config` were extracted DURING the DSL work and
