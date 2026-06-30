@@ -822,6 +822,27 @@ the prose skill, two sub-problems:
     out would orphan the decisions. The PR needs a "Data decisions" section like
     the pricing PR.
 
+  - **Rung 1b-estimate (estimate-defaults extraction) — PR #90 OPEN 2026-06-30
+    (awaiting review).** SCOPE NARROWED from the original audit during the build:
+    only the 2 genuinely heroku-estimate-specific tables were extracted to
+    `knowledge/estimate/estimate-defaults.json` — `log_volume_gb_per_service` +
+    `optimization_savings_ranges`. Cold-validated (32 GB/mo log volume + correct
+    optimization gating incl. s3 excluded for S3-less design); mise build green.
+    KEY INVESTIGATION FINDING: the complexity-tier bands + timeline weeks are
+    ALREADY in the SHARED `references/shared/migration-complexity.md` (heroku
+    symlinks it, gcp-owned), and estimate.md RESTATES a DRIFTED subset inline
+    (timeline Small `2-6` vs the shared file's `2-4`/`3-6`). So those were NOT
+    extracted (pulling them into a heroku file = a 3rd divergent copy). Cost-tier
+    multipliers + metric/alarm heuristics stay prose (algorithm). The optimization
+    output skeletons stay (output templates); JSON keys named
+    `target_services`/`timing` to match them.
+    NEW TRACKED FOLLOW-UP — **complexity-drift fix:** make estimate.md DEFER to the
+    shared `migration-complexity.md` (it already says "Load" it) and DELETE its
+    drifted inline bands/timeline restatement. Heroku-only prose bug-fix, its own
+    small PR. Separately, migration-complexity.md itself is a gcp-owned shared
+    markdown (like pricing-cache was) — a FUTURE shared-file convergence thread if
+    we ever JSON-ify it, but PREMATURE now (the DSL kept complexity as prose; no
+    convergence target; gcp blast radius). Do NOT move/JSON-ify it yet.
   - **Rung 1b-estimate (estimate-defaults extraction) — IDENTIFIED 2026-06-30,
     deferred to its own PR.** While reviewing PR #88 we asked "is the formula
     knowledge?" → settled NO (algorithm lives in prose; the LLM executes it; a
