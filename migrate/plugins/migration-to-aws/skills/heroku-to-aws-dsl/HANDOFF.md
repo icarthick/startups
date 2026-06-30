@@ -387,13 +387,13 @@ inverse guard-scope); (4) reconcile the over-claimed enforcement (3B); (5) make
 - **Position-2 prose error-actions have no `[_uses:]`-style tether** (grammar
   consistency + closed-vocab anchoring). `ErrorAction` appears in THREE positions:
   (1) `_on_failure` on a condition (structured, checkable); (2) MENTIONED IN STEP
-  PROSE as a parenthetical/verb (`(\`_warn_and_skip\`)` in design-mapping.md
+  PROSE as a parenthetical/verb (a parenthesized warn-and-skip token in design-mapping.md
   map_resources, or `_defer` written as the verb in the addon branch); (3) the
   `_on_error:` documentation table. Position 2 is the gap: the action token is
   prose DECORATION, not a reference — nothing checks it is a valid
   `ErrorActionKind` or that it is declared in this unit's `_on_error` table. This
   is an ASYMMETRY: the SIBLING problem (a closed-vocab thing named in prose) is
-  already solved for FILE references by the `[_uses: F]` marker, but actions got
+  already solved for FILE references by the uses-marker, but actions got
   no equivalent. FIX (minimal, modeled on the uses-marker): an inline action
   marker (action-tag carrying the token) replacing the bare parenthesized token;
   reads identically, but a new check (`ACTION_REF`) verifies (a) closed-vocab,
@@ -589,7 +589,111 @@ inverse guard-scope); (4) reconcile the over-claimed enforcement (3B); (5) make
   content" rule. Fold into the same uniformity pass: candidate rename `file` →
   `_file` for consistency across all file-ref sub-keys.
 
+## Incremental rollout plan (replace prose heroku-to-aws with the DSL)
+
+Status: PLAN agreed 2026-06-30. The DSL skill exists today as a THIRD, parallel
+skill (`skills/heroku-to-aws-dsl/`) alongside the incumbent prose
+`skills/heroku-to-aws/` (on `origin/main`). A big-bang swap is too much for the
+team to consume. This plan converges the two until the prose skill can be deleted.
+
+**Goal / audience / channel.** END GOAL: REPLACE prose `heroku-to-aws` with the
+DSL (not coexist). AUDIENCE: own team — devs AND product owners — as PR
+REVIEWERS. CHANNEL: PRs into `awslabs/startups` (so each PR must self-justify to
+external maintainers too). "Value on its own" therefore = each PR is
+independently mergeable AND legible to a PO without reading TypeScript.
+
+**Two load-bearing principles (what makes this incremental, not big-bang):**
+
+1. **Data-first.** Rungs 1-2 land on the PROSE skill BEFORE any DSL is
+   introduced. They extract knowledge + add a data-linter — pure prose-skill
+   improvement, PO-legible, and they build the SHARED data foundation both skills
+   then use. The DSL paradigm doesn't reach reviewers until Rung 3.
+2. **Terminal-first conversion order.** When converting phases (Rungs 4-8),
+   convert BACK-TO-FRONT: feedback first, discover LAST. Each conversion is then
+   a leaf (nothing downstream consumes its output as DSL yet), so every
+   phase-conversion PR is independently safe + mergeable. Discover-first (the
+   intuitive order) is the trap — everything depends on it immediately.
+
+**The rung ladder (each rung = a PR or small cluster; each independently valuable):**
+
+- **Rung 0 — docs/ADR only.** Ship `dsl-language-guide.md` + the type-graph +
+  a short "why we're moving heroku-to-aws to a DSL" ADR. No code change. Team
+  approves the DIRECTION once, cheaply. (Guide + graph already committed on the
+  DSL branch; the ADR + repointing them into a main-based PR is the actual Rung-0
+  work.)
+- **Rung 1 — extract knowledge into JSON, consumed by the EXISTING prose skill.**
+  NO DSL introduced. Decouples the prose skill's lookup data into JSON it
+  references; that JSON becomes the SHARED source of truth with the DSL skill.
+  Decomposed (it is itself a ladder — see below).
+- **Rung 2 — validator's DATA checks as a knowledge-integrity linter in CI.**
+  XTABLE (cross-table coverage), ref-resolve, orphan-knowledge, JSON-validity —
+  run against the Rung-1 JSON. NOT the grammar checks yet. Catches the RDS-pricing
+  -gap class at build. PO value: "we can't ship a migration with a missing
+  price." Needs a check first: confirm these run reading JSON directly without
+  binding full DSL units (they mostly do — verify).
+- **Rung 3 — first DSL phase: feedback (terminal), as explicitly transitional.**
+  Ship INTERPRETER + just the grammar feedback needs. Smallest blast radius
+  (terminal = no downstream consumer). First concrete look at the new shape.
+- **Rungs 4-8 — convert remaining phases terminal→initial:** generate →
+  estimate → design → clarify → discover, one PR each. Grammar accretes as
+  each phase needs it; validator's structural checks come online per-phase.
+- **Rung 9 — retire prose skill + repoint plugin.** Delete `heroku-to-aws`,
+  rename `heroku-to-aws-dsl` → `heroku-to-aws`, repoint the plugin manifest.
+  This is the rung that makes it a REPLACE, not "we now have two skills."
+
+**Rung 1 decomposition (the immediate next work).** Two KINDS of knowledge in
+the prose skill, two sub-problems:
+
+- **Kind A — already standalone reference files** (LOW risk): the 6
+  `references/design-refs/*.md` tables (dyno-type, postgres-plan, redis-plan,
+  kafka-plan, fast-path, eks-mapping) + `references/shared/pricing-cache.md`.
+  These are ALREADY decoupled markdown tables the prose skill looks up by file;
+  converting is a FORMAT change (MD table → JSON) + repoint the reference. The
+  DSL skill ALREADY has the JSON equivalents (`knowledge/design/*.json`,
+  `knowledge/estimate/aws-pricing.json`) — so 1a brings that data into the prose
+  skill and the two skills then share ONE source of truth.
+  - **Rung 1a = these 7 tables → JSON, repoint prose refs. ONE PR. The first
+    real work.**
+- **Kind B — interleaved in phase prose** (HIGHER risk, one phase per PR):
+  `design-defaults`, `estimate-defaults`, `clarify-questions`,
+  `generate-routing`, `feedback-config` were extracted DURING the DSL work and
+  have no standalone prose home — they live inside `design.md`/`estimate.md`/etc.
+  Decoupling = surgically removing inlined constants from procedure prose +
+  pointing at JSON. Rungs 1b.1-1b.5, one phase each.
+
+**OPEN QUESTION gating Rung 1a (run FIRST, read-only): the data diff.** Are the
+DSL JSON files faithful representations of the prose MD tables, or did they
+DIVERGE during DSL work (likely — the DSL work fixed the RDS pricing gap, added
+`db.m6g.*` classes, pinned values, added EKS tables)? If clean → 1a is a
+mechanical format conversion. If diverged → 1a is format conversion + a
+REVIEWABLE set of data corrections (POs approve the data changes). Diff one pair
+first (`dyno-type-table.md` vs `dyno-fargate-sizing.json`) to learn the shape.
+
+**Branch / worktree / git mechanics.**
+
+- Rung-1 branch: `feat/heroku-knowledge-extract-tables`, based on CLEAN
+  `origin/main` (NOT this DSL branch — branching off the DSL branch would carry
+  all 16 DSL commits into a supposed-to-be-DSL-free PR).
+- Use a separate WORKTREE at `../startups-rung1` so the DSL branch stays intact +
+  readable (Rung 1 brings data FROM the DSL JSON), DSL-contamination is
+  impossible (DSL skill isn't on disk in a main-based tree), and there's no
+  checkout churn between two very different roots.
+  `git worktree add ../startups-rung1 -b feat/heroku-knowledge-extract-tables origin/main`
+- Each rung = its OWN branch off the latest merged `origin/main` → PR → merge →
+  repeat (linear, not stacked — simpler for a learning team).
+- Push to `fork` (`icarthick/startups`); PR fork → upstream `awslabs/startups`.
+  NEVER `git push origin <branch>`.
+
 ## How to resume
+
+0. **ACTIVE FRONT: Rung 1 of the incremental rollout (see the section above).**
+   Next 3 actions, in order: (1) run the data diff — DSL JSON vs prose MD tables
+   (read-only, both reachable from the DSL branch via git) to learn if Rung 1a is
+   clean-conversion or reconciliation; (2) create the worktree
+   `../startups-rung1` on `feat/heroku-knowledge-extract-tables` off `origin/main`;
+   (3) start Rung 1a (the 7 tables → JSON + repoint prose refs). This session
+   committed the deep-dive (guide + type-graph + debt list) on the DSL branch;
+   tree is clean; both validators green. NOT pushed.
 
 1. Read `INTERPRETER.md` + `docs/unit-taxonomy-spec.md` + `docs/dsl-types.md`.
 2. Run `mise run lint:dsl` and `mise run lint:types` — both should be green
