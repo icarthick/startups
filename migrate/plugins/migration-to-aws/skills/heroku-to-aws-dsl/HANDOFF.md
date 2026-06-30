@@ -738,6 +738,35 @@ the prose skill, two sub-problems:
     later + heavier — chosen for coherence (one EKS source of truth, no
     half-migrated file) over speed, consistent with the "don't split knowledge
     across PRs / structure stays co-located" principle.
+
+    **EKS DRIFT AUDIT (2026-06-30, done before drawing the EKS PR).** Read
+    `design-eks.md` (prose) end-to-end vs `eks-pod-sizing.json` (DSL). The EKS
+    extraction is NOT clean-mechanical — it is 1 mechanical part + 1 Kind-B
+    extraction + 3 REVIEWABLE DATA DECISIONS:
+    - pod-sizing rows (19): IDENTICAL prose-table vs DSL — mechanical (Kind-A).
+    - cluster_name / node-group-type-by-pref / addons list: match — Kind-B
+      extraction (constants live in `design-eks.md` prose), no value change.
+    - **DECISION 1 — `kubernetes_version` (the big one, INVERSE of redis/postgres
+      pins):** prose says "query live via `aws eks describe-addon-versions`, ELSE
+      default `1.31`, do NOT hardcode"; DSL PINS `1.31` as a constant ('DSL makes
+      no AWS calls'). For the PROSE skill, KEEP the query-live-with-`1.31`-fallback
+      behavior — do NOT adopt the DSL's static pin (that would REGRESS the
+      incumbent, which is not constrained to no-AWS-calls). Extract the FALLBACK
+      (`1.31`) + the query INSTRUCTION as data; don't collapse to the pin. This is
+      the one case where the DSL value must NOT be carried into prose.
+    - **DECISION 2 — node-sizing desired_size clamp (DSL fixed a real prose BUG):**
+      prose `desired = ceil(total_pods/4)` can yield `desired=1 < min_size=2` when
+      `total_pods <= 4`, which AWS REJECTS; DSL has `desired = max(min_size,
+      ceil(total_pods/4))`. ADOPT the DSL clamp into prose as a bugfix (flag for
+      review).
+    - **DECISION 3 — instance-type rank/tie-break:** prose hand-waves "largest
+      dyno type present"; DSL pins `_node_size_rank` + a tie rule (m6i.4xlarge over
+      r6i.4xlarge unless a ram-type is the only one at that rank). ADOPT the DSL
+      rank into prose as a CLARIFICATION (low-risk).
+    NET: the EKS PR carries 3 judgment calls (one of which is 'do NOT adopt the
+    DSL value'), confirming deferring-it-whole was right — splitting the clean rows
+    out would orphan the decisions. The PR needs a "Data decisions" section like
+    the pricing PR.
 - **Kind B — interleaved in phase prose** (HIGHER risk, one phase per PR):
   `design-defaults`, `estimate-defaults`, `clarify-questions`,
   `generate-routing`, `feedback-config` were extracted DURING the DSL work and
