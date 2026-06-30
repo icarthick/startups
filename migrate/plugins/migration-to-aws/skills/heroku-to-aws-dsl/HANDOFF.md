@@ -895,6 +895,25 @@ first (`dyno-type-table.md` vs `dyno-fargate-sizing.json`) to learn the shape.
 ## How to resume
 
 0. **ACTIVE FRONT: Rung 1 of the incremental rollout (see the section above).**
+   - **GRAMMAR INTRODUCTION STARTED — PR #91 OPEN (phase frontmatter + minimal
+     INTERPRETER).** First time the phase/fragment/assembler vocabulary + an
+     interpreter contract touch the PROSE skill on main. Scope: discover.md gains
+     phase frontmatter (`_phase`/`_title`/`_init`/`_input`/`_fragments`[terraform
+     `_always`, billing `_glob`]/`_assemble`/`_produces`/`_advances_to`); NEW
+     `INTERPRETER.md` (prose-skill-local, de-DSL'd) defines how to read the
+     frontmatter + the `_trigger` forms + a full `_init` definition; NEW
+     `discover-assemble.md` (Step 3 moved verbatim = the assembler unit); SKILL.md
+     gains a short pointer to INTERPRETER.md. `_init` is the FIRST LOAD-BEARING
+     key — its migration-state-init procedure lives ONLY in INTERPRETER.md (Step 0
+     prose REMOVED), one source of truth. discover-terraform/billing fragments
+     UNCHANGED. Cold-validated TWICE (fragment routing: terraform fires, billing
+     skips on empty glob, assembler resolves; _init: agent initializes state from
+     INTERPRETER alone, before fragments, zero divergence). mise build green.
+     This is Rung-3-flavored but SCOPED to one cross-cutting capability (`_init`)
+     on the only phase that has it (discover) — NOT a full phase conversion, so
+     the terminal-first ordering doesn't bind. NEXT load-bearing step (full
+     phase->interpreter-driven conversion) should still go TERMINAL-FIRST
+     (feedback), after #91 establishes the vocabulary.
    - **Rung 1a-mechanical: DONE + MERGED (2026-06-30, PR #87 = `origin/main`
      `cec1467`).** The 5 clean tables (dyno, postgres, redis, kafka, fast-path)
      are now JSON under `heroku-to-aws/knowledge/design/*.json` with the prose
