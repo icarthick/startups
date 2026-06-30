@@ -776,7 +776,7 @@ the prose skill, two sub-problems:
       rates, MSK, MQ, OpenSearch, fast-path `monthly_baseline_est` — present in the
       JSON, absent/inline-only in the markdown today. Same two-audiences logic:
       pricing review = "are these NEW numbers right?" not "same numbers?".
-  - **Rung 1b-eks — PR #89 OPEN 2026-06-30 (awaiting review).** Built per the
+  - **Rung 1b-eks — DONE + MERGED (PR #89, `origin/main` `a390ae4`).** Built per the
     drift audit below + the agreed split (rows + cluster constants + node-rank →
     `knowledge/design/eks-pod-sizing.json`; sizing ALGORITHM stays prose). All 3
     decisions applied: (1) `kubernetes_version` kept query-live, JSON key named
