@@ -723,7 +723,18 @@ the prose skill, two sub-problems:
     Call out the two pinned-interpretation notes (postgres `_rds_proxy`, redis
     `_engine_version`) in the PR description so a reviewer signs off on the
     RESOLUTION, not just the format. No row values change.
-  - **Rung 1a-pricing (SEPARATE PR) — DESIGN AGREED 2026-06-30.** Pricing is NOT
+  - **Rung 1a-pricing (SEPARATE PR) — PR #88 OPEN 2026-06-30 (awaiting review).**
+    Built per the design below. `skills/shared/pricing/aws-infra-pricing.json`
+    (= the DSL `aws-pricing.json` content, de-DSL'd) at the NEUTRAL location;
+    estimate.md Step 0a + cost-formula table + EKS section + CloudWatch block
+    repointed to JSON keys (inline rates stripped); heroku `pricing-cache.md`
+    symlink removed; SKILL.md + shared/README.md repointed. Cold-validated against
+    large-terraform (per-service costs matched ground truth EXACTLY); full mise
+    build green. Caught + fixed a leftover inline `$73` EKS control-plane literal.
+    TRACKED FOLLOW-UP (do soon, don't let it become permanent): migrate
+    gcp-to-aws's estimate to read the SAME shared file + retire its
+    `pricing-cache.md` infra sections — closes the temporary two-copy window.
+    DESIGN (as built): Pricing was NOT
     a clean mechanical move like the 5 tables — it is Kind-A (a shared cache file)
     + Kind-B (rates HARDCODED INLINE in `estimate.md`) + reviewable additions.
     Audit findings:
