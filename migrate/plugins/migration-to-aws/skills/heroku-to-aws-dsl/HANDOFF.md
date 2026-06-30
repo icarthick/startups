@@ -723,8 +723,8 @@ the prose skill, two sub-problems:
     Call out the two pinned-interpretation notes (postgres `_rds_proxy`, redis
     `_engine_version`) in the PR description so a reviewer signs off on the
     RESOLUTION, not just the format. No row values change.
-  - **Rung 1a-pricing (SEPARATE PR) — PR #88 OPEN 2026-06-30 (awaiting review).**
-    Built per the design below. `skills/shared/pricing/aws-infra-pricing.json`
+  - **Rung 1a-pricing (SEPARATE PR) — DONE + MERGED (PR #88, `origin/main`
+    `a69a01d`).** Pricing rates now in `skills/shared/pricing/aws-infra-pricing.json`
     (= the DSL `aws-pricing.json` content, de-DSL'd) at the NEUTRAL location;
     estimate.md Step 0a + cost-formula table + EKS section + CloudWatch block
     repointed to JSON keys (inline rates stripped); heroku `pricing-cache.md`
