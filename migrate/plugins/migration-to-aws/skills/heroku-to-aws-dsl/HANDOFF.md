@@ -718,7 +718,7 @@ the prose skill, two sub-problems:
   not rename+file-moves. New top-level `knowledge/` dir in the prose skill; pointer
   from a design-ref `.md` is `../../knowledge/design/<x>.json`.
 
-  - **Rung 1a (mechanical)** = the 5 clean standalone tables → JSON + repoint refs:
+  - **Rung 1a (mechanical) — DONE + MERGED (PR #87, `origin/main` `cec1467`).** The 5 clean standalone tables → JSON + repoint refs:
     dyno-type, postgres, redis, kafka, fast-path. Pure "same numbers, now JSON."
     Call out the two pinned-interpretation notes (postgres `_rds_proxy`, redis
     `_engine_version`) in the PR description so a reviewer signs off on the
@@ -800,22 +800,34 @@ first (`dyno-type-table.md` vs `dyno-fargate-sizing.json`) to learn the shape.
 ## How to resume
 
 0. **ACTIVE FRONT: Rung 1 of the incremental rollout (see the section above).**
-   The data diff is DONE (2026-06-30, verdict SPLIT — see
-   `.agents/scratchpad/rung1a-data-diff.md` + the revised Rung-1 decomposition
-   above). Plan agreed: Rung 1a (mechanical, 5 tables), Rung 1a-pricing (separate
-   PR), Rung 1b.x (EKS deferred whole). Next 3 actions, in order: (1) create the
-   worktree `../startups-rung1` on `feat/heroku-knowledge-extract-tables` off
-   `origin/main`; (2) start Rung 1a-mechanical (the 5 clean tables — dyno,
-   postgres, redis, kafka, fast-path — → JSON + repoint prose refs; flag the
-   postgres `_rds_proxy` + redis `_engine_version` pinned interpretations in the
-   PR description); (3) Rung 1a-pricing as its own follow-up PR. This session
-   committed the deep-dive (guide + type-graph + debt list) on the DSL branch;
-   tree is clean; both validators green. NOT pushed.
+   - **Rung 1a-mechanical: DONE + MERGED (2026-06-30, PR #87 = `origin/main`
+     `cec1467`).** The 5 clean tables (dyno, postgres, redis, kafka, fast-path)
+     are now JSON under `heroku-to-aws/knowledge/design/*.json` with the prose
+     `.md` files repointing at them (Option A). Cold-agent validated against the
+     large-terraform sample (all design mappings reproduced exactly); full
+     `mise run build` green. The `feat/heroku-knowledge-extract-tables` branch +
+     `../startups-rung1` worktree were deleted post-merge.
+   - **NEXT: Rung 1a-pricing (its own PR).** Adopt `aws-pricing.json` into the
+     prose skill (`knowledge/estimate/`), repoint heroku estimate refs ONLY.
+     `pricing-cache.md` is a SYMLINK shared with gcp-to-aws and STAYS. Carries a
+     "Data changes (not format)" table for the rate ADDITIONS (RDS-gap m6g/r6g/x2g,
+     net-new MSK section, EKS node rates, fast-path baselines) — see the data-diff
+     scratchpad + the Rung-1 decomposition above. New branch off the UPDATED
+     `origin/main` (`cec1467`+), separate worktree, push to `fork`, PR → upstream.
+   - **THEN: Rung 1b-eks (its own PR).** pod rows (mechanical) + `design-eks.md`
+     cluster constants (Kind-B) + the 3 reviewable decisions from the EKS drift
+     audit (keep query-live `kubernetes_version` — do NOT adopt the DSL pin; adopt
+     the node-sizing `max(min_size,…)` clamp as a bugfix; adopt the `_node_size_rank`
+     tie-break as a clarification). Needs a "Data decisions" section.
    SCOPE GUARDRAIL: Rung 1 extracts only the knowledge DATA (lookup tables) into
    separate files. Keeping the STRUCTURAL contract co-located with prose is a
    SETTLED decision (drift prevention — see "Decisions / anticipated review
    questions" above); do NOT pull structure into sibling files even if a reviewer
    suggests it or it seems cleaner.
+   MECHANICS NOTE: each rung is its OWN branch off the latest merged `origin/main`
+   in a SEPARATE worktree (linear, not stacked). edit/write tools resolve relative
+   paths against the MAIN repo CWD — use ABSOLUTE paths when editing in a secondary
+   worktree, and verify with `git status` IN that worktree.
 
 1. Read `INTERPRETER.md` + `docs/unit-taxonomy-spec.md` + `docs/dsl-types.md`.
 2. Run `mise run lint:dsl` and `mise run lint:types` — both should be green
