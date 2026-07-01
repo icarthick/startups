@@ -1024,3 +1024,13 @@ first (`dyno-type-table.md` vs `dyno-fargate-sizing.json`) to learn the shape.
 - **#93 (remove dormant heroku test suite)** \u2014 OPEN. The 7 property/integration
   tests imported an uninstalled fast-check (never ran, never wired to CI). Own PR,
   off main. Git preserves them; revive later as real typed tests.
+
+## Clarification: #91 and #93 are INDEPENDENT (do not couple them)
+Earlier notes implied #91 "replaces" the tests #93 removes \u2014 WRONG. They test
+different things and have no dependency / merge-order relationship:
+- #93 deletes dormant BEHAVIOR tests (skill logic: discovery/design/estimate/
+  phase-transition properties) that never ran (uninstalled fast-check).
+- #91 adds a test of the frontmatter VALIDATOR TOOL (does it catch a bad _file
+  ref) \u2014 unrelated domain; it does NOT restore behavior coverage.
+Reviving real behavior tests (declare fast-check, typed) is a THIRD, separate
+follow-up \u2014 neither #91 nor #93. Do not add cross-links between #91 and #93.
