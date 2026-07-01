@@ -1004,3 +1004,16 @@ first (`dyno-type-table.md` vs `dyno-fargate-sizing.json`) to learn the shape.
   — honoring "TypeScript for tests". It was briefly made `.js` to "match the
   existing suite" then reverted once we found that suite is dormant (matching a
   non-running suite was a weak reason). New tests should be `.ts`.
+- **VALIDATOR REACH \u2014 broaden to ALL skills (tracked follow-up).** The frontmatter
+  validator (`tools/frontmatter-validator/validate.ts`) is the PRIMARY value: it
+  lets authors/reviewers catch structural inconsistencies in a skill's
+  phase/fragment/assembler frontmatter at PR/CI time. It is already skill-AGNOSTIC
+  (takes a skill-root arg, derives phases, no hardcoded skill), BUT the mise
+  `lint:frontmatter` task currently invokes it against ONE skill
+  (`skills/heroku-to-aws`) because that's the only skill with frontmatter today.
+  WHEN a 2nd skill gets phase frontmatter (e.g. gcp-to-aws), broaden the invocation
+  to DISCOVER + check every `skills/*/` that has a frontmatter'd phase (small
+  change: loop over skill dirs in validate.ts or the task). Deferred now (YAGNI /
+  keep #91 focused); the value is latent until multi-skill. Before broadening,
+  verify the `references/phases/<name>/<name>.md` convention holds across skills so
+  a scan won't miss/false-positive.
