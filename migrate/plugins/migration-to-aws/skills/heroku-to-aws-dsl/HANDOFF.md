@@ -1031,6 +1031,28 @@ first (`dyno-type-table.md` vs `dyno-fargate-sizing.json`) to learn the shape.
 >    e. **`_templates`** — used by ONE phase; a key used once dedupes nothing —
 >       probably SKIP (same logic that killed the resume vocab).
 >
+> **ROUND-2 REVIEW (2026-07-01, ~/Downloads/heroku-dsl-grammar-review-round2.md):**
+> verified 3 of 5 round-1 findings RESOLVED WELL (#1 by #103, #2 by #103 incl. the
+> _postcond-file ⊆ _produces hard-fail, _input by #104); says skill is now PAST the
+> 'maximum-drift trough'. New findings → **#105 (OPEN, fork
+> `feat/heroku-round2-fixes`, worktree `../startups-round2`)** ships the quick-wins:
+>   - N1: single-creator tested COVERAGE not UNIQUENESS (generation-warnings.json
+>     had 2 declarers, passed green). Reworked to a creates-vs-contributes model
+>     (assembler creates a phase artifact; fragments naming it CONTRIBUTE content,
+>     no conflict; 2+ fragment-creators w/ no assembler owner = AMBIGUOUS, flagged).
+>     Dropped generation-warnings.json from the terraform fragment. +1 test (33).
+>   - Finding 3: estimate _stale_artifact generation-warnings.json (conditional)
+>     → MIGRATION_GUIDE.md (always produced) — fixable only because #104 made
+>     _produces honest.
+>   - N4: normalized decorated _contributes (design-mapping/design-eks/generate-eks)
+>     to bare filenames (exact-match trap).
+> STILL OPEN from round 2 (deferred): Finding-1-residual (dead re-entry table in the
+> gcp-canonical shared file — annotate; TOUCHES GCP so separate), and **N3** (the
+> real design Q: conditional artifacts like EKS terraform/eks.tf + kubernetes/ are
+> produced-but-undeclared in _produces, gated only by prose _assert — do conditional
+> artifacts belong in _produces with a _when? Same shape as Finding 3. NOT a quick
+> fix). Also still-absent: the frontmatter↔SKILL.md table cross-check (round-1 #5).
+>
 > **NEW from #100 (tracked):**
 > - **shared/ files are SYMLINKS to the gcp-to-aws CANONICAL copies.** heroku's
 >   `references/shared/{handoff-gates,migration-complexity,schema-estimate-infra,
