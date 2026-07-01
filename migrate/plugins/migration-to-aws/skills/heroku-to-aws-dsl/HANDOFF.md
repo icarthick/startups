@@ -934,15 +934,59 @@ first (`dyno-type-table.md` vs `dyno-fargate-sizing.json`) to learn the shape.
 >   PARTICIPATED'. Cold-validated TWICE (full pipeline + a through-estimate
 >   feedback-wiring run): feedback correctly offered ONLY at the estimate
 >   checkpoint, opt-in, off-backbone; decline still resolves it; generate→complete.
->
+> - **#100 (stale-downstream re-entry → `_re_entry_guard` frontmatter) — OPEN
+>   2026-07-01** (fork branch `feat/heroku-reentry-guard-frontmatter`).
+>   FIRST frontmatter key that DRIVES behavior (crosses #98's annotation-only
+>   line). Vocab: `_re_entry_guard: { _stale_if_completed, _stale_artifact,
+>   _on_reentry: stop_unless_confirmed, _on_confirm: reset_downstream_to_pending }`;
+>   `phase=`/`reason=stale_downstream` DERIVED not stored. discover/clarify/design
+>   guard prose → frontmatter (pure refactor). estimate GUARD IS NET-NEW (the one
+>   behavior add — estimate NEVER had a stale-downstream guard, confirmed via
+>   `git log -S` it was a pre-existing gap, NOT a decomposition regression).
+>   INTERPRETER.md § `_re_entry_guard` = single source of truth; removed the
+>   redundant error-table rows + re-pointed discover Rule 5 + SKILL.md item 5.
+>   `shared/handoff-gates.md` UNCHANGED — discovered it is a SYMLINK to the
+>   gcp-to-aws CANONICAL copy (gcp owns all 5 shared files; heroku symlinks them);
+>   gcp is prose-driven with NO frontmatter, so touching the shared file would
+>   break gcp — user: 'do not change how GCP works today'. Validator EXTENDED
+>   (not ported): +`_re_entry_guard` vocab in types/parse/check, 6 structural
+>   checks (incl. `_stale_artifact`⟺downstream `_produces` HARD FAIL, guard⟺
+>   `_advances_to`, terminal-must-not-guard), +7 node:test cases (21 total).
+>   Incremental-extend beat porting the rich DSL validator AGAIN. Cold-validated
+>   (read-only interpreter STOPs on stale downstream from frontmatter alone;
+>   resets downstream→pending on confirm). `mise run build` green (fmt:check bit
+>   once — INTERPRETER table row; dprint fmt fixed).
+
 > **IMMEDIATE NEXT ACTIONS (in order):**
 > 1. ~~#91, #96, #98, #99~~ all MERGED. Chain-consistency check DONE (absorbed in #99).
-> 2. NEXT (bigger, scope together): handoff-gates-in-frontmatter (the next
->    BEHAVIORAL rung) — move MECHANICAL gate scaffolding (`_re_entry_guard` +
->    `_postconditions`) out of per-phase prose into frontmatter; checklist
->    REASONING stays prose. Forces the validator-extend decision (richer-grammar
->    gap note below).
+> 2. ~~handoff-gates-in-frontmatter: `_re_entry_guard` half~~ SHIPPED as **#100**
+>    (OPEN, awaiting merge). The rung SPLIT: the re-entry GUARD is #100; the
+>    remaining halves are separate rungs below.
+> 3. NEXT (pick one, scope together):
+>    a. **`_postconditions` in frontmatter** — the OTHER mechanical half of the
+>       original handoff-gates idea. Move file-exists/enum-membership checks (e.g.
+>       `recommendation.path ∈ {...}`, `complexity_tier ∈ {...}`) to frontmatter;
+>       JUDGMENT/ARITHMETIC (Property-16 total invariant, Postgres/availability
+>       conditionals) STAYS prose/`_assert`. Independent of #100 (`_re_entry_guard`
+>       and pre/postconditions are NOT coupled — user confirmed).
+>    b. **Same-phase RESUME rung** — clarify's 'Prior Run Check' (reuse/redo/
+>       resume-draft) is a DIFFERENT mechanism from the stale-downstream guard;
+>       deferred out of #100 deliberately. Its own vocab (a resume/prior-run shape).
+>       This is the LAST piece of 'phase-level progress-handling prose' the user
+>       wants gone.
 >
+> **NEW from #100 (tracked):**
+> - **shared/ files are SYMLINKS to the gcp-to-aws CANONICAL copies.** heroku's
+>   `references/shared/{handoff-gates,migration-complexity,schema-estimate-infra,
+>   schema-phase-status,validate-artifacts}.md` are all symlinks into
+>   `../../../gcp-to-aws/references/shared/`. gcp OWNS them and is PROSE-driven (no
+>   frontmatter). RULE (user): do NOT change how gcp works today — any heroku change
+>   that would touch a shared file must either (i) leave the shared file alone and
+>   put heroku's truth in INTERPRETER (what #100 did), or (ii) be a deliberate
+>   de-symlink decision scoped separately. This is ALSO the 'dangling shared/
+>   symlink' the cold-run note warned about — now understood: they're real symlinks
+>   to a sibling skill, not broken links.
+
 > **TWO FINDINGS from #99's cold runs (both PRE-EXISTING SKILL.md issues, NOT
 > defects in #99; logged for follow-up, framings matter):**
 > - **'two chances' is provably DEAD CODE (but frame as a DESIGN question, not a
