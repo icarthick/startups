@@ -987,3 +987,20 @@ first (`dyno-type-table.md` vs `dyno-fargate-sizing.json`) to learn the shape.
 4. For any DSL change: update `docs/dsl-types.md` + the matching `types/` +
    `binders/` in the SAME change (the drift contract — the validator rejects
    unknown `_`-keys, so an unmirrored addition fails loudly on first use).
+
+## Tracked follow-ups (discovered during the frontmatter/validator work)
+
+- **The 7 pre-existing plugin tests are DORMANT** (`tests/property/heroku/*.test.js`
+  + `tests/integration/heroku/*.test.js`). They `import fc from 'fast-check'` but
+  fast-check is NOT a declared/installed dependency anywhere — running one fails
+  immediately (exit 1). So they don't run today, aren't wired into CI, and gate
+  nothing. Consequence: PR #91's frontmatter-validator test is the FIRST
+  actually-running, CI-gating test in the plugin. FOLLOW-UP (own PR, not #91):
+  revive them — declare/install fast-check, get its types resolving under the
+  zero-@types tsc setup, convert `.js`->`.ts` for a uniform typed suite, wire into
+  build. ~2,765 lines; unrelated to frontmatter; do NOT bundle.
+- **DECISION (tests language):** the validator test is TypeScript (`.ts`,
+  tsc-checked via the plugin-level `migrate/plugins/migration-to-aws/tsconfig.json`)
+  — honoring "TypeScript for tests". It was briefly made `.js` to "match the
+  existing suite" then reverted once we found that suite is dormant (matching a
+  non-running suite was a weak reason). New tests should be `.ts`.
