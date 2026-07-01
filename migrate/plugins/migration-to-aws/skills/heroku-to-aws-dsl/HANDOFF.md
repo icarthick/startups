@@ -2,11 +2,48 @@
 
 _Last updated: 2026-07-01. Branch: `feat/heroku-dsl-refactor` (plan-of-record +
 the DSL skill; pushed to `fork/feat/heroku-dsl-refactor`; NOT shipped upstream).
-This session: shipped + MERGED PRs #96 (remove dormant tests), #98 (all-phases
-frontmatter), #99 (first-class checkpoint phase + backbone chain-consistency
-check) to `awslabs/startups` main. **START AT the ⭐ CURRENT STATE & RESUME
-snapshot** (search "⭐ CURRENT STATE") — that is the live source of truth; the rest
-below it is historical rung log. The HANDOFF itself is committed on this branch._
+**START AT the ⭐ CURRENT STATE & RESUME snapshot** (search "⭐ CURRENT STATE") —
+that is the live source of truth; the rest below it is historical rung log._
+
+> ⚠️ **FIRST ACTION for the next session:** GitHub was UNREACHABLE at the end of
+> the last session (both `gh` and `git push` timing out on port 443). The latest
+> HANDOFF commit (`d4aeae9`, round-2 review + #105 notes) is committed LOCALLY but
+> NOT pushed to `fork`. First thing: `git push fork feat/heroku-dsl-refactor` to
+> sync it. Everything else (PRs #100/#102/#103/#104 merged; #105 open) was pushed
+> before the outage — only this one docs commit is pending.
+>
+> **Where we are:** the load-bearing DSL contract is fully SHIPPED + MERGED on
+> `awslabs/startups` main (#87–91, #96, #98, #99, #100, #102, #103, #104). Two
+> independent reviews done (~/Downloads/heroku-dsl-grammar-review.md +
+> -round2.md); round-2 says the skill is PAST the 'maximum-drift trough' — the
+> grammar earns its keep for structure. **#105 is OPEN** (round-2 quick-wins:
+> single-creator uniqueness + honest `_stale_artifact` + normalized `_contributes`;
+> worktree `../startups-round2`).
+>
+> **Where to go next (from the NEXT ACTIONS ledger in the ⭐ snapshot):**
+> 1. Land #105, then clean up its worktree/branch.
+> 2. Highest value-per-effort next rung: **frontmatter↔SKILL.md table cross-check**
+>    (round-1 finding #5 — catches the `trace.json`-class drift; ~30-line validator
+>    add, no new vocab).
+> 3. The real DESIGN QUESTION still open: **N3** — conditional artifacts (EKS
+>    `terraform/eks.tf` + `kubernetes/`) are produced-but-undeclared in `_produces`,
+>    gated only by prose `_assert`. Do conditional artifacts belong in `_produces`
+>    with a `_when`? Same shape as Finding 3. Scope on paper first (vocab is
+>    expensive once shipped).
+> 4. Lower-value gaps vs the DSL baseline: unit-level contracts on fragments/
+>    assemblers (biggest structural gap, most work), `_scope`, `_mutates`,
+>    `_templates` (skip). Finding-1-residual (annotate the dead re-entry table in
+>    the gcp-canonical shared file) — TOUCHES GCP, needs a 'don't-change-gcp' call.
+>
+> **Ground rules that keep recurring:** push to `fork` never `origin`; each rung =
+> own branch off latest origin/main in a SEPARATE worktree (edit/write bind to MAIN
+> repo CWD — use ABSOLUTE paths in secondary worktrees); `mise trust` fresh
+> worktrees; run `mise run build` (NOT just lint — fmt:check has bitten 3x, always
+> on an INTERPRETER.md table row → `dprint fmt` fixes); cold-validate BEHAVIORAL
+> changes with a read-only subagent vs a hand-derived oracle (annotate-only rungs
+> like #104 need no cold-run); vocab-on-paper in .agents/scratchpad before shipping
+> new keys; scope/discuss before implementing; NEVER touch gcp-to-aws (heroku's
+> shared/ files are SYMLINKS to gcp's canonical copies).
 
 > This handoff has two halves: **Part A** — the DSL skill itself (all 6 phases,
 > authored + cold-LLM validated). **Part B** — the **TypeScript conformance
