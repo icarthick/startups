@@ -982,6 +982,18 @@ first (`dyno-type-table.md` vs `dyno-fargate-sizing.json`) to learn the shape.
 >   enum-over-artifact = `_assert` (not a structured kind); postcond↔produces =
 >   hard fail; `_forbids_files` included this rung. `mise run build` green
 >   (fmt:check bit once again — INTERPRETER table; dprint fmt fixed).
+> - **#104 (`_knowledge` data deps + `_input` resolution) — OPEN 2026-07-01** (fork
+>   `feat/heroku-knowledge-input`, worktree `../startups-knowledge`, off main —
+>   INDEPENDENT of #103, merges either order). Gap-closing against the DSL baseline:
+>   `_knowledge: [{ file, _when? }]` declares each phase's JSON data deps (design's
+>   6 sizing JSONs w/ addon `_when` conditionals + estimate's estimate-defaults +
+>   shared pricing). discover/clarify/generate/feedback get NO `_knowledge` (their
+>   data is still inline prose on main — don't declare files that don't exist).
+>   Validator: `_knowledge` files must resolve on disk (skill-root relative, handles
+>   the `../shared/` climb). ALSO CLOSES the review's '_input is dead weight'
+>   finding: `_input` now checked — every entry must be `workspace` / a glob / an
+>   upstream `_produces` artifact (caught a scalar-vs-block `_input` parse bug too).
+>   +5 tests (26 total). Annotate-only, no cold-run needed.
 
 > **IMMEDIATE NEXT ACTIONS (in order):**
 > 1. ~~#91, #96, #98, #99~~ all MERGED. Chain-consistency check DONE (absorbed in #99).
