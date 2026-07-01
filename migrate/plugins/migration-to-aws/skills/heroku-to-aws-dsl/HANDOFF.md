@@ -1,10 +1,12 @@
 # heroku-to-aws-dsl — Handoff
 
-_Last updated: 2026-06-29. Branch: `feat/heroku-dsl-refactor` (15 commits ahead of
-`origin/main`; nothing pushed). `mise run build` green. UNCOMMITTED this session:
-the `ref-resolve` cross-unit check (+`REF_RESOLVE`/`JSON_INVALID` codes,
-`node-shims` `statSync`) and the reproducibility findings below — 6 working-tree
-files, not yet committed._
+_Last updated: 2026-07-01. Branch: `feat/heroku-dsl-refactor` (plan-of-record +
+the DSL skill; pushed to `fork/feat/heroku-dsl-refactor`; NOT shipped upstream).
+This session: shipped + MERGED PRs #96 (remove dormant tests), #98 (all-phases
+frontmatter), #99 (first-class checkpoint phase + backbone chain-consistency
+check) to `awslabs/startups` main. **START AT the ⭐ CURRENT STATE & RESUME
+snapshot** (search "⭐ CURRENT STATE") — that is the live source of truth; the rest
+below it is historical rung log. The HANDOFF itself is committed on this branch._
 
 > This handoff has two halves: **Part A** — the DSL skill itself (all 6 phases,
 > authored + cold-LLM validated). **Part B** — the **TypeScript conformance
@@ -910,17 +912,123 @@ first (`dyno-type-table.md` vs `dyno-fargate-sizing.json`) to learn the shape.
 > - #90 (estimate-defaults: log-volume + optimization savings → JSON) — MERGED (`origin/main` 9e28ae4)
 > - **#91 (phase/fragment/assembler frontmatter + INTERPRETER.md + load-bearing
 >   `_init` + typed skill-agnostic CI validator in `tools/frontmatter-validator/`
->   + `.ts` test) — OPEN, cold-validated (fresh + existing-.migration both PASS),
->   full `mise build` green.** THE ACTIVE PR.
-> - #93 (remove dormant tests) — CLOSED (premature); redo AFTER #91 merges.
+>   + `.ts` test) — MERGED 2026-07-01 (`origin/main` `8ac7e6c`, merged by
+>   icarthick).** First PR to bring the DSL grammar (frontmatter/interpreter) to
+>   main.
+> - #93 (remove dormant tests) — CLOSED (premature); superseded by #96.
+> - **#96 (remove 7 dormant, never-run behavior tests) — MERGED 2026-07-01**
+>   (`origin/main` `2634c87`, merged by icarthick). Pure deletion of
+>   `tests/{property,integration}/heroku/*.test.js`. The post-#91 unblocked
+>   action, done.
+> - **#98 (frontmatter contract on all remaining phases) — MERGED 2026-07-01**
+>   (`origin/main` `3232b63`, merged by icarthick). ANNOTATE-ONLY: extended #91's
+>   phase/fragment/assembler frontmatter to clarify, design, estimate, generate,
+>   feedback. The whole skill is now frontmatter-annotated on main. (Note: #98 also
+>   introduced a feedback-in-the-backbone contract bug, fixed by #99 below.)
+> - **#99 (first-class checkpoint phase + backbone chain-consistency check) —
+>   MERGED 2026-07-01** (`origin/main` `bc9b127`, merged by icarthick).
+>   Introduced `_kind: checkpoint` (off-backbone, opt-in `_trigger`-entered, no
+>   `_advances_to`) vs backbone (default); fixed the #98 bug (generate now
+>   `_advances_to: complete`); added the REAL backbone chain-consistency check
+>   (absorbed the queued chain-check item); documented 'completed = RESOLVED not
+>   PARTICIPATED'. Cold-validated TWICE (full pipeline + a through-estimate
+>   feedback-wiring run): feedback correctly offered ONLY at the estimate
+>   checkpoint, opt-in, off-backbone; decline still resolves it; generate→complete.
 >
 > **IMMEDIATE NEXT ACTIONS (in order):**
-> 1. Get **#91** reviewed + merged. It's the first PR that introduces the DSL
->    grammar (frontmatter/interpreter) to main. Flag for @awslabs/startups-admins:
->    it touches admin-owned `mise.toml` (+npm:typescript, lint:types/lint:frontmatter/test).
-> 2. AFTER #91 merges: a fresh PR off updated main to REMOVE the 7 dormant
->    behavior tests (`tests/{property,integration}/heroku/*.test.js` — import
->    uninstalled fast-check, never run). Independent of #91; trivial (git preserves).
+> 1. ~~#91, #96, #98, #99~~ all MERGED. Chain-consistency check DONE (absorbed in #99).
+> 2. NEXT (bigger, scope together): handoff-gates-in-frontmatter (the next
+>    BEHAVIORAL rung) — move MECHANICAL gate scaffolding (`_re_entry_guard` +
+>    `_postconditions`) out of per-phase prose into frontmatter; checklist
+>    REASONING stays prose. Forces the validator-extend decision (richer-grammar
+>    gap note below).
+>
+> **TWO FINDINGS from #99's cold runs (both PRE-EXISTING SKILL.md issues, NOT
+> defects in #99; logged for follow-up, framings matter):**
+> - **'two chances' is provably DEAD CODE (but frame as a DESIGN question, not a
+>   wording fix).** SKILL.md line 87: at `complete`, if `phases.feedback ==
+>   pending` → set completed ('user had two chances'). But feedback is offered ONCE
+>   after estimate and ALL of A/B/C set it to `completed`, so it can NEVER be
+>   `pending` at generate-complete → line-87 path is unreachable, and 'two chances'
+>   contradicts 'offered once after Estimate' (line 101). CAUTION before 'fixing':
+>   line 87 is a SAFETY NET (guarantees clean termination if the estimate
+>   checkpoint is ever skipped / errored / re-entered). Removing it because it's
+>   'currently unreachable' could drop a defensive guard — so this is a small design
+>   decision (is the fallback wanted?), NOT a cosmetic tidy. Do NOT casually delete.
+> - **Routing/placement is NOT discoverable from the frontmatter (the deferred
+>   `_offered_after` gap — deferral assumption now WEAKENING).** `feedback.md`'s
+>   `_requires_phase: discover` MISLEADS a frontmatter-only reader (implies 'fires
+>   after discover') when the real offer point is after ESTIMATE, knowable only
+>   from SKILL.md prose. TWO independent signals now hit this same gap (the user's
+>   'where does it route from?' question + the cold reviewer). When we deferred
+>   `_offered_after` the rationale was 'placement is a product knob, YAGNI'; that
+>   rationale is now weaker (the gap has a demonstrated legibility cost). NOT a
+>   #99 change and not necessarily 'build it now' — but the bar for 'still YAGNI'
+>   is higher next time we look. Revisit as its own decision.
+>
+> **QUEUED behind #98 (scoped this session 2026-07-01, agreed to build AFTER #98
+> merges):**
+> - **Phase-chain CONSISTENCY check (lean validator) — DO THIS FIRST, its own PR
+>   off updated main.** The lean `check.ts` currently has TWO NO-OP chain lines
+>   (advances/requires membership is derived then SKIPPED — zero chain checking
+>   today). Add a real check. AGREED SEMANTICS: **backbone-strict, terminal-exempt.**
+>   Invariant: (1) membership — every `_advances_to` names a declared phase or a
+>   terminal (`complete`/`done`/`end`); every `_requires_phase` names a declared
+>   phase or is null; (2) forward⇒back on the BACKBONE — if A `_advances_to: B` and
+>   B is a declared (non-terminal) phase, B must `_requires_phase: A`; (3) back⇒
+>   forward, TERMINAL-EXEMPT — if B `_requires_phase: A`, then either A
+>   `_advances_to: B` OR B is terminal (a terminal phase may require a MINIMUM
+>   precondition that is not its advancer); (4) exactly one head
+>   (`_requires_phase: null`); (5) acyclicity (falls out of 2+4, add an explicit
+>   walk). WHY terminal-exempt: the real chain has generate `_advances_to: feedback`
+>   but feedback `_requires_phase: discover` (NOT generate) — feedback is the
+>   optional TERMINAL phase, runs on a partial pipeline needing only discover. A
+>   naive biconditional would FALSE-POSITIVE this valid edge. NOTE: the HANDOFF debt
+>   item below ('Phase-chain MUTUAL-CONSISTENCY') states the invariant as a STRICT
+>   biconditional — that was written against the DSL validator; the heroku chain's
+>   feedback edge shows the strict form is WRONG for a chain with an optional
+>   terminal, hence terminal-exempt. Only meaningfully exercised once #98's
+>   annotations are on main (pre-#98 only discover has chain keys). Pure validator
+>   code + a test with broken-chain fixtures; no new frontmatter keys; no behavior
+>   change.
+> - **Handoff-gates-in-frontmatter (BEHAVIORAL rung; parked behind the chain check).**
+>   Idea: move the MECHANICAL gate scaffolding out of per-phase prose into frontmatter
+>   — `_re_entry_guard` (reset lists + status transitions) + `_postconditions`
+>   (file-exists / structural checks) — so each phase's 'handling an ongoing
+>   migration' instructions shrink. AGREED SCOPE LINE (user picked 'mechanical only'
+>   in spirit, then deferred): extract ONLY the mechanical part; the phase-specific
+>   CHECKLIST REASONING (Property-16 total invariant, the Postgres/availability
+>   conditionals) STAYS prose / `_assert` bodies the LLM evaluates — do NOT push
+>   judgment/arithmetic into structured form ('isolation ≠ pinning'). CAVEATS: (a)
+>   this is the FIRST time frontmatter DRIVES behavior, not just describes structure
+>   — crosses the annotation-only line #98 stayed behind; terminal-first + cold-
+>   validate that the LLM still enforces gates reading only frontmatter. (b) FORCES
+>   the validator decision below — `_re_entry_guard`/`_postconditions`/`_assert`/
+>   `_on_error` are NOT in the lean validator vocab (fail closed-vocab today), so
+>   this rung must ALSO extend the validator. Much of the gate protocol is ALREADY
+>   deduped in `shared/handoff-gates.md` (84 lines); `_requires_phase`/`_produces`/
+>   `_advances_to` already encode predecessor-gate + ownership + next-phase. What's
+>   NOT yet declarative: `_re_entry_guard` + `_postconditions`.
+> - **RICHER-GRAMMAR VALIDATOR GAP (decision point, distinct from 'broaden to all
+>   skills').** Two validators exist: (1) the LEAN frontmatter validator at
+>   `tools/frontmatter-validator/` (on main, shipped in #91; #98 added a `_when`
+>   trigger form to it) — models the lean contract vocab (9 phase keys +
+>   fragment/assembler keys + `_always`/`_glob`/`_when` triggers), checks
+>   refs-resolve + closed-vocab + id/of_phase identity + single-creator; and
+>   (2) the RICH DSL typed-graph validator at
+>   `heroku-to-aws-dsl/scripts/dsl-validator/` (DSL branch ONLY, never shipped) —
+>   14 types/4 tiers, ~17 binders, ~13 checks, models the FULL grammar (`_when`,
+>   `_assert`, `CheckVerb`, `ErrorAction`, `Trigger` 5 forms, `Condition`,
+>   `Guarded`, `OnErrorTable`, `_re_entry_guard`, pre/postconditions). The prose
+>   skill has the LEAN one only — a deliberate #91 call ('no TS toolchain into
+>   prose-skill CI'). PRECEDENT SET by #98: when a rung needs a new grammar form,
+>   the pattern is EXTEND the lean validator incrementally (the `_when` add was
+>   ~5 lines across types.ts/parse.ts + a test) rather than port the rich DSL
+>   validator. The handoff-gates rung's `_re_entry_guard`/`_postconditions`/
+>   `_assert`/`_on_error` are the next, LARGER extension — decide then whether the
+>   incremental-extend pattern still beats porting. SEPARATE from the 'broaden
+>   validator to all skills' follow-up (that's multi-skill REACH, this is
+>   richer-grammar REACH).
 >
 > **TRACKED FOLLOW-UPS (not started; see the debt notes below for detail):**
 > - Broaden the frontmatter validator to ALL skills (currently invokes on
@@ -934,9 +1042,10 @@ first (`dyno-type-table.md` vs `dyno-fargate-sizing.json`) to learn the shape.
 > - Continue the rollout ladder: next grammar step = convert a full phase to
 >   interpreter-driven, TERMINAL-FIRST (feedback), after #91 lands.
 >
-> **LIVE WORKTREES:** main repo = this DSL branch; `../startups-frontmatter` = #91
-> (keep until #91 merges). (`../startups-estimate` for #90 was removed post-merge.)
-> The other `../startups-pr-*` / `-semgrep-fix` worktrees are UNRELATED to this arc.
+> **LIVE WORKTREES:** main repo = this DSL branch. #91/#96/#98/#99 worktrees +
+> branches all removed post-merge. The other `../startups-pr-*` / `-semgrep-fix`
+> worktrees are UNRELATED to this arc. Design spec for #99 preserved at
+> `.agents/scratchpad/checkpoint-vocab-spec.md`.
 >
 > **KEY PRINCIPLES that keep recurring (so they aren't re-litigated):**
 > - Extract to JSON ONLY what the runtime ALGORITHM looks up; formulas/algorithm/
