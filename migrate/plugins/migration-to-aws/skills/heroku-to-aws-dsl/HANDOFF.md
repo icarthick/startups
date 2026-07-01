@@ -1017,3 +1017,10 @@ first (`dyno-type-table.md` vs `dyno-fargate-sizing.json`) to learn the shape.
   keep #91 focused); the value is latent until multi-skill. Before broadening,
   verify the `references/phases/<name>/<name>.md` convention holds across skills so
   a scan won't miss/false-positive.
+
+## PR status (2026-06-30 update)
+- #87 tables, #88 pricing, #89 EKS, **#90 estimate-defaults \u2014 MERGED** (origin/main 9e28ae4).
+- **#91 (frontmatter + interpreter + _init + typed validator)** \u2014 OPEN.
+- **#93 (remove dormant heroku test suite)** \u2014 OPEN. The 7 property/integration
+  tests imported an uninstalled fast-check (never ran, never wired to CI). Own PR,
+  off main. Git preserves them; revive later as real typed tests.
