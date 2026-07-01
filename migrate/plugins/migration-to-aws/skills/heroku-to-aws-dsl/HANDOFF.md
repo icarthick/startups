@@ -1034,3 +1034,10 @@ different things and have no dependency / merge-order relationship:
   ref) \u2014 unrelated domain; it does NOT restore behavior coverage.
 Reviving real behavior tests (declare fast-check, typed) is a THIRD, separate
 follow-up \u2014 neither #91 nor #93. Do not add cross-links between #91 and #93.
+
+## Plan (2026-06-30): focus #91, then remove dormant tests
+- FOCUS: get #91 merged (frontmatter + interpreter + _init + typed validator + CI).
+- #93 CLOSED (was premature). AFTER #91 merges, do the dormant-test removal as a
+  fresh follow-up PR off the updated main (delete the 7 non-running
+  property/integration/heroku *.test.js that import uninstalled fast-check).
+  Trivial to recreate (git preserves them). Independent of frontmatter.
