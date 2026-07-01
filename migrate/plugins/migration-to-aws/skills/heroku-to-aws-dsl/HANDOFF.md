@@ -930,6 +930,24 @@ first (`dyno-type-table.md` vs `dyno-fargate-sizing.json`) to learn the shape.
      @awslabs/startups-admins in the PR. This means the classic Rung 2 (port the
      DSL data-integrity checks) is PARTIALLY satisfied for frontmatter; the
      xtable/knowledge-JSON checks remain a later item if wanted.
+     **UPGRADED to a TYPED validator (2026-06-30).** The regex `.mjs` was replaced
+     by a TypeScript validator at the PLUGIN ROOT (`tools/frontmatter-validator/`
+     — types.ts/parse.ts/check.ts/validate.ts), type-checked by `tsc --noEmit`
+     (added `npm:typescript`), with a `node:test` suite at
+     `tests/tools/frontmatter-validator.test.ts` (ephemeral good/bad fixtures;
+     never commits a bad edit). KEY ARCHITECTURE DECISION: the validator is
+     SKILL-AGNOSTIC and lives at the PLUGIN ROOT, not inside the skill — it is
+     shared infra run AGAINST skills (finds phase/fragment/assembler files by the
+     `references/phases/<name>/` convention), must NOT ship in the packaged skill
+     tree, and DERIVES the valid phase set from declared frontmatter (no hardcoded
+     heroku phase list) so it covers gcp-to-aws unchanged once gcp gets
+     frontmatter. Matches the repo's existing plugin-root `tests/` convention
+     (tests are NOT inside skills). Mirrors the DSL validator's zero-dep TS recipe
+     (Node 24 type-stripping + tsc + node-shims.d.ts) but is the lean shared
+     structural checker, distinct from the DSL skill's in-skill grammar validator.
+     Motivation: a CI-demonstrable value story for the team — green build proves
+     the frontmatter is valid; the test suite (bad fixtures) proves CI WOULD catch
+     a bad edit, without ever committing one.
    - **Rung 1a-mechanical: DONE + MERGED (2026-06-30, PR #87 = `origin/main`
      `cec1467`).** The 5 clean tables (dyno, postgres, redis, kafka, fast-path)
      are now JSON under `heroku-to-aws/knowledge/design/*.json` with the prose
