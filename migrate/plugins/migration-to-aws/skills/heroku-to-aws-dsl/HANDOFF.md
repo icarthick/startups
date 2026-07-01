@@ -934,8 +934,8 @@ first (`dyno-type-table.md` vs `dyno-fargate-sizing.json`) to learn the shape.
 >   PARTICIPATED'. Cold-validated TWICE (full pipeline + a through-estimate
 >   feedback-wiring run): feedback correctly offered ONLY at the estimate
 >   checkpoint, opt-in, off-backbone; decline still resolves it; generate→complete.
-> - **#100 (stale-downstream re-entry → `_re_entry_guard` frontmatter) — OPEN
->   2026-07-01** (fork branch `feat/heroku-reentry-guard-frontmatter`).
+> - **#100 (stale-downstream re-entry → `_re_entry_guard` frontmatter) — MERGED
+>   2026-07-01** (`origin/main` `fa087f8`, merged + branch/worktree cleaned up).
 >   FIRST frontmatter key that DRIVES behavior (crosses #98's annotation-only
 >   line). Vocab: `_re_entry_guard: { _stale_if_completed, _stale_artifact,
 >   _on_reentry: stop_unless_confirmed, _on_confirm: reset_downstream_to_pending }`;
@@ -959,9 +959,9 @@ first (`dyno-type-table.md` vs `dyno-fargate-sizing.json`) to learn the shape.
 
 > **IMMEDIATE NEXT ACTIONS (in order):**
 > 1. ~~#91, #96, #98, #99~~ all MERGED. Chain-consistency check DONE (absorbed in #99).
-> 2. ~~handoff-gates-in-frontmatter: `_re_entry_guard` half~~ SHIPPED as **#100**
->    (OPEN, awaiting merge). The rung SPLIT: the re-entry GUARD is #100; the
->    remaining halves are separate rungs below.
+> 2. ~~handoff-gates-in-frontmatter: `_re_entry_guard` half~~ SHIPPED + MERGED as
+>    **#100** (`origin/main` `fa087f8`). The rung SPLIT: the re-entry GUARD is done;
+>    the remaining halves are separate rungs below.
 > 3. NEXT (pick one, scope together):
 >    a. **`_postconditions` in frontmatter** — the OTHER mechanical half of the
 >       original handoff-gates idea. Move file-exists/enum-membership checks (e.g.
