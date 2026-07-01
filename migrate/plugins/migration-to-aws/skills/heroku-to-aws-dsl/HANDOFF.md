@@ -956,6 +956,32 @@ first (`dyno-type-table.md` vs `dyno-fargate-sizing.json`) to learn the shape.
 >   (read-only interpreter STOPs on stale downstream from frontmatter alone;
 >   resets downstream→pending on confirm). `mise run build` green (fmt:check bit
 >   once — INTERPRETER table row; dprint fmt fixed).
+> - **#102 (drop clarify mid-batch resume) — MERGED 2026-07-01** (`origin/main`
+>   `c64e4f0`). Feature removal (the `preferences-draft.json` write+resume+merge
+>   thread); resume was investigated and found NOT to be a vocab rung.
+> - **#103 (gate protocol → frontmatter: `_preconditions` / `_postconditions` /
+>   `_forbids_files`) — OPEN 2026-07-01** (fork `feat/heroku-gate-migration`,
+>   worktree `../startups-gate-migration`). The gate half of the handoff-gates
+>   rung (re-entry was #100). Moved every phase's entry-gate (Step 0 prereqs) +
+>   completion-gate checks into frontmatter; INTERPRETER.md § Gate protocol is the
+>   single source of truth (+ `_on_error` action dict {_warn_and_skip,
+>   _default_and_warn, _halt_and_inform, _unrecoverable} + GATE_FAIL/HANDOFF_OK
+>   formats). CHECK vocab: `_check_phase_completed`, `_check_single_active_phase`,
+>   `_check_file_exists`, `_validate_json` (mechanical) + `_assert` (JUDGMENT
+>   escape hatch — Property-16, enum-over-artifact-content, conditionals stay
+>   `_assert` prose; CI can't open the runtime artifact). **FIXES REVIEW FINDING
+>   #1**: heroku phases no longer `Load shared/handoff-gates.md`, so the
+>   gcp-canonical prose re-entry table (via the symlink) can no longer contradict
+>   `_re_entry_guard`. GCP UNTOUCHED (keeps file + symlink + prose model). **FIXES
+>   REVIEW FINDING #2** (byproduct): generate `_produces` now names the real
+>   artifact set (was hollow `[generation-warnings.json]`); fragment `_contributes`
+>   normalized to exact filenames; single-creator generalized to union fragment
+>   contributions; validator HARD-FAILS a `_postconditions` file not in `_produces`
+>   (locks #2). Validator extended (+6 tests, 27 total). Cold-validated TWICE
+>   (estimate + generate, frontmatter-only, no shared gate file present). Decisions:
+>   enum-over-artifact = `_assert` (not a structured kind); postcond↔produces =
+>   hard fail; `_forbids_files` included this rung. `mise run build` green
+>   (fmt:check bit once again — INTERPRETER table; dprint fmt fixed).
 
 > **IMMEDIATE NEXT ACTIONS (in order):**
 > 1. ~~#91, #96, #98, #99~~ all MERGED. Chain-consistency check DONE (absorbed in #99).
