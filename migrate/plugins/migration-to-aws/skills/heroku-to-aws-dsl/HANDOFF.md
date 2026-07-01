@@ -982,6 +982,7 @@ first (`dyno-type-table.md` vs `dyno-fargate-sizing.json`) to learn the shape.
 >   enum-over-artifact = `_assert` (not a structured kind); postcond↔produces =
 >   hard fail; `_forbids_files` included this rung. `mise run build` green
 >   (fmt:check bit once again — INTERPRETER table; dprint fmt fixed).
+>   **MERGED 2026-07-01 (`origin/main` `6ed732e`; branch/worktree cleaned up).**
 > - **#104 (`_knowledge` data deps + `_input` resolution) — OPEN 2026-07-01** (fork
 >   `feat/heroku-knowledge-input`, worktree `../startups-knowledge`, off main —
 >   INDEPENDENT of #103, merges either order). Gap-closing against the DSL baseline:
@@ -993,7 +994,11 @@ first (`dyno-type-table.md` vs `dyno-fargate-sizing.json`) to learn the shape.
 >   the `../shared/` climb). ALSO CLOSES the review's '_input is dead weight'
 >   finding: `_input` now checked — every entry must be `workspace` / a glob / an
 >   upstream `_produces` artifact (caught a scalar-vs-block `_input` parse bug too).
->   +5 tests (26 total). Annotate-only, no cold-run needed.
+>   +5 tests (26 total → 32 after rebasing onto post-#103 main). Annotate-only.
+>   NOTE: was branched pre-#103; after #103 merged, #104 conflicted (both touch the
+>   validator + estimate/design frontmatter) — REBASED, conflicts all ADDITIVE (kept
+>   both CheckItem+KnowledgeRef, both PHASE_KEYS additions, both test blocks). Now
+>   MERGEABLE. Force-pushed with --force-with-lease.
 
 > **IMMEDIATE NEXT ACTIONS (in order):**
 > 1. ~~#91, #96, #98, #99~~ all MERGED. Chain-consistency check DONE (absorbed in #99).
