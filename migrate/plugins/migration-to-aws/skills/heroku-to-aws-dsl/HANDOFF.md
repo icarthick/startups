@@ -894,6 +894,67 @@ first (`dyno-type-table.md` vs `dyno-fargate-sizing.json`) to learn the shape.
 
 ## How to resume
 
+> ### ⭐ CURRENT STATE & RESUME (consolidated 2026-06-30 — supersedes the scattered
+> ### session updates below; read THIS first, the rest is history)
+>
+> **The arc:** incrementally converge the prose `heroku-to-aws` skill toward the DSL
+> (`heroku-to-aws-dsl`), shipped as independently-valuable PRs to `awslabs/startups`
+> from the `icarthick` fork. This branch (`feat/heroku-dsl-refactor`) is the
+> plan-of-record + the DSL skill; it is NOT itself shipped. NOW PUSHED to
+> `fork/feat/heroku-dsl-refactor` (was local-only before this handoff).
+>
+> **PR status:**
+> - #87 (5 design tables → JSON) — MERGED
+> - #88 (AWS pricing → shared `skills/shared/pricing/aws-infra-pricing.json`) — MERGED
+> - #89 (EKS pod-sizing + cluster constants → JSON) — MERGED
+> - #90 (estimate-defaults: log-volume + optimization savings → JSON) — MERGED (`origin/main` 9e28ae4)
+> - **#91 (phase/fragment/assembler frontmatter + INTERPRETER.md + load-bearing
+>   `_init` + typed skill-agnostic CI validator in `tools/frontmatter-validator/`
+>   + `.ts` test) — OPEN, cold-validated (fresh + existing-.migration both PASS),
+>   full `mise build` green.** THE ACTIVE PR.
+> - #93 (remove dormant tests) — CLOSED (premature); redo AFTER #91 merges.
+>
+> **IMMEDIATE NEXT ACTIONS (in order):**
+> 1. Get **#91** reviewed + merged. It's the first PR that introduces the DSL
+>    grammar (frontmatter/interpreter) to main. Flag for @awslabs/startups-admins:
+>    it touches admin-owned `mise.toml` (+npm:typescript, lint:types/lint:frontmatter/test).
+> 2. AFTER #91 merges: a fresh PR off updated main to REMOVE the 7 dormant
+>    behavior tests (`tests/{property,integration}/heroku/*.test.js` — import
+>    uninstalled fast-check, never run). Independent of #91; trivial (git preserves).
+>
+> **TRACKED FOLLOW-UPS (not started; see the debt notes below for detail):**
+> - Broaden the frontmatter validator to ALL skills (currently invokes on
+>   heroku-to-aws only; it's already skill-agnostic — just loop skill dirs when a
+>   2nd skill gets frontmatter). This is the author-facing 'catch structural issues
+>   in any PR' value.
+> - Revive real behavior tests (declare fast-check, typed `.ts`).
+> - gcp-to-aws → shared pricing JSON (close #88's two-copy window).
+> - complexity-drift fix (estimate.md restates a drifted subset of the shared
+>   migration-complexity.md — make it DEFER, don't restate).
+> - Continue the rollout ladder: next grammar step = convert a full phase to
+>   interpreter-driven, TERMINAL-FIRST (feedback), after #91 lands.
+>
+> **LIVE WORKTREES:** main repo = this DSL branch; `../startups-frontmatter` = #91
+> (keep until #91 merges). (`../startups-estimate` for #90 was removed post-merge.)
+> The other `../startups-pr-*` / `-semgrep-fix` worktrees are UNRELATED to this arc.
+>
+> **KEY PRINCIPLES that keep recurring (so they aren't re-litigated):**
+> - Extract to JSON ONLY what the runtime ALGORITHM looks up; formulas/algorithm/
+>   provenance stay PROSE (a formula-as-JSON-string has no consumer).
+> - Split PRs by REVIEW COGNITION (mechanical 'same numbers?' vs decision-carrying
+>   'are these NEW numbers right?'), not by file type.
+> - The DSL value is NOT always adopted (EKS `kubernetes_version` kept query-live).
+> - Validator lives at PLUGIN ROOT + is skill-agnostic (infra run against skills,
+>   not part of any skill; must not ship in the packaged skill tree).
+> - Cold-validate every change with a read-only subagent vs a hand-derived oracle;
+>   co-locate skill+repo in ONE sandbox dir (Claude backend blocks cross-dir reads/
+>   writes). `handoff-gates.md`-unreadable in a /tmp sandbox = symlink artifact, NOT
+>   a defect.
+> - edit/write tools bind to the MAIN repo CWD, not a secondary worktree — use
+>   ABSOLUTE paths there. Push to `fork`, never `origin`. `mise trust` fresh worktrees.
+>
+> --- (historical session log follows; superseded by the snapshot above) ---
+
 0. **ACTIVE FRONT: Rung 1 of the incremental rollout (see the section above).**
    - **GRAMMAR INTRODUCTION STARTED — PR #91 OPEN (phase frontmatter + minimal
      INTERPRETER).** First time the phase/fragment/assembler vocabulary + an
