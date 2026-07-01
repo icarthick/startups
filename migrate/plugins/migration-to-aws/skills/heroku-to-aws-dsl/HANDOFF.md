@@ -972,13 +972,16 @@ first (`dyno-type-table.md` vs `dyno-fargate-sizing.json`) to learn the shape.
 >    b. **Same-phase RESUME rung** — RESOLVED, NOT a vocab rung. Investigation
 >       (this session) found: mid-batch resume (clarify's draft) is the ONLY
 >       phase-specific piece and was a durable mechanism guarding a rare
->       interruption + a latent stale-merge hazard → REMOVED as **#102** (OPEN,
->       feature-removal PR). Reuse-completed-vs-fresh (Case 1) was checked against
->       ALL phases and is LEGITIMATELY clarify-only (only clarify's regeneration
->       cost is user-borne; others silently regenerate) → stays prose, dedupes
->       nothing, NOT worth vocab. `_re_entry_guard` already uniform (#100). NET:
->       no resume vocab exists to build; after #102 clarify re-entry is as uniform
->       as it gets. Only rung (a) `_postconditions` remains.
+>       interruption + a latent stale-merge hazard → REMOVED as **#102** (MERGED
+>       2026-07-01, `origin/main` `c64e4f0`; branch/worktree cleaned up). Cold-
+>       validated 3 scenarios: fresh-abandon runs clean + writes no draft; a
+>       LEGACY stale draft is ignored+deleted, never resumed/merged (anti-landmine
+>       confirmed); completed-prefs reuse (Case 1) unchanged. Reuse-completed-vs-
+>       fresh (Case 1) was checked against ALL phases and is LEGITIMATELY
+>       clarify-only (only clarify's regeneration cost is user-borne; others
+>       silently regenerate) → stays prose, dedupes nothing, NOT worth vocab.
+>       `_re_entry_guard` already uniform (#100). NET: no resume vocab exists to
+>       build; only rung (a) `_postconditions` remains on the arc.
 >
 > **NEW from #100 (tracked):**
 > - **shared/ files are SYMLINKS to the gcp-to-aws CANONICAL copies.** heroku's
