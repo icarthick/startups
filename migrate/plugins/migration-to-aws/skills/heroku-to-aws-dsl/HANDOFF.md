@@ -914,6 +914,22 @@ first (`dyno-type-table.md` vs `dyno-fargate-sizing.json`) to learn the shape.
      the terminal-first ordering doesn't bind. NEXT load-bearing step (full
      phase->interpreter-driven conversion) should still go TERMINAL-FIRST
      (feedback), after #91 establishes the vocabulary.
+     **VALIDATION FOLDED IN (Rung-2-flavored):** #91 also adds
+     `scripts/validate-frontmatter.mjs` (zero-dep Node 24) wired into `mise run
+     lint`/`build` — checks `_file` ref-resolve, closed `_`-vocab (typo catch),
+     fragment `_id`↔phase-ref match, `_of_phase` back-ref, `_trigger` well-formed,
+     `_advances_to`/`_requires_phase` name real phases, single-creator ownership.
+     Proven to CATCH ref-break/typo/id-mismatch (build fails), clean passes. AND
+     the two fragment files (discover-terraform/billing) gained minimal
+     `_fragment`/`_of_phase`/`_contributes` frontmatter so the validator has 4
+     real units + cross-refs to check (grows the footprint so validation earns
+     its keep). Fragments CONTRIBUTE sections to the one inventory (assembler is
+     sole creator) — honest `_contributes`, not invented per-fragment files.
+     Bespoke validator chosen over porting the DSL TS validator (no TS toolchain
+     into prose-skill CI; ~140 lines). `mise.toml` change flagged for
+     @awslabs/startups-admins in the PR. This means the classic Rung 2 (port the
+     DSL data-integrity checks) is PARTIALLY satisfied for frontmatter; the
+     xtable/knowledge-JSON checks remain a later item if wanted.
    - **Rung 1a-mechanical: DONE + MERGED (2026-06-30, PR #87 = `origin/main`
      `cec1467`).** The 5 clean tables (dyno, postgres, redis, kafka, fast-path)
      are now JSON under `heroku-to-aws/knowledge/design/*.json` with the prose
