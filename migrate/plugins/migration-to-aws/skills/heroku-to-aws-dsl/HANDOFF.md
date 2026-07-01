@@ -998,33 +998,38 @@ first (`dyno-type-table.md` vs `dyno-fargate-sizing.json`) to learn the shape.
 >   NOTE: was branched pre-#103; after #103 merged, #104 conflicted (both touch the
 >   validator + estimate/design frontmatter) — REBASED, conflicts all ADDITIVE (kept
 >   both CheckItem+KnowledgeRef, both PHASE_KEYS additions, both test blocks). Now
->   MERGEABLE. Force-pushed with --force-with-lease.
+>   MERGEABLE. Force-pushed with --force-with-lease. **MERGED 2026-07-01
+>   (`origin/main` `57d367d`; branch/worktree cleaned up).**
 
 > **IMMEDIATE NEXT ACTIONS (in order):**
-> 1. ~~#91, #96, #98, #99~~ all MERGED. Chain-consistency check DONE (absorbed in #99).
-> 2. ~~handoff-gates-in-frontmatter: `_re_entry_guard` half~~ SHIPPED + MERGED as
->    **#100** (`origin/main` `fa087f8`). The rung SPLIT: the re-entry GUARD is done;
->    the remaining halves are separate rungs below.
-> 3. NEXT (pick one, scope together):
->    a. **`_postconditions` in frontmatter** — the OTHER mechanical half of the
->       original handoff-gates idea. Move file-exists/enum-membership checks (e.g.
->       `recommendation.path ∈ {...}`, `complexity_tier ∈ {...}`) to frontmatter;
->       JUDGMENT/ARITHMETIC (Property-16 total invariant, Postgres/availability
->       conditionals) STAYS prose/`_assert`. Independent of #100 (`_re_entry_guard`
->       and pre/postconditions are NOT coupled — user confirmed).
->    b. **Same-phase RESUME rung** — RESOLVED, NOT a vocab rung. Investigation
->       (this session) found: mid-batch resume (clarify's draft) is the ONLY
->       phase-specific piece and was a durable mechanism guarding a rare
->       interruption + a latent stale-merge hazard → REMOVED as **#102** (MERGED
->       2026-07-01, `origin/main` `c64e4f0`; branch/worktree cleaned up). Cold-
->       validated 3 scenarios: fresh-abandon runs clean + writes no draft; a
->       LEGACY stale draft is ignored+deleted, never resumed/merged (anti-landmine
->       confirmed); completed-prefs reuse (Case 1) unchanged. Reuse-completed-vs-
->       fresh (Case 1) was checked against ALL phases and is LEGITIMATELY
->       clarify-only (only clarify's regeneration cost is user-borne; others
->       silently regenerate) → stays prose, dedupes nothing, NOT worth vocab.
->       `_re_entry_guard` already uniform (#100). NET: no resume vocab exists to
->       build; only rung (a) `_postconditions` remains on the arc.
+> 1. ~~#91, #96, #98, #99, #100, #102, #103, #104~~ ALL MERGED. The load-bearing
+>    DSL contract is fully SHIPPED on main: phase/fragment/assembler frontmatter,
+>    checkpoint phases + chain-consistency, `_re_entry_guard`, the full gate
+>    protocol (`_preconditions`/`_postconditions`/`_forbids_files` + INTERPRETER
+>    § Gate protocol), and `_knowledge` data deps + `_input` resolution. Heroku no
+>    longer loads shared/handoff-gates.md.
+> 2. REVIEW FINDINGS STATUS (from the 2026-07-01 independent review,
+>    ~/Downloads/heroku-dsl-grammar-review.md): #1 (symlinked prose re-entry table
+>    contradicts guard) — FIXED by #103. #2 (generate `_produces` hollow) — FIXED by
+>    #103. `_input` dead weight — FIXED by #104. #4 (kubernetes _when schema
+>    mismatch) — was WRONG (schema matches); the `eks-or-ecs` ambiguity sub-point
+>    stands, un-actioned. #5 (`feedback` `_produces` lists `trace.json` but SKILL.md
+>    Phase Summary omits it — frontmatter↔SKILL drift) — STILL OPEN.
+> 3. REMAINING GAPS vs the DSL baseline (ranked; NONE load-bearing — the core
+>    contract is done, these are granularity/consolidation/one review fix):
+>    a. **Unit-level contracts** — `_postconditions`/`_on_error`/`_scope`/`_produces`
+>       on FRAGMENTS & ASSEMBLERS (DSL branch has 16x per-unit). Biggest remaining
+>       structural gap; most work. Phase-level gates already deliver the safety, so
+>       lower urgency.
+>    b. **Review finding #5 fix** — a frontmatter↔SKILL.md cross-check in check.ts
+>       (~30 lines): every phase's declared artifacts match SKILL.md's Phase Summary
+>       table. Would have caught the `trace.json` drift. Orthogonal to the vocab,
+>       high value-per-effort. Strong standalone 'next'.
+>    c. **`_scope`** — per-phase/unit 'ONLY this' boundary statement (prose).
+>       Consolidation of the Scope-Boundary/FORBIDDEN prose. Low ceiling.
+>    d. **`_mutates`** on assemblers (declares `.phase-status.json` mutation). Niche.
+>    e. **`_templates`** — used by ONE phase; a key used once dedupes nothing —
+>       probably SKIP (same logic that killed the resume vocab).
 >
 > **NEW from #100 (tracked):**
 > - **shared/ files are SYMLINKS to the gcp-to-aws CANONICAL copies.** heroku's
