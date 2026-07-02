@@ -1,36 +1,141 @@
 # heroku-to-aws-dsl — Handoff
 
-_Last updated: 2026-07-01. Branch: `feat/heroku-dsl-refactor` (plan-of-record +
+_Last updated: 2026-07-02. Branch: `feat/heroku-dsl-refactor` (plan-of-record +
 the DSL skill; pushed to `fork/feat/heroku-dsl-refactor`; NOT shipped upstream).
 **START AT the ⭐ CURRENT STATE & RESUME snapshot** (search "⭐ CURRENT STATE") —
 that is the live source of truth; the rest below it is historical rung log._
 
-> ⚠️ **Session status:** all work through **#105 is MERGED to `awslabs/startups`
-> main and pushed to `fork`.** No pending local commits. (A prior GitHub outage
-> that had stranded a HANDOFF commit was resolved — everything is synced.)
+> ⚠️ **Session status (2026-07-02):** a NEW 5-PR arc (#107–#111) is MERGED to
+> `awslabs/startups` main (tip `eff3bc5`). This branch (`feat/heroku-dsl-refactor`)
+> is now ~18 behind origin/main and does NOT contain these PRs — they were shipped
+> from separate rung worktrees off origin/main, per the ground rules. The plan-of-
+> record branch holds only this HANDOFF + the parallel DSL skill.
 >
-> **Where we are:** the load-bearing DSL contract is fully SHIPPED + MERGED on
-> `awslabs/startups` main (#87–91, #96, #98, #99, #100, #102, #103, #104, #105).
-> #105 (`origin/main` `3f0e118`) landed the round-2 quick-wins: single-creator
-> UNIQUENESS (creates-vs-contributes model), honest `_stale_artifact`
-> (→ MIGRATION_GUIDE.md), normalized `_contributes`. Two independent reviews done
-> (~/Downloads/heroku-dsl-grammar-review.md + -round2.md); round-2 says the skill
-> is PAST the 'maximum-drift trough' — the grammar earns its keep for structure.
-> All rung worktrees cleaned up; only the plan-of-record branch remains.
+> **What the #107–#111 arc did (the CONVERGENCE turn):** this arc moved the PROSE
+> skill (`heroku-to-aws`) toward the DSL by RETIRING duplicated orchestration prose
+> and establishing a plugin-neutral DSL STANDARD in `skills/shared/`. It began as
+> "delete the redundant Phase Summary Table" and grew into "make the DSL contract +
+> shared state plugin-neutral, and detach heroku from gcp entirely." All cold-
+> validated (read-only Claude/Bedrock interpreter traces vs hand-derived oracles);
+> gcp-to-aws UNTOUCHED throughout.
 >
-> **Where to go next (from the NEXT ACTIONS ledger in the ⭐ snapshot):**
-> 1. Highest value-per-effort next rung: **frontmatter↔SKILL.md table cross-check**
->    (round-1 finding #5 — catches the `trace.json`-class drift; ~30-line validator
->    add, no new vocab).
-> 2. The real DESIGN QUESTION still open: **N3** — conditional artifacts (EKS
->    `terraform/eks.tf` + `kubernetes/`) are produced-but-undeclared in `_produces`,
+> - **#107 (`5c85895`) MERGED** — retire redundant orchestration prose from
+>   heroku SKILL.md. Removed 6 pre-DSL registries that frontmatter/INTERPRETER now
+>   own: the Phase Summary Table (had DRIFTED — omitted feedback's `trace.json`),
+>   the Conditional-reference table (→ design `_knowledge._when`), Prerequisites
+>   (→ discover `_preconditions._assert`), Handoff-gate items (→ INTERPRETER § Gate
+>   protocol + `_re_entry_guard`), State-Validation single-active (→
+>   `_check_single_active_phase`), and the 3rd copy of the TF-required rule.
+>   A/B cold trace PROVED the LLM never consults the table (see 'discoveries').
+> - **#108 (`41871f6`) MERGED** — move the interpreter LOOP into INTERPRETER.md,
+>   skill-agnostic. New § The interpreter loop absorbs the State Machine
+>   how-to-determine, Workflow Execution 1-7/9, State Validation, and the
+>   phase-status update protocol. De-heroku'd: backbone derived from
+>   `_advances_to`/`_requires_phase` (not hardcoded), `_init` no longer points at
+>   'the State Machine in SKILL.md'. SKILL.md keeps only heroku doctrine + the
+>   feedback-checkpoint PLACEMENT. Also (review-driven, Micky's comment): fixed a
+>   wrong `_requires_phase: clarify` claim (→ pure policy), removed a phantom
+>   `migration-report.html` line, shrank the Phase-Structure grammar re-explainer
+>   to a pointer, and EXTENDED THE GRAMMAR so `_knowledge` is valid on ASSEMBLER
+>   units (+2 validator tests, 35 total).
+> - **#109 (`6be0cd8`) MERGED** — single-home `.phase-status.json` as a REAL
+>   draft-07 JSON Schema at the plugin-neutral `skills/shared/state/`. It is
+>   PHASE-NAME-AGNOSTIC (`phases` is an open `<name>→status` map; names come from
+>   the skill's declared phase files, not the schema) — a new skill adds a phase
+>   with NO schema change. Killed 3 drifting copies (inline SKILL.md block, the
+>   INTERPRETER `_init` example, and a gcp symlink); `current_phase` reconciled in.
+> - **#110 (`da57794`) MERGED** — DETACH heroku from gcp-to-aws: removed all 5
+>   `references/shared/` symlinks into the gcp sibling. Per file: handoff-gates
+>   DROPPED (heroku never used it); migration-complexity → tier THRESHOLDS extracted
+>   to neutral `skills/shared/estimate/complexity-tiers.json` (gcp playbooks/billing/
+>   AI dropped — heroku's inputs+timelines were already inline); schema-estimate-infra
+>   → neutral `estimation-infra.schema.json` (source-agnostic `current_costs`, built
+>   from heroku's OWN inline shape); validate-artifacts → un-`_knowledge`'d (heroku's
+>   assembler already validates from its inline checklist; the gcp file referenced
+>   artifacts heroku doesn't produce). heroku is now SELF-CONTAINED, zero symlinks.
+> - **#111 (`eff3bc5`) MERGED** — relocate INTERPRETER.md to plugin-neutral
+>   `skills/shared/dsl/INTERPRETER.md` (author-facing signal: this is the shared DSL
+>   way). NO symlink, NO citation churn: the ~20 refs are all bare-name CITATIONS
+>   ('per `INTERPRETER.md` § X'), loaded ONCE; SKILL.md names the shared path once
+>   and states 'bare name = the loaded contract'. Cold-verified a fresh agent
+>   resolves it.
+>
+> **The plugin-neutral DSL standard now on main (`skills/shared/`):**
+>
+> ```
+> shared/dsl/INTERPRETER.md                     # grammar + interpreter loop (skill-agnostic)
+> shared/state/phase-status.schema.json         # state schema (phase-name-agnostic)
+> shared/estimate/estimation-infra.schema.json  # estimate schema (source-agnostic)
+> shared/estimate/complexity-tiers.json         # complexity thresholds
+> shared/pricing/aws-infra-pricing.json         # pricing (pre-existing)
+> ```
+>
+> heroku-to-aws AUTHORS TO this standard and has ZERO symlinks into any sibling.
+> 'heroku defines the standard; gcp/others adopt later' is the established model.
+>
+> **DISCOVERIES this arc (design principles + gotchas worth keeping):**
+>
+> - **The LLM does NOT consult SKILL.md orchestration tables** — an A/B cold trace
+>   (table present vs deleted, real origin/main skill) showed the interpreter drives
+>   entirely off frontmatter (`_advances_to`/`_requires_phase`/`_produces`) +
+>   INTERPRETER; the table was 'strictly redundant'. First attempt was INVALID
+>   (staged from the stale plan-of-record branch which LACKS INTERPRETER/frontmatter
+>   — tested a pre-DSL fiction); ALWAYS stage cold runs from `git archive origin/main`,
+>   NOT this branch.
+> - **KNOWLEDGE vs INSTRUCTIONS principle (user-set):** knowledge references = PURE
+>   DATA (json/yaml, looked up); prose/instructions = TYPED units with frontmatter
+>   (phase/fragment/assembler) so CI verifies integrity. A SCHEMA is data (→ JSON
+>   Schema); a PROCEDURE is a unit (→ fragment/assembler); universal lifecycle prose
+>   is the INTERPRETER. This is why validate-artifacts should NOT have been a
+>   `_knowledge` ref (it's a procedure heroku's assembler already owns inline).
+> - **The gcp 'shared' files were gcp-AUTHORED, and heroku had already re-authored
+>   inline whatever it needed** — so detaching was mostly deletion + extracting the
+>   small data core, NOT porting. ALWAYS audit heroku's REAL usage before converting
+>   a shared file (migration-complexity: heroku used only the thresholds;
+>   estimation-infra: heroku's shape was already inline; validate-artifacts: heroku
+>   never used gcp's checks). This 'audit real usage first' saved large ports 3x.
+> - **estimation-infra.json is shared by 3 skills** (heroku, gcp, aws-startup-advisor)
+>   — its neutral schema was de-clouded (`current_costs` source-agnostic, no
+>   `gcp_monthly`).
+> - **Relocating a prose-CITED file needs neither symlink nor churn** IF it's
+>   loaded-once + cited-by-name: name the location once, declare 'bare name = loaded
+>   contract'. (INTERPRETER had ZERO 'Load' instructions in the ~20 refs — all
+>   citations.)
+>
+> **WHERE TO GO NEXT (ranked — for the next session):**
+>
+> 1. **semgrep CI is RED on main** (blocks + creates noise on every PR): a `detect-non-literal-
+>    fs-filename` fixpoint-TIMEOUT on `tools/frontmatter-validator/check.ts` (a
+>    taint-analysis timeout, NOT a real finding — 0 findings; the timeout emits
+>    malformed JSON the CI SARIF step rejects → exit 2). Introduced by #108's
+>    check.ts growth. FIX: add `--exclude-rule="javascript.lang.security.audit.
+>    detect-non-literal-fs-filename.detect-non-literal-fs-filename"` to the semgrep
+>    step in `.github/workflows/security-scanners.yml` (matches the 2 AI rules
+>    already excluded there). `.github/workflows` is likely ADMIN-owned — flag it.
+>    Own tiny PR. (#107–#111 were merged over this red via admin override.)
+> 2. **PR-5 candidate: legacy per-phase 'Phase Status State Machine' prose** in
+>    `discover.md` + `design.md` (hardcoded `discover→clarify→…` chain + prose Rules
+>    1-5) — now REDUNDANT with INTERPRETER, surfaced by #108's cold trace. Per-phase-
+>    file surface (different from SKILL.md). Retire it like #107 did the SKILL.md
+>    registries.
+> 3. **N3 (still open, from the pre-#107 ledger below):** conditional artifacts (EKS
+>    `terraform/eks.tf`, `kubernetes/`) are produced-but-undeclared in `_produces`,
 >    gated only by prose `_assert`. Do conditional artifacts belong in `_produces`
->    with a `_when`? Same shape as the (now-fixed) Finding 3. Scope on paper first
->    (vocab is expensive once shipped).
-> 3. Lower-value gaps vs the DSL baseline: unit-level contracts on fragments/
->    assemblers (biggest structural gap, most work), `_scope`, `_mutates`,
->    `_templates` (skip). Finding-1-residual (annotate the dead re-entry table in
->    the gcp-canonical shared file) — TOUCHES GCP, needs a 'don't-change-gcp' call.
+>    with a `_when`? Scope on paper first.
+> 4. Lower-value: unit-level contracts on fragments/assemblers (`_scope`, `_mutates`);
+>    Finding-1-residual (dead re-entry table in gcp's shared file — TOUCHES GCP).
+> 5. Consider REFACTORING gcp-to-aws onto the new plugin-neutral standard (the
+>    deferred 'others adopt later' — a large separate effort, needs a 'change gcp' ok).
+>
+> **Ground rules that keep recurring:** push to `fork` never `origin`; each rung =
+> own branch off latest origin/main in a SEPARATE worktree (edit/write bind to MAIN
+> repo CWD — use ABSOLUTE paths in secondary worktrees); `mise trust` fresh
+> worktrees; run `mise run build` (NOT just lint — fmt:check has bitten 4x, usually
+> on an INTERPRETER.md/table row → `dprint fmt` fixes); cold-validate BEHAVIORAL
+> changes with a read-only subagent (Claude/Bedrock, blocks writes — run READ-ONLY,
+> return inline; stage from `git archive origin/main`, co-locate `skills/shared/` so
+> `../shared/...` resolves); vocab/design on paper before shipping; NEVER touch
+> gcp-to-aws.
 >
 > **Ground rules that keep recurring:** push to `fork` never `origin`; each rung =
 > own branch off latest origin/main in a SEPARATE worktree (edit/write bind to MAIN
