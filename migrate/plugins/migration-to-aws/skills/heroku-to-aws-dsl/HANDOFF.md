@@ -994,8 +994,8 @@ first (`dyno-type-table.md` vs `dyno-fargate-sizing.json`) to learn the shape.
 >   `c64e4f0`). Feature removal (the `preferences-draft.json` write+resume+merge
 >   thread); resume was investigated and found NOT to be a vocab rung.
 > - **#103 (gate protocol → frontmatter: `_preconditions` / `_postconditions` /
->   `_forbids_files`) — OPEN 2026-07-01** (fork `feat/heroku-gate-migration`,
->   worktree `../startups-gate-migration`). The gate half of the handoff-gates
+>   `_forbids_files`) — MERGED 2026-07-01** (`origin/main` `6ed732e`; branch/
+>   worktree cleaned up). The gate half of the handoff-gates
 >   rung (re-entry was #100). Moved every phase's entry-gate (Step 0 prereqs) +
 >   completion-gate checks into frontmatter; INTERPRETER.md § Gate protocol is the
 >   single source of truth (+ `_on_error` action dict {_warn_and_skip,
@@ -1017,9 +1017,9 @@ first (`dyno-type-table.md` vs `dyno-fargate-sizing.json`) to learn the shape.
 >   hard fail; `_forbids_files` included this rung. `mise run build` green
 >   (fmt:check bit once again — INTERPRETER table; dprint fmt fixed).
 >   **MERGED 2026-07-01 (`origin/main` `6ed732e`; branch/worktree cleaned up).**
-> - **#104 (`_knowledge` data deps + `_input` resolution) — OPEN 2026-07-01** (fork
->   `feat/heroku-knowledge-input`, worktree `../startups-knowledge`, off main —
->   INDEPENDENT of #103, merges either order). Gap-closing against the DSL baseline:
+> - **#104 (`_knowledge` data deps + `_input` resolution) — MERGED 2026-07-01**
+>   (`origin/main` `57d367d`; branch/worktree cleaned up; was rebased onto post-#103
+>   main, conflicts all additive). Gap-closing against the DSL baseline:
 >   `_knowledge: [{ file, _when? }]` declares each phase's JSON data deps (design's
 >   6 sizing JSONs w/ addon `_when` conditionals + estimate's estimate-defaults +
 >   shared pricing). discover/clarify/generate/feedback get NO `_knowledge` (their
@@ -1068,8 +1068,8 @@ first (`dyno-type-table.md` vs `dyno-fargate-sizing.json`) to learn the shape.
 > **ROUND-2 REVIEW (2026-07-01, ~/Downloads/heroku-dsl-grammar-review-round2.md):**
 > verified 3 of 5 round-1 findings RESOLVED WELL (#1 by #103, #2 by #103 incl. the
 > _postcond-file ⊆ _produces hard-fail, _input by #104); says skill is now PAST the
-> 'maximum-drift trough'. New findings → **#105 (OPEN, fork
-> `feat/heroku-round2-fixes`, worktree `../startups-round2`)** ships the quick-wins:
+> 'maximum-drift trough'. New findings → **#105 (MERGED 2026-07-01, `origin/main`
+> `3f0e118`; branch/worktree cleaned up)** shipped the quick-wins:
 >   - N1: single-creator tested COVERAGE not UNIQUENESS (generation-warnings.json
 >     had 2 declarers, passed green). Reworked to a creates-vs-contributes model
 >     (assembler creates a phase artifact; fragments naming it CONTRIBUTE content,
