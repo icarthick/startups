@@ -6,7 +6,8 @@ the DSL skill; pushed to `fork/feat/heroku-dsl-refactor`; NOT shipped upstream).
 that is the live source of truth; the rest below it is historical rung log._
 
 > ⚠️ **Session status (2026-07-02):** a NEW 5-PR arc (#107–#111) is MERGED to
-> `awslabs/startups` main (tip `eff3bc5`). This branch (`feat/heroku-dsl-refactor`)
+> `awslabs/startups` main, followed by **#112 (`b684325`) — cold-start entry
+> declaration** (see the arc log below). This branch (`feat/heroku-dsl-refactor`)
 > is now ~18 behind origin/main and does NOT contain these PRs — they were shipped
 > from separate rung worktrees off origin/main, per the ground rules. The plan-of-
 > record branch holds only this HANDOFF + the parallel DSL skill.
@@ -59,6 +60,26 @@ that is the live source of truth; the rest below it is historical rung log._
 >   ('per `INTERPRETER.md` § X'), loaded ONCE; SKILL.md names the shared path once
 >   and states 'bare name = the loaded contract'. Cold-verified a fresh agent
 >   resolves it.
+> - **#112 (`b684325`) MERGED 2026-07-02** — declare the cold-start ENTRY phase in
+>   SKILL.md. Closes a legibility/loading-cost gap: INTERPRETER's cold-start said
+>   'the first backbone phase runs' / 'walk the backbone in order', which read
+>   literally = scan EVERY phase's frontmatter to find the root (no `_requires_phase`)
+>   — an O(n) load that fights the skill's progressive-loading rule (`Load` = whole
+>   ~800-line file). The entry is the one backbone node with no cheap derivation, so
+>   it earns an explicit home: SKILL.md § Execution now DECLARES the entry
+>   (discover, the `_init` phase); INTERPRETER cold-start loads it DIRECTLY (warm-
+>   start `current_phase` path unchanged). The rest of the chain is still derived one
+>   `_advances_to` edge at a time — NOT reintroducing the retired full-order registry.
+>   CI stays SKILL-agnostic (chose 3a over reading SKILL.md): check.ts asserts `_init`
+>   UNIQUENESS + `_init`==backbone-head (backbone role, no `_requires_phase`) + a
+>   fully-declared backbone must have an entry — guarantees one unambiguous entry the
+>   SKILL.md pointer must name. +5 tests (40 total). Cold-validated read-only
+>   (Claude/Bedrock): interpreter started at discover FROM THE DECLARATION, opened
+>   ZERO phase files to decide, honored `_init`. `mise run build` green (fmt clean
+>   first try this time). Discovered en route: the semgrep RED is a pre-existing
+>   PR-only `bbp-pattern-inject` registry parse error (NOT the ledger's fs-filename
+>   theory — ledger #1 corrected same session); a `startups-semgrep-fix` worktree
+>   already exists with the matching real fix.
 >
 > **The plugin-neutral DSL standard now on main (`skills/shared/`):**
 >
@@ -104,20 +125,50 @@ that is the live source of truth; the rest below it is historical rung log._
 >
 > **WHERE TO GO NEXT (ranked — for the next session):**
 >
-> 1. **semgrep CI is RED on main** (blocks + creates noise on every PR): a `detect-non-literal-
->    fs-filename` fixpoint-TIMEOUT on `tools/frontmatter-validator/check.ts` (a
->    taint-analysis timeout, NOT a real finding — 0 findings; the timeout emits
->    malformed JSON the CI SARIF step rejects → exit 2). Introduced by #108's
->    check.ts growth. FIX: add `--exclude-rule="javascript.lang.security.audit.
->    detect-non-literal-fs-filename.detect-non-literal-fs-filename"` to the semgrep
->    step in `.github/workflows/security-scanners.yml` (matches the 2 AI rules
->    already excluded there). `.github/workflows` is likely ADMIN-owned — flag it.
->    Own tiny PR. (#107–#111 were merged over this red via admin override.)
+> 1. **semgrep CI fails on EVERY pull_request run** (not on push — see below).
+>    **⚠️ RE-DIAGNOSED 2026-07-02 — the earlier `detect-non-literal-fs-filename`
+>    fixpoint-timeout theory is WRONG.** Evidence from the live runs on `origin/main`
+>    tip `eff3bc5`:
+>    - The last 5 Security Scanners runs on `main` for `push` events are ALL GREEN;
+>      it is red ONLY on `pull_request` runs (every rung PR #107–#111 shows semgrep
+>      failure). So it is not "red on main" in the push sense — it is red on PRs.
+>    - `detect-non-literal-fs-filename` appears in the log only as empty
+>      `"fixpoint_timeouts": []` arrays — there is NO timeout on `check.ts`. That
+>      rule is not the cause, and `--exclude-rule`-ing it would change nothing.
+>    - The failing step is the exit-code gate (`::error::semgrep found security
+>      issues`); the `Run semgrep` step itself is marked success but semgrep exited
+>      non-zero. Finding counts are INVERTED vs pass/fail: the PR run reports
+>      **0 findings** yet FAILS, while the push run reports **130 findings** yet
+>      PASSES — so findings are not what drives the exit.
+>    - The one hard error in the log is a **rule PARSE error** in a registry rule
+>      named `bbp-pattern-inject` (pattern `os.system($X)`, `fix: evil code`,
+>      message `INJECTED`): `Invalid pattern for Python: Stdlib.Parsing.Parse_error`.
+>      This rule is NOT in our repo (`.semgrep.yaml` is `rules: []`); it comes from
+>      the live `--config=r/all` registry fetch. A bad/transient upstream rule makes
+>      semgrep exit 2 (error), which the PR path surfaces and the push path masks.
+>    NOT-YET-CONFIRMED (blocked — semgrep not installed locally, `gh` doesn't echo
+>    the `$GITHUB_OUTPUT` exit_code line): the exact exit code, and WHY push vs PR
+>    diverge (candidate: the `--baseline-commit` diff path treats registry rule-parse
+>    errors as fatal while the full scan tolerates them). LIKELY REAL FIX (scope
+>    before writing): `--exclude-rule` for `bbp-pattern-inject`, OR make the exit-code
+>    logic tolerant of rule-parse errors (e.g. don't fail on error-class exits), OR
+>    pin the registry — NOT the fs-filename exclude. `.github/` is ADMIN-owned
+>    (`@awslabs/startups-admins` in CODEOWNERS; `.semgrep.yaml` is admin-owned too) —
+>    any change needs admin approval. Own tiny PR. (#107–#111 were merged over this
+>    red via admin override.) **DEFERRED — fix not written; re-scope from the real
+>    signature above, do not re-run with the fs-filename theory.**
 > 2. **PR-5 candidate: legacy per-phase 'Phase Status State Machine' prose** in
 >    `discover.md` + `design.md` (hardcoded `discover→clarify→…` chain + prose Rules
 >    1-5) — now REDUNDANT with INTERPRETER, surfaced by #108's cold trace. Per-phase-
 >    file surface (different from SKILL.md). Retire it like #107 did the SKILL.md
->    registries.
+>    registries. **FOLD IN (from #112's investigation): de-hardcode residual phase
+>    ORDINALS in prose** — e.g. SKILL.md Definitions still says `$MIGRATION_DIR` is
+>    'Set during Phase 1 (Discover)', and phase files may carry 'Phase N' labels.
+>    These are small hardcodes of the same class as the state-machine prose (the
+>    order is derived; numbering it in prose can drift). Note #112 already gave the
+>    cold-start ENTRY a single CI-anchored home (SKILL.md declares it, check.ts
+>    enforces `_init`==head), so the ordinals are now purely descriptive cruft, not
+>    a second source of truth for the start.
 > 3. **N3 (still open, from the pre-#107 ledger below):** conditional artifacts (EKS
 >    `terraform/eks.tf`, `kubernetes/`) are produced-but-undeclared in `_produces`,
 >    gated only by prose `_assert`. Do conditional artifacts belong in `_produces`
