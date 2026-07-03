@@ -9,8 +9,10 @@ that is the live source of truth; the rest below it is historical rung log._
 > are on main, followed this session by **#113 (`816c15e`) — validator dangling-
 > `_advances_to` false-green fix**, **#117 (`29311b2`) — retire the 6 redundant
 > design-refs lookup tables**, **#118 (`28f1a4c`) — N3 Rung A: conditional artifact
-> vocab**, and **#119 (`aaf4ce0`) — N3 Rung B: generate floor+forbids contract**
-> (see the arc log below; tip `aaf4ce0`). **N3 is COMPLETE.** This branch
+> vocab**, **#119 (`aaf4ce0`) — N3 Rung B: generate floor+forbids contract**, and
+> **#120 (`cc66090`) — generation-warnings.json always-written (N3 follow-up a)**
+> (see the arc log below; tip `cc66090`). **N3 is COMPLETE** (only the by-design
+> open-tail follow-up (b) remains). This branch
 > (`feat/heroku-dsl-refactor`)
 > is now ~18 behind origin/main and does NOT contain these PRs — they were shipped
 > from separate rung worktrees off origin/main, per the ground rules. The plan-of-
@@ -179,6 +181,15 @@ that is the live source of truth; the rest below it is historical rung log._
 >   inconsistency, candidate for a `{file,_when}` or a focused fix; (b) the domain
 >   .tf files (database/cache/messaging/compute/vpc.tf) remain OPEN-TAIL by design
 >   (not floored) — revisit only if a stronger per-domain guarantee is ever wanted.
+> - **#120 (`cc66090`) MERGED 2026-07-03** — N3 follow-up (a): generation-warnings.json
+>   is now ALWAYS written (empty `warnings: []` when clean), resolving the #119
+>   contradiction (bare `_produces` floor entry vs prose 'if any services skipped').
+>   Chose always-written manifest over `{file,_when}` (user's call: write an empty
+>   file). Added to completion-gate `_check_file_exists` (floor now gate-verified);
+>   README `generation_warnings_exist` flag re-keyed off NON-EMPTY warnings (was
+>   'file created' = always true now); all 4 generate files reconciled + the
+>   overview skip-note tightened (cold-review catch). N3 follow-up (b) still open
+>   by-design.
 >
 > **The plugin-neutral DSL standard now on main (`skills/shared/`):**
 >
@@ -281,6 +292,11 @@ that is the live source of truth; the rest below it is historical rung log._
 >    compute/vpc.tf) are OPEN-TAIL by design (governed by fragment triggers +
 >    asserts, not floored) — only revisit if a stronger per-domain guarantee is
 >    ever wanted; NOT currently a defect.
+>    **✅ (a) DONE — #120 (`cc66090`):** chose 'always written, empty when clean'
+>    (not `{file,_when}`) — generation-warnings.json is now an always-present
+>    manifest, added to the completion-gate `_check_file_exists`, README's
+>    `generation_warnings_exist` flag re-keyed off NON-EMPTY warnings (not file
+>    existence), all 4 generate files reconciled. (b) still open by-design.
 > 4. Lower-value: unit-level contracts on fragments/assemblers (`_scope`, `_mutates`);
 >    Finding-1-residual (dead re-entry table in gcp's shared file — TOUCHES GCP).
 > 5. Consider REFACTORING gcp-to-aws onto the new plugin-neutral standard (the
