@@ -7,9 +7,10 @@ that is the live source of truth; the rest below it is historical rung log._
 
 > ⚠️ **Session status (2026-07-03):** the #107–#111 arc + #112 (cold-start entry)
 > are on main, followed this session by **#113 (`816c15e`) — validator dangling-
-> `_advances_to` false-green fix** and **#117 (`29311b2`) — retire the 6 redundant
-> design-refs lookup tables** (see the arc log below; tip `29311b2`). This branch
-> (`feat/heroku-dsl-refactor`)
+> `_advances_to` false-green fix**, **#117 (`29311b2`) — retire the 6 redundant
+> design-refs lookup tables**, and **#118 (`28f1a4c`) — N3 Rung A: conditional
+> artifacts in `_produces`/`_contributes`** (see the arc log below; tip `28f1a4c`).
+> This branch (`feat/heroku-dsl-refactor`)
 > is now ~18 behind origin/main and does NOT contain these PRs — they were shipped
 > from separate rung worktrees off origin/main, per the ground rules. The plan-of-
 > record branch holds only this HANDOFF + the parallel DSL skill.
@@ -117,6 +118,34 @@ that is the live source of truth; the rest below it is historical rung log._
 >   refs. NOTE (branch-divergence gotcha logged): the plan-of-record working tree is
 >   ~20 behind and its design.md has NO `_knowledge` block — always read state from
 >   `git show origin/main:` / a fresh worktree, NOT the working tree.
+> - **#118 (`28f1a4c`) MERGED 2026-07-03** — N3 RUNG A: conditional artifacts in
+>   `_produces`/`_contributes` (`{ file, _when }`, mirroring `_knowledge`). Solves
+>   the '_produces is a half-truth' gap: generate declared 6 always-on artifacts but
+>   emits more per design — terraform/eks.tf + kubernetes/ (EKS), migrate-postgres.sh
+>   (Postgres), migrate-redis.sh (Redis) — which were absent from BOTH `_produces`
+>   and their fragments' `_contributes`, so INVISIBLE to single-creator / postcond⊆
+>   produces / `_input` / `_stale_artifact` (their only guarantee was prose `_assert`).
+>   Scope S3 (declaration, NOT a new check-kind): `_when` is opaque prose the LLM
+>   reads at runtime, CI does NOT evaluate it (same as `_knowledge._when`); the
+>   `_postconditions` asserts stay the runtime gate, EKS assert keeps its content
+>   claim (cluster+node-group, manifests — the genuinely `_assert`-only part).
+>   Applied to the 4 hard-conditional artifacts ONLY. Validator: new `ArtifactRef
+>   {file, when}` + shared `artifactList()` parsing bare strings AND `{file, _when}`
+>   maps for `_produces`/`_contributes` (`blockList` untouched → `_input`/`_reads`/
+>   `_forbids_files` keep string semantics); `produces`/`contributes` stay `string[]`
+>   filename lists (all 7 consumers unchanged), `producesRefs`/`contributesRefs`
+>   carry conditional metadata; new check = a conditional map must carry a parseable
+>   non-empty `file:`; single-creator + postcond⊆produces cover conditional artifacts
+>   by filename automatically. Trailing-slash `file` (kubernetes/) = a produced
+>   DIRECTORY (decided: dynamic filenames, no single fixed file). +4 tests (45).
+>   INTERPRETER.md documents the form. Cold-validated BOTH ways (fires when predicate
+>   holds, omits when not, compute-only still completes; read kubernetes/ as a dir;
+>   asserts agree with `_when`). Design paper: `.agents/scratchpad/n3-…` (deleted).
+>   **N3 RUNG B QUEUED** (see WHERE-TO-GO-NEXT #3): the terraform fragment's
+>   `_contributes` under-declares ~6 domain .tf it actually emits (database/cache/
+>   messaging/compute/security/vpc.tf) + the always-on-but-undeclared security.tf/
+>   vpc.tf/.gitignore/terraform.tfvars.example — a HONESTY SWEEP, separate from this
+>   vocab-introduction rung.
 >
 > **The plugin-neutral DSL standard now on main (`skills/shared/`):**
 >
@@ -206,10 +235,17 @@ that is the live source of truth; the rest below it is historical rung log._
 >    cold-start ENTRY a single CI-anchored home (SKILL.md declares it, check.ts
 >    enforces `_init`==head), so the ordinals are now purely descriptive cruft, not
 >    a second source of truth for the start.
-> 3. **N3 (still open, from the pre-#107 ledger below):** conditional artifacts (EKS
->    `terraform/eks.tf`, `kubernetes/`) are produced-but-undeclared in `_produces`,
->    gated only by prose `_assert`. Do conditional artifacts belong in `_produces`
->    with a `_when`? Scope on paper first.
+> 3. **N3 — RUNG A DONE (#118), RUNG B QUEUED.** Rung A introduced the conditional
+>    artifact vocab (`_produces`/`_contributes` accept `{ file, _when }`) and applied
+>    it to the 4 hard-conditional artifacts (eks.tf, kubernetes/, the 2 migration
+>    scripts). **RUNG B (do next in N3):** the terraform fragment (`generate-terraform.md`)
+>    emits ~6 domain `.tf` files it does NOT declare in `_contributes` —
+>    database.tf, cache.tf, messaging.tf, compute.tf (all design-conditional) +
+>    security.tf, vpc.tf, .gitignore, terraform.tfvars.example (always-on). A HONESTY
+>    SWEEP: declare them (conditional ones with `_when`, always-on as bare), wire
+>    `_contributes`, and consider replacing the vague `_assert "at least one domain
+>    .tf beyond core"` with real per-file conditional declarations. Same S3 depth
+>    (declaration; asserts stay the gate). Bigger/more mechanical than Rung A.
 > 4. Lower-value: unit-level contracts on fragments/assemblers (`_scope`, `_mutates`);
 >    Finding-1-residual (dead re-entry table in gcp's shared file — TOUCHES GCP).
 > 5. Consider REFACTORING gcp-to-aws onto the new plugin-neutral standard (the
