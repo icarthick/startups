@@ -5,9 +5,11 @@ the DSL skill; pushed to `fork/feat/heroku-dsl-refactor`; NOT shipped upstream).
 **START AT the ⭐ CURRENT STATE & RESUME snapshot** (search "⭐ CURRENT STATE") —
 that is the live source of truth; the rest below it is historical rung log._
 
-> ⚠️ **Session status (2026-07-02):** a NEW 5-PR arc (#107–#111) is MERGED to
-> `awslabs/startups` main, followed by **#112 (`b684325`) — cold-start entry
-> declaration** (see the arc log below). This branch (`feat/heroku-dsl-refactor`)
+> ⚠️ **Session status (2026-07-03):** the #107–#111 arc + #112 (cold-start entry)
+> are on main, followed this session by **#113 (`816c15e`) — validator dangling-
+> `_advances_to` false-green fix** and **#117 (`29311b2`) — retire the 6 redundant
+> design-refs lookup tables** (see the arc log below; tip `29311b2`). This branch
+> (`feat/heroku-dsl-refactor`)
 > is now ~18 behind origin/main and does NOT contain these PRs — they were shipped
 > from separate rung worktrees off origin/main, per the ground rules. The plan-of-
 > record branch holds only this HANDOFF + the parallel DSL skill.
@@ -80,6 +82,41 @@ that is the live source of truth; the rest below it is historical rung log._
 >   PR-only `bbp-pattern-inject` registry parse error (NOT the ledger's fs-filename
 >   theory — ledger #1 corrected same session); a `startups-semgrep-fix` worktree
 >   already exists with the matching real fix.
+> - **#113 (`816c15e`) MERGED 2026-07-03** — fix a validator FALSE-GREEN: a phase
+>   whose `_advances_to` named a non-existent phase passed CI. The backbone chain-
+>   consistency block is gated on `advTargetsResolvable`, which SELF-SKIPS the
+>   instant any `_advances_to` is unresolvable (assumes 'partial rollout'), and
+>   unlike `_requires_phase` there was NO independent membership check on
+>   `_advances_to`. Found via the user's 'introduce an intended mistake' test:
+>   breaking discover's edge only went red BY LUCK (its `_re_entry_guard`
+>   cross-check tripped); breaking generate's edge (no guard) reported OK/exit 0.
+>   FIX: independent dangling-forward-edge check resolving each non-terminal target
+>   against the phase DIRECTORY on disk (`references/phases/<name>/<name>.md`), not
+>   the frontmatter-declared set — preserves partial-rollout tolerance (real phase,
+>   no frontmatter yet, still resolves) while failing a truly-absent target. Made
+>   `goodSkill()` model rollout faithfully (added a frontmatter-less clarify.md
+>   stub) + regression test. 41 tests.
+> - **#117 (`29311b2`) MERGED 2026-07-03** — retire the 6 redundant
+>   `design-refs/*.md` lookup tables. They were pre-DSL knowledge ALREADY extracted
+>   to `knowledge/design/*.json` (design's `_knowledge`, `_when`-gated) but never
+>   deleted — pod-sizing/plan DATA lived in TWO places, prose still said 'Load
+>   design-refs/<x>-table.md'. Per KNOWLEDGE-vs-INSTRUCTIONS a lookup table is DATA
+>   (→ JSON `_knowledge`), NOT a typed unit — so they were retired, not given
+>   frontmatter (answers the user's 'should design-refs be a type?' — no). Audited
+>   all 6 md↔json: 5 faithful subsets; eks-mapping-table.md had md-only DATA (Node
+>   Capacity Validation allocatable CPU/mem per node type + system-overhead
+>   breakdown). Confirmed VERIFICATION-ONLY (grep'd: zero runtime consumers — the
+>   sizing algo uses `node_size_rank` + `ceil(total_pods/4)`, never bin-packs
+>   against allocatable figures) but PRESERVED as `_node_capacity` /
+>   `_system_overhead_breakdown` / `_node_capacity_note` provenance in
+>   eks-pod-sizing.json. Re-pointed all prose (design.md retired its redundant
+>   'Lookup Table References' registry too; design-mapping/design-eks/generate-eks
+>   re-pointed; generate-eks placeholders now read the resolved aws-design.json, its
+>   real source), updated SKILL.md tree, deleted all 6. +88/−268 lines, no data
+>   lost. Cold-validated EKS branch resolves everything from JSON, zero dangling
+>   refs. NOTE (branch-divergence gotcha logged): the plan-of-record working tree is
+>   ~20 behind and its design.md has NO `_knowledge` block — always read state from
+>   `git show origin/main:` / a fresh worktree, NOT the working tree.
 >
 > **The plugin-neutral DSL standard now on main (`skills/shared/`):**
 >
