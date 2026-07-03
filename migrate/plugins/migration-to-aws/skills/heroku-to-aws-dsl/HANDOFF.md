@@ -8,9 +8,10 @@ that is the live source of truth; the rest below it is historical rung log._
 > ⚠️ **Session status (2026-07-03):** the #107–#111 arc + #112 (cold-start entry)
 > are on main, followed this session by **#113 (`816c15e`) — validator dangling-
 > `_advances_to` false-green fix**, **#117 (`29311b2`) — retire the 6 redundant
-> design-refs lookup tables**, and **#118 (`28f1a4c`) — N3 Rung A: conditional
-> artifacts in `_produces`/`_contributes`** (see the arc log below; tip `28f1a4c`).
-> This branch (`feat/heroku-dsl-refactor`)
+> design-refs lookup tables**, **#118 (`28f1a4c`) — N3 Rung A: conditional artifact
+> vocab**, and **#119 (`aaf4ce0`) — N3 Rung B: generate floor+forbids contract**
+> (see the arc log below; tip `aaf4ce0`). **N3 is COMPLETE.** This branch
+> (`feat/heroku-dsl-refactor`)
 > is now ~18 behind origin/main and does NOT contain these PRs — they were shipped
 > from separate rung worktrees off origin/main, per the ground rules. The plan-of-
 > record branch holds only this HANDOFF + the parallel DSL skill.
@@ -146,6 +147,38 @@ that is the live source of truth; the rest below it is historical rung log._
 >   messaging/compute/security/vpc.tf) + the always-on-but-undeclared security.tf/
 >   vpc.tf/.gitignore/terraform.tfvars.example — a HONESTY SWEEP, separate from this
 >   vocab-introduction rung.
+> - **#119 (`aaf4ce0`) MERGED 2026-07-03** — N3 RUNG B (reframed by the user): the
+>   generate contract is now a MANDATORY FLOOR + explicit FORBIDS CEILING, NOT a
+>   pretend-exhaustive `_produces`. The user's key insight: generate is a terminal
+>   FAN-OUT phase (18+ files incl. per-formation kubernetes/ manifests + per-service
+>   outputs that can't be enumerated), so an exhaustive `_produces` is a fiction;
+>   better to declare the always-emitted FLOOR and forbid what must never appear.
+>   `_produces` = floor only (bare, no `_when`) — added the 3 always-on terraform
+>   files that were emitted-but-undeclared (security.tf, .gitignore,
+>   terraform.tfvars.example). NEW `_forbids_files` on generate (it was the only
+>   phase without one): the INVERSE of upstream phases — a terminal phase forbids
+>   overwriting its 4 UPSTREAM inputs (heroku-resource-inventory/preferences/
+>   aws-design/estimation-infra.json; read-yes via `_input`, create-no). Open tail
+>   (domain .tf, eks.tf, kubernetes/, scripts) intentionally NOT enumerated —
+>   governed by fragment `_trigger`s + the conditional `_postconditions` asserts.
+>   **SUPERSEDES #118's APPLICATION to generate** (removed the 4 `{file,_when}`
+>   entries from generate's `_produces`) but KEEPS #118's GRAMMAR intact (per user:
+>   'don't change the grammar, someone may need it') — `_produces`/`_contributes`
+>   still parse `{file,_when}`, all 45 tests green — so a future phase wanting
+>   conditional-mandatory artifacts can still use it. Net across #118+#119: explored
+>   conditional-mandatory, landed on floor+forbids as the right shape FOR GENERATE.
+>   Reverted generate-docs/generate-eks `_contributes` to bare (fragment triggers
+>   carry the conditionality); added the 3 floored files to generate-terraform
+>   `_contributes` (single-creator). Cold-review CATCH fixed: completion gate
+>   `_check_file_exists` now verifies the FULL floor (was under-checking its own
+>   floor). Cold-validated (EKS+Postgres-no-Redis): floor reads as a minimum, open-
+>   tail still produced via triggers+asserts, forbids understood as read/no-create,
+>   behavior fully determined. **N3 COMPLETE.** Two FOLLOW-UPS logged (see WHERE-TO-
+>   GO-NEXT): (a) generation-warnings.json is a BARE `_produces` entry but is
+>   actually CONDITIONALLY emitted ('if any services skipped') — small latent
+>   inconsistency, candidate for a `{file,_when}` or a focused fix; (b) the domain
+>   .tf files (database/cache/messaging/compute/vpc.tf) remain OPEN-TAIL by design
+>   (not floored) — revisit only if a stronger per-domain guarantee is ever wanted.
 >
 > **The plugin-neutral DSL standard now on main (`skills/shared/`):**
 >
@@ -236,16 +269,18 @@ that is the live source of truth; the rest below it is historical rung log._
 >    enforces `_init`==head), so the ordinals are now purely descriptive cruft, not
 >    a second source of truth for the start.
 > 3. **N3 — RUNG A DONE (#118), RUNG B QUEUED.** Rung A introduced the conditional
->    artifact vocab (`_produces`/`_contributes` accept `{ file, _when }`) and applied
->    it to the 4 hard-conditional artifacts (eks.tf, kubernetes/, the 2 migration
->    scripts). **RUNG B (do next in N3):** the terraform fragment (`generate-terraform.md`)
->    emits ~6 domain `.tf` files it does NOT declare in `_contributes` —
->    database.tf, cache.tf, messaging.tf, compute.tf (all design-conditional) +
->    security.tf, vpc.tf, .gitignore, terraform.tfvars.example (always-on). A HONESTY
->    SWEEP: declare them (conditional ones with `_when`, always-on as bare), wire
->    `_contributes`, and consider replacing the vague `_assert "at least one domain
->    .tf beyond core"` with real per-file conditional declarations. Same S3 depth
->    (declaration; asserts stay the gate). Bigger/more mechanical than Rung A.
+> 3. **N3 — COMPLETE (Rung A #118, Rung B #119).** Rung A introduced the conditional
+>    artifact vocab (`_produces`/`_contributes` accept `{ file, _when }`); Rung B
+>    reframed generate to a MANDATORY FLOOR + FORBIDS CEILING (user's call: a
+>    terminal fan-out phase shouldn't pretend `_produces` is exhaustive). Grammar
+>    kept, generate's application to floor+forbids. TWO SMALL FOLLOW-UPS left:
+>    (a) **generation-warnings.json** is a BARE (unconditional) `_produces` entry
+>    but is actually CONDITIONALLY emitted ('if any services were skipped') — a
+>    latent inconsistency; either make it `{ file, _when }` or drop it from the hard
+>    floor. Tiny, self-contained. (b) the domain `.tf` (database/cache/messaging/
+>    compute/vpc.tf) are OPEN-TAIL by design (governed by fragment triggers +
+>    asserts, not floored) — only revisit if a stronger per-domain guarantee is
+>    ever wanted; NOT currently a defect.
 > 4. Lower-value: unit-level contracts on fragments/assemblers (`_scope`, `_mutates`);
 >    Finding-1-residual (dead re-entry table in gcp's shared file — TOUCHES GCP).
 > 5. Consider REFACTORING gcp-to-aws onto the new plugin-neutral standard (the
