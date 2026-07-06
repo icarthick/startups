@@ -10,9 +10,11 @@ that is the live source of truth; the rest below it is historical rung log._
 > `_advances_to` false-green fix**, **#117 (`29311b2`) — retire the 6 redundant
 > design-refs lookup tables**, **#118 (`28f1a4c`) — N3 Rung A: conditional artifact
 > vocab**, **#119 (`aaf4ce0`) — N3 Rung B: generate floor+forbids contract**, and
-> **#120 (`cc66090`) — generation-warnings.json always-written (N3 follow-up a)**
-> (see the arc log below; tip `cc66090`). **N3 is COMPLETE** (only the by-design
-> open-tail follow-up (b) remains). This branch
+> **#120 (`cc66090`) — generation-warnings.json always-written (N3 follow-up a)**,
+> and **#121 (`90ab5f3`) — per-phase prose prune (discover + clarify)**
+> (see the arc log below; tip `90ab5f3`). **N3 is COMPLETE** (only the by-design
+> open-tail follow-up (b) remains); the PROSE-PRUNE sweep is IN PROGRESS (discover
+> + clarify done; design/estimate/generate/feedback remain). This branch
 > (`feat/heroku-dsl-refactor`)
 > is now ~18 behind origin/main and does NOT contain these PRs — they were shipped
 > from separate rung worktrees off origin/main, per the ground rules. The plan-of-
@@ -190,6 +192,35 @@ that is the live source of truth; the rest below it is historical rung log._
 >   'file created' = always true now); all 4 generate files reconciled + the
 >   overview skip-note tightened (cold-review catch). N3 follow-up (b) still open
 >   by-design.
+> - **#121 (`90ab5f3`) MERGED 2026-07-06** — NEW WORKSTREAM: per-phase/fragment
+>   PROSE PRUNE. Reconcile each phase + fragment file against the DSL contract so
+>   it carries ONLY the prose it uniquely needs — retiring text that frontmatter /
+>   INTERPRETER / a sibling unit already owns. Same spirit as #107 (retire
+>   orchestration prose the LLM doesn't consult). #121 did the DISCOVER + CLARIFY
+>   phases (7 files). Method: interactive section-by-section keep/trim/delete with
+>   the user. Key cuts: discover.md − the per-phase 'Phase Status State Machine'
+>   (Rules 1-5: hardcoded chain + gates + GATE_FAIL/unrecoverable — the DISCOVER
+>   half of ledger #2), Sub-Discovery-Files list, Output-Files list; discover-
+>   terraform − unreachable 0c exit gate + Step 4 consolidation; discover-billing
+>   − glob dup + 'When Unavailable' dup; discover-assemble − FIXED A DANGLING
+>   'Rule 4 in discover.md' ref the discover.md cut created (→ INTERPRETER
+>   `_on_error`) + dropped a `_postconditions`-duplicate clustering check; clarify.md
+>   − Sub-Files section; clarify-interview + clarify-assemble − removed the
+>   VESTIGIAL `preferences-draft.json` cleanup (dead since #102 removed mid-batch
+>   resume; confirmed nothing writes a draft — clarify produces only preferences.json
+>   + shared state) + trimmed the assemble Step-5 mechanics. KEPT everywhere: the
+>   real work (scan how-to, HCL→JSON worked examples, Question Catalog + Defaults
+>   Table, artifact schemas), Validation Checklist (load-bearing — `_postconditions`
+>   delegates to it by reference), Scope Boundary blocks (semantic doctrine, no
+>   frontmatter home — `_scope` candidate), and 'Clarify is mandatory' doctrine.
+>   DELIBERATELY NOT touched: phase-ordinal titles ('Phase N of 6') — deferred to a
+>   separate consistent ordinal sweep (part of ledger #2). GOTCHA (logged to
+>   memory): `dprint fmt:check` does NOT flag a code fence nested in a bullet, but
+>   markdownlint MD031 DOES — CI failed once on it; always run full `mise run build`
+>   (or `lint:md`), not just `fmt:check`, on prose edits touching fences.
+>   **SWEEP REMAINING:** design (design.md still has the per-phase state-machine =
+>   the OTHER half of ledger #2; + design-mapping/design-eks/design-assemble),
+>   estimate, generate, feedback (+ their fragments).
 >
 > **The plugin-neutral DSL standard now on main (`skills/shared/`):**
 >
@@ -267,18 +298,18 @@ that is the live source of truth; the rest below it is historical rung log._
 >    any change needs admin approval. Own tiny PR. (#107–#111 were merged over this
 >    red via admin override.) **DEFERRED — fix not written; re-scope from the real
 >    signature above, do not re-run with the fs-filename theory.**
-> 2. **PR-5 candidate: legacy per-phase 'Phase Status State Machine' prose** in
->    `discover.md` + `design.md` (hardcoded `discover→clarify→…` chain + prose Rules
->    1-5) — now REDUNDANT with INTERPRETER, surfaced by #108's cold trace. Per-phase-
->    file surface (different from SKILL.md). Retire it like #107 did the SKILL.md
->    registries. **FOLD IN (from #112's investigation): de-hardcode residual phase
->    ORDINALS in prose** — e.g. SKILL.md Definitions still says `$MIGRATION_DIR` is
->    'Set during Phase 1 (Discover)', and phase files may carry 'Phase N' labels.
->    These are small hardcodes of the same class as the state-machine prose (the
->    order is derived; numbering it in prose can drift). Note #112 already gave the
->    cold-start ENTRY a single CI-anchored home (SKILL.md declares it, check.ts
->    enforces `_init`==head), so the ordinals are now purely descriptive cruft, not
->    a second source of truth for the start.
+> 2. **Legacy per-phase 'Phase Status State Machine' prose** — **DISCOVER HALF DONE
+>    (#121); DESIGN HALF REMAINS.** #121 removed the block (hardcoded chain + Rules
+>    1-5) from `discover.md`. `design.md` still carries the same block — retire it
+>    the same way (it's part of the design-phase prose-prune sweep, next up).
+>    **STILL SEPARATE — de-hardcode residual phase ORDINALS in prose:** SKILL.md
+>    Definitions says `$MIGRATION_DIR` is 'Set during Phase 1 (Discover)', and phase
+>    files carry 'Phase N of 6' / 'Phase N:' titles. The prose-prune sweep is
+>    DELIBERATELY NOT touching these (to keep ordinal cleanup as one consistent
+>    pass across all phase titles at once, rather than scattering it). Do the
+>    ordinal sweep as its own PR after the prose prune. #112 already gave the
+>    cold-start ENTRY a CI-anchored home, so the ordinals are purely descriptive
+>    cruft, not a second source of truth.
 > 3. **N3 — RUNG A DONE (#118), RUNG B QUEUED.** Rung A introduced the conditional
 > 3. **N3 — COMPLETE (Rung A #118, Rung B #119).** Rung A introduced the conditional
 >    artifact vocab (`_produces`/`_contributes` accept `{ file, _when }`); Rung B
