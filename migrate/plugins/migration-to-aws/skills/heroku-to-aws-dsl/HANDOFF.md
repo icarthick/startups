@@ -14,10 +14,12 @@ that is the live source of truth; the rest below it is historical rung log._
 > and **#121 (`90ab5f3`) — per-phase prose prune (discover + clarify)**, and
 > **#122 (`9b099d4`) — per-phase prose prune (design)**, and
 > **#123 (`0cf635f`) — plugin-level DSL authoring guide (docs)**, and
-> **#124 (`8713d84`) — per-phase prose prune (estimate)**
-> (see the arc log below; tip `8713d84`). **N3 is COMPLETE** (only the by-design
+> **#124 (`8713d84`) — per-phase prose prune (estimate)**, and
+> **#125 (`653b0c8`) — per-phase prose prune (generate)**
+> (see the arc log below; tip `653b0c8`). **N3 is COMPLETE** (only the by-design
 > open-tail follow-up (b) remains); the PROSE-PRUNE sweep is IN PROGRESS (discover
-> + clarify + design + estimate done; generate/feedback remain). This branch
+> + clarify + design + estimate + generate done; feedback is the ONLY phase left).
+> This branch
 > (`feat/heroku-dsl-refactor`)
 > is now ~18 behind origin/main and does NOT contain these PRs — they were shipped
 > from separate rung worktrees off origin/main, per the ground rules. The plan-of-
@@ -299,6 +301,41 @@ that is the live source of truth; the rest below it is historical rung log._
 >   biggest (terminal multi-fragment fan-out: generate.md + generate-terraform/
 >   generate-docs/generate-eks + generate-assemble). Ledger #2 ordinal sweep still
 >   deferred to its own PR.
+> - **#125 (`653b0c8`) MERGED 2026-07-06** — PROSE PRUNE continued: the GENERATE
+>   phase (5 files, net −170 lines — the biggest sweep PR). Generate is the largest
+>   phase (~3500 lines) but the cuts were proportionally light: the terminal
+>   fan-out fragments are overwhelmingly real HCL/doc/manifest generation, and the
+>   redundancy clustered at each file's HEAD + TAIL. generate.md − the gate
+>   blockquote, Sub-Files, Step 0 set-in_progress recipe, both per-step 'This
+>   produces:' lists (dup _contributes/_produces), both 'Gate check after Step N'
+>   blocks (dup the completion _postconditions), and the full 'EKS Generation
+>   (conditional)' prose block (VERIFIED generate-eks owns both cross-fragment
+>   facts it named — its 'Helm Provider Requirement' section + its 'MIGRATION_GUIDE.md
+>   — EKS Sections' section — before cutting; kept a one-line pointer that the
+>   conditional fragment fires). generate-terraform.md − the Load blockquote,
+>   ## Prerequisites (dup _input/_preconditions, unreachable exit), ## Output Summary
+>   (dup _contributes AND the earlier ## Output Structure), the fragment-level
+>   ## Completion Handoff Gate (dup phase _postconditions), and ## Generate Phase
+>   Integration (orchestration prose = the orchestrator's job); HCL Steps 1-12 +
+>   routing tables untouched. generate-docs.md − ## Inputs Required + ## Output
+>   Contribution (same classes) + one gate-dup Error row; all doc/script templates
+>   untouched. generate-eks.md − the Applies/Skip trigger pair (mirrors the #122
+>   design-eks cut). generate-assemble.md − mirrors the #122 design-assemble cuts
+>   (Step-4 read-merge-write recipe → INTERPRETER pointer keeping the completion
+>   message; ## Output Files collapse; Error 'Status Transition' column) PLUS a
+>   Step-3 trim (numbered artifact list → pointer, KEEPING the Cross-reference
+>   checks = the assembler's real cross-artifact work). ALSO: audited whether the
+>   22 embedded HCL blocks should move to a `templates/` folder — finding: only
+>   .gitignore is cleanly extractable; ~19 are skeleton+interpolation+conditional-
+>   emission FUSED (worked examples carrying the generation algorithm = keep
+>   category), and extraction needs a `_templates` grammar key + templates/
+>   convention main's frontmatter-validator does NOT support (richer plan-of-record
+>   grammar only). Left HCL inline; the shared-template case is the real future
+>   trigger (a 2nd skill needing the same static skeletons). `mise run build` green
+>   first try. Pure prose deletion, no behavioral change.
+>   **SWEEP REMAINING: feedback only** (+ its 2 fragments) — the final phase and the
+>   sole checkpoint (`_kind: checkpoint`, off-backbone). Ledger #2 ordinal sweep
+>   still deferred to its own PR.
 >
 > **The plugin-neutral DSL standard now on main (`skills/shared/`):**
 >
