@@ -12,8 +12,9 @@ that is the live source of truth; the rest below it is historical rung log._
 > vocab**, **#119 (`aaf4ce0`) — N3 Rung B: generate floor+forbids contract**, and
 > **#120 (`cc66090`) — generation-warnings.json always-written (N3 follow-up a)**,
 > and **#121 (`90ab5f3`) — per-phase prose prune (discover + clarify)**, and
-> **#122 (`9b099d4`) — per-phase prose prune (design)**
-> (see the arc log below; tip `9b099d4`). **N3 is COMPLETE** (only the by-design
+> **#122 (`9b099d4`) — per-phase prose prune (design)**, and
+> **#123 (`0cf635f`) — plugin-level DSL authoring guide (docs)**
+> (see the arc log below; tip `0cf635f`). **N3 is COMPLETE** (only the by-design
 > open-tail follow-up (b) remains); the PROSE-PRUNE sweep is IN PROGRESS (discover
 > + clarify + design done; estimate/generate/feedback remain). This branch
 > (`feat/heroku-dsl-refactor`)
@@ -249,6 +250,28 @@ that is the live source of truth; the rest below it is historical rung log._
 >   **SWEEP REMAINING:** estimate, generate, feedback (+ their fragments). Ledger #2
 >   ordinal sweep (phase-ordinal titles + SKILL.md `$MIGRATION_DIR` 'Set during Phase
 >   1') still deferred to its own PR after the prose prune.
+> - **#123 (`0cf635f`) MERGED 2026-07-06** — NEW ARTIFACT (orthogonal to the prose-
+>   prune sweep): a plugin-level DSL AUTHORING GUIDE at
+>   `migrate/plugins/migration-to-aws/docs/` (5 docs, ~1000 lines) so a content
+>   author (or their agent) can understand the DSL + author a new migration skill.
+>   README (why/what-it-isn't/getting-started/canonical-sources), 01-concepts
+>   (LLM-as-interpreter, structure-checkable-vs-judgment, 3 unit kinds, lifecycle,
+>   derive-don't-declare), 02-grammar-reference (every closed-vocab _-key + shape +
+>   verbatim heroku example + trigger/check/on_error/re-entry/conditional-artifact
+>   grammars), 03-authoring-guide (build a phase end-to-end + common-mistakes→finding
+>   table + the MD031 gotcha), 04-validator-checks (full check catalog from check.ts
+>   + partial-rollout tolerance model + the _when/_assert judgment surface). KEY
+>   DECISION: documents the grammar AS SHIPPED ON MAIN (`shared/dsl/INTERPRETER.md`
+>   + `tools/frontmatter-validator/{types,parse,check}.ts` + the heroku-to-aws living
+>   example), NOT the unshipped plan-of-record `skills/heroku-to-aws-dsl/docs/`
+>   (dsl-types/dsl-language-guide/unit-taxonomy-spec) which describe a DIFFERENT,
+>   richer validator (`scripts/dsl-validator/`, 14 types/4 tiers) that is not on main
+>   (main ships the leaner `tools/frontmatter-validator/`, run via
+>   `mise run lint:frontmatter`). Per the user, the plan-of-record docs are LEFT
+>   AS-IS on `feat/heroku-dsl-refactor` (not moved/reconciled). Follow-up (noted, not
+>   scheduled): the two doc sets now overlap in intent but describe different
+>   validators — eventually retire or reconcile the plan-of-record set. Docs-only,
+>   `mise run build` green.
 >
 > **The plugin-neutral DSL standard now on main (`skills/shared/`):**
 >
