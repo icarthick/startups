@@ -1,6 +1,6 @@
 # heroku-to-aws-dsl — Handoff
 
-_Last updated: 2026-07-02. Branch: `feat/heroku-dsl-refactor` (plan-of-record +
+_Last updated: 2026-07-06. Branch: `feat/heroku-dsl-refactor` (plan-of-record +
 the DSL skill; pushed to `fork/feat/heroku-dsl-refactor`; NOT shipped upstream).
 **START AT the ⭐ CURRENT STATE & RESUME snapshot** (search "⭐ CURRENT STATE") —
 that is the live source of truth; the rest below it is historical rung log._
@@ -11,10 +11,11 @@ that is the live source of truth; the rest below it is historical rung log._
 > design-refs lookup tables**, **#118 (`28f1a4c`) — N3 Rung A: conditional artifact
 > vocab**, **#119 (`aaf4ce0`) — N3 Rung B: generate floor+forbids contract**, and
 > **#120 (`cc66090`) — generation-warnings.json always-written (N3 follow-up a)**,
-> and **#121 (`90ab5f3`) — per-phase prose prune (discover + clarify)**
-> (see the arc log below; tip `90ab5f3`). **N3 is COMPLETE** (only the by-design
+> and **#121 (`90ab5f3`) — per-phase prose prune (discover + clarify)**, and
+> **#122 (`9b099d4`) — per-phase prose prune (design)**
+> (see the arc log below; tip `9b099d4`). **N3 is COMPLETE** (only the by-design
 > open-tail follow-up (b) remains); the PROSE-PRUNE sweep is IN PROGRESS (discover
-> + clarify done; design/estimate/generate/feedback remain). This branch
+> + clarify + design done; estimate/generate/feedback remain). This branch
 > (`feat/heroku-dsl-refactor`)
 > is now ~18 behind origin/main and does NOT contain these PRs — they were shipped
 > from separate rung worktrees off origin/main, per the ground rules. The plan-of-
@@ -218,9 +219,36 @@ that is the live source of truth; the rest below it is historical rung log._
 >   memory): `dprint fmt:check` does NOT flag a code fence nested in a bullet, but
 >   markdownlint MD031 DOES — CI failed once on it; always run full `mise run build`
 >   (or `lint:md`), not just `fmt:check`, on prose edits touching fences.
->   **SWEEP REMAINING:** design (design.md still has the per-phase state-machine =
->   the OTHER half of ledger #2; + design-mapping/design-eks/design-assemble),
->   estimate, generate, feedback (+ their fragments).
+> - **#122 (`9b099d4`) MERGED 2026-07-06** — PROSE PRUNE continued: the DESIGN
+>   phase (4 files, net −70 lines). Retired the DESIGN HALF of ledger #2 — design.md's
+>   per-phase 'Phase Status State Machine' (Rules 1-4: hardcoded chain + predecessor/
+>   single-active gates + GATE_FAIL/unrecoverable) → owned by INTERPRETER § Gate
+>   protocol + § `_on_error` + the phase's own `_pre`/`_postconditions`. **Ledger #2
+>   state-machine halves are now BOTH done** (discover #121, design #122); only the
+>   ordinal sweep remains under ledger #2. Other design.md cuts: Sub-Files list
+>   (dupes `_fragments`/`_assemble`) + per-type Lookup-Table file list (dupes
+>   `_knowledge` frontmatter) — folded the EKS 'alternative path, not addition' cue
+>   into the intro (user's call), kept Scope Boundary. design-mapping.md − only the
+>   redundant set-`in_progress` recipe from Step 0 (the whole mapping engine Steps
+>   1-5 = real deterministic work, untouched). design-eks.md − the bolded
+>   `Applies when:`/`Skip when:` pair (3rd copy of the `_when` trigger). design-
+>   assemble.md − Step-6 verify list → cross-ref (dup `_postconditions`), Step-7
+>   exists-preamble (dup `_check_file_exists`), Step-8 read-merge-write recipe +
+>   hardcoded `current_phase=estimate` → INTERPRETER pointer (kept the user message),
+>   Output-Files list (dup `_produces`/`_forbids_files`), Error-Handling 'Status
+>   Transition' column (dup `_on_error`) — the column cut ALSO fixed the dangling
+>   'Rule 3'/'Rule 4' refs design.md's state-machine deletion orphaned (the #121
+>   cross-file trap, anticipated + handled). ALSO (user's 'do both in this PR' call):
+>   gave phase-level `_knowledge` a real home in INTERPRETER.md (phase-key table row
+>   + `§ _knowledge` subsection) — design.md cited `§ _knowledge` but no such section
+>   existed and `_knowledge` was absent from the phase-key table since #104 introduced
+>   it; the citation now resolves. `mise run build` green (fmt:check bit once on two
+>   table blocks — INTERPRETER phase-key table + design-assemble Error table
+>   re-alignment after cell-width change; `dprint fmt` fixed, folded into the right
+>   commits via `--fixup` + autosquash). Pure prose deletion, no cold-run needed.
+>   **SWEEP REMAINING:** estimate, generate, feedback (+ their fragments). Ledger #2
+>   ordinal sweep (phase-ordinal titles + SKILL.md `$MIGRATION_DIR` 'Set during Phase
+>   1') still deferred to its own PR after the prose prune.
 >
 > **The plugin-neutral DSL standard now on main (`skills/shared/`):**
 >
@@ -298,10 +326,11 @@ that is the live source of truth; the rest below it is historical rung log._
 >    any change needs admin approval. Own tiny PR. (#107–#111 were merged over this
 >    red via admin override.) **DEFERRED — fix not written; re-scope from the real
 >    signature above, do not re-run with the fs-filename theory.**
-> 2. **Legacy per-phase 'Phase Status State Machine' prose** — **DISCOVER HALF DONE
->    (#121); DESIGN HALF REMAINS.** #121 removed the block (hardcoded chain + Rules
->    1-5) from `discover.md`. `design.md` still carries the same block — retire it
->    the same way (it's part of the design-phase prose-prune sweep, next up).
+> 2. **Legacy per-phase 'Phase Status State Machine' prose** — **BOTH HALVES DONE
+>    (discover #121, design #122).** The block (hardcoded chain + Rules 1-5) is now
+>    gone from both `discover.md` and `design.md` → owned by INTERPRETER § Gate
+>    protocol + § `_on_error` + each phase's `_pre`/`_postconditions`. No phase
+>    file carries the state-machine block anymore.
 >    **STILL SEPARATE — de-hardcode residual phase ORDINALS in prose:** SKILL.md
 >    Definitions says `$MIGRATION_DIR` is 'Set during Phase 1 (Discover)', and phase
 >    files carry 'Phase N of 6' / 'Phase N:' titles. The prose-prune sweep is
