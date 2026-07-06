@@ -13,10 +13,11 @@ that is the live source of truth; the rest below it is historical rung log._
 > **#120 (`cc66090`) — generation-warnings.json always-written (N3 follow-up a)**,
 > and **#121 (`90ab5f3`) — per-phase prose prune (discover + clarify)**, and
 > **#122 (`9b099d4`) — per-phase prose prune (design)**, and
-> **#123 (`0cf635f`) — plugin-level DSL authoring guide (docs)**
-> (see the arc log below; tip `0cf635f`). **N3 is COMPLETE** (only the by-design
+> **#123 (`0cf635f`) — plugin-level DSL authoring guide (docs)**, and
+> **#124 (`8713d84`) — per-phase prose prune (estimate)**
+> (see the arc log below; tip `8713d84`). **N3 is COMPLETE** (only the by-design
 > open-tail follow-up (b) remains); the PROSE-PRUNE sweep is IN PROGRESS (discover
-> + clarify + design done; estimate/generate/feedback remain). This branch
+> + clarify + design + estimate done; generate/feedback remain). This branch
 > (`feat/heroku-dsl-refactor`)
 > is now ~18 behind origin/main and does NOT contain these PRs — they were shipped
 > from separate rung worktrees off origin/main, per the ground rules. The plan-of-
@@ -272,6 +273,32 @@ that is the live source of truth; the rest below it is historical rung log._
 >   scheduled): the two doc sets now overlap in intent but describe different
 >   validators — eventually retire or reconcile the plan-of-record set. Docs-only,
 >   `mise run build` green.
+> - **#124 (`8713d84`) MERGED 2026-07-06** — PROSE PRUNE continued: the ESTIMATE
+>   phase (3 files, net −62 lines). The phase was already authored in the post-
+>   cleanup style (no per-phase state machine, no Output-Files/Error-Handling
+>   tables, no Step-N status recipe), so cuts were modest. estimate.md − the
+>   `> Loaded by SKILL.md when phases.design == completed AND phases.estimate !=
+>   completed` blockquote (restated the predecessor gate + not-already-completed
+>   loop logic, both INTERPRETER-owned), the `## Overview` Inputs list (dups
+>   `_input`) + Outputs list (dups `_produces`) folded to a one-line H1 intro, and
+>   the `## Sub-Files` list. estimate-cost-engine.md − NO prose cuts (it IS the cost
+>   engine: formulas, tier logic, observability math, ROI, MCP recipes, worked JSON
+>   — all real work); only normalized the one inconsistent `_contributes` entry from
+>   a prose gloss to a bare filename (matches every other fragment). estimate-
+>   assemble.md − the one real judgment call: the `## Output` section inlined the
+>   full `estimation-infra.json` skeleton right after citing the schema (a drift
+>   surface). DIFFED the skeleton vs `estimation-infra.schema.json`: the schema pins
+>   the top-level keys + pricing_source/projected_costs fields + enums, and the cost-
+>   engine Parts 1-8 emit each section's full JSON — only `financial_summary` is
+>   assembler-derived + left open by the schema. Replaced the ~60-line skeleton with
+>   a schema ref + a one-line-per-section assembly map + the `financial_summary`
+>   block spelled out; kept the Completion Handoff Gate + Present Summary template.
+>   `mise run build` green first try (no fmt:check bite this time). Pure prose +
+>   one frontmatter normalization, no behavioral change.
+>   **SWEEP REMAINING:** generate, feedback (+ their fragments). generate is the
+>   biggest (terminal multi-fragment fan-out: generate.md + generate-terraform/
+>   generate-docs/generate-eks + generate-assemble). Ledger #2 ordinal sweep still
+>   deferred to its own PR.
 >
 > **The plugin-neutral DSL standard now on main (`skills/shared/`):**
 >
