@@ -68,8 +68,10 @@ Extract via a script to avoid reading the raw billing file into context:
 5. Delete the script file after successful execution.
 
 **Critical:** In lightweight mode, do **not** Read the billing file with the Read tool
-and do **not** run the full Steps 0–4 or load `schema-discover-billing.md`. Once
-`billing-profile.json` is written, this fragment is done.
+(the `_extract_billing.py` script already emitted the JSON). The output must still
+conform to `schemas/billing-profile.schema.json` — the lightweight path writes the
+required subset (summary/services/ai_signals); metadata/commitments/cost_basis may be
+absent. Once `billing-profile.json` is written, this fragment is done.
 
 ---
 
@@ -238,7 +240,7 @@ Write `$MIGRATION_DIR/billing-profile.json` with the following structure:
 }
 ```
 
-Load `references/shared/schema-discover-billing.md` and validate the output against the `billing-profile.json` schema.
+Generate the output following `schemas/billing-profile.schema.json` (the schema carries the shape, per-field descriptions, and a representative example), then validate `billing-profile.json` against it. The phase's `_postconditions` also validate it at the completion gate.
 
 After generating the output file, the parent `discover.md` handles the phase status update — do not update `.phase-status.json` here.
 

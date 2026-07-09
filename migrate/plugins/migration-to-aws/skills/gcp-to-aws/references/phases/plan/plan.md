@@ -41,7 +41,15 @@ _preconditions:
     _on_failure: _unrecoverable
   - _validate_json: preferences.json
     _on_failure: _unrecoverable
+  - _validate_schema: preferences.json
+    _on_failure: _unrecoverable
   - _assert: "at least one estimation artifact exists (estimation-infra.json, estimation-ai.json, or estimation-billing.json); if none, Plan cannot run"
+    _on_failure: _unrecoverable
+  - _validate_schema: estimation-infra.json
+    _on_failure: _unrecoverable
+  - _validate_schema: estimation-billing.json
+    _on_failure: _unrecoverable
+  - _validate_schema: estimation-ai.json
     _on_failure: _unrecoverable
 _postconditions:
   - _assert: "at least one plan route was active and produced its artifact: infra route -> generation-infra.json; AI route -> generation-ai.json; billing-only route -> generation-billing.json. If no route is active, the phase must not complete"

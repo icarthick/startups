@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "gcp-resource-clusters.schema.json",
+  "title": "gcp-resource-clusters.json — Discover phase cluster graph",
+  "description": "Resources grouped into logical migration clusters with a full dependency graph and creation order. Produced by the discover-iac fragment. FLOOR contract (required structure only; additional properties allowed). The clustering ALGORITHM (how resources group, edge typing, topological sort) is the discover-iac prose + references/clustering/, not this schema.",
+  "type": "object",
+  "required": ["clusters", "creation_order"],
+  "properties": {
+    "clusters": {
+      "type": "array",
+      "description": "Logical clusters, each an atomic migration unit.",
+      "items": {
+        "type": "object",
+        "required": ["cluster_id", "primary_resources", "creation_order_depth"],
+        "properties": {
+          "cluster_id": {
+            "type": "string",
+            "description": "Unique deterministic identifier: {service_category}_{service_type}_{gcp_region}_{sequence}."
+          },
+          "gcp_region": { "type": "string", "description": "GCP region for this cluster." },
+          "primary_resources": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "GCP resource addresses that map independently."
+          },
+          "secondary_resources": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "GCP resource addresses that support the primaries."
+          },
+          "network": {
+            "type": ["string", "null"],
+            "description": "The VPC cluster ID this cluster belongs to, or null if this IS the networking cluster."
+          },
+          "creation_order_depth": {
+            "type": "integer",
+            "description": "Depth level in the topological sort (0 = foundational)."
+          },
+          "must_migrate_together": {
+            "type": "boolean",
+            "description": "Whether the cluster is an atomic deployment unit."
+          },
+          "dependencies": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Other cluster IDs this cluster depends on (from cross-cluster PRIMARY→PRIMARY edges)."
+          },
+          "edges": {
+            "type": "array",
+            "description": "Typed relationships between resources with structured evidence.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "from": { "type": "string", "description": "Source resource address." },
+                "to": { "type": "string", "description": "Target resource address." },
+                "relationship_type": {
+                  "type": "string",
+                  "description": "Edge type (e.g. network_membership, data_dependency)."
+                },
+                "evidence": {
+                  "type": "object",
+                  "description": "Where the relationship was found: field_path + reference."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "creation_order": {
+      "type": "array",
+      "description": "Global cluster ordering by depth level, for migration sequencing.",
+      "items": {
+        "type": "object",
+        "required": ["depth", "clusters"],
+        "properties": {
+          "depth": { "type": "integer", "description": "Depth level." },
+          "clusters": { "type": "array", "items": { "type": "string" }, "description": "Cluster IDs at this depth." }
+        }
+      }
+    }
+  }
+}

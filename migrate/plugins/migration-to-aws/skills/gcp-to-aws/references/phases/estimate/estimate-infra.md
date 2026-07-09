@@ -547,7 +547,7 @@ Tailor `migrate_if` and `stay_if` to THIS stack (deferred services, AI cost delt
 
 ## Output
 
-Read `shared/schema-estimate-infra.md` for the `estimation-infra.json` schema and validation checklist, then write `estimation-infra.json` to `$MIGRATION_DIR/`.
+Follow `references/vendored/estimate/estimation-infra.schema.json` for the `estimation-infra.json` SHAPE, and `shared/schema-estimate-infra.md` for the cost-tier semantics, recommendation-path table, and validation checklist, then write `estimation-infra.json` to `$MIGRATION_DIR/`.
 
 ## Return Contract
 

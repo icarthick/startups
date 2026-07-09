@@ -133,7 +133,7 @@ For small projects, skip the full clustering pipeline. Instead:
 
 4. **Set depth:** Networking cluster = depth 0. All other clusters = depth 1. (No Kahn's algorithm needed.)
 
-5. **Load** `references/shared/schema-discover-iac.md` and write output files
+5. **Load** `schemas/gcp-resource-inventory.schema.json` and `schemas/gcp-resource-clusters.schema.json`, then write output files
    (`gcp-resource-inventory.json`, `gcp-resource-clusters.json`) using the same schema.
    Add to metadata: `"clustering_mode": "simplified"`.
 
@@ -206,7 +206,7 @@ phases (clarify, design, estimate, generate) work identically regardless of clus
 ### 7a: Write gcp-resource-inventory.json
 
 1. Create file: `$MIGRATION_DIR/gcp-resource-inventory.json`
-2. Load `references/shared/schema-discover-iac.md` and write with the exact schema for `gcp-resource-inventory.json`
+2. Follow `schemas/gcp-resource-inventory.schema.json` and write with the exact schema for `gcp-resource-inventory.json`
 
 **CRITICAL field names (use EXACTLY these):**
 
@@ -231,7 +231,7 @@ Include top-level sections:
 ### 7b: Write gcp-resource-clusters.json
 
 1. Create file: `$MIGRATION_DIR/gcp-resource-clusters.json`
-2. Write with the exact schema for `gcp-resource-clusters.json` (from `schema-discover-iac.md`, already loaded above)
+2. Write with the exact schema for `gcp-resource-clusters.json` (per `schemas/gcp-resource-clusters.schema.json`)
 
 **CRITICAL field names (use EXACTLY these):**
 
@@ -274,7 +274,7 @@ Run **only** when all of the following are true:
 
 Do **not** run this step for AI signals that are **only** BigQuery ML, Document AI, Vision, etc., with **no** Vertex AI service or `google_vertex_ai_*` signal — Category F is scoped to strong Vertex evidence here.
 
-**If Vertex-strong:** Load `references/shared/schema-discover-ai.md` and write `$MIGRATION_DIR/ai-workload-profile.json` with a **minimal IaC-inferred** profile:
+**If Vertex-strong:** Follow `schemas/ai-workload-profile.schema.json` and write `$MIGRATION_DIR/ai-workload-profile.json` with a **minimal IaC-inferred** profile:
 
 | Field                                        | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -347,7 +347,7 @@ After generating output files (including optional Step 7d), the parent `discover
 - `summary.inferred_from_iac` is `true`
 - `integration.pattern` is `"unknown"` unless evidence supports another value
 - `models` is `[]` unless Terraform explicitly exposes model IDs
-- Valid JSON and matches `references/shared/schema-discover-ai.md`
+- Valid JSON and matches `schemas/ai-workload-profile.schema.json`
 
 ---
 
@@ -371,7 +371,7 @@ The Design phase (`references/phases/design/design.md`) uses these outputs:
    - `tier` — routes to correct design-ref file (compute.md, database.md, etc.)
    - `ai_detection` — signals for inventory; when Step 7d ran, **`ai-workload-profile.json`** is the driver for AI Clarify/Design
 
-3. **From `ai-workload-profile.json` (when Step 7d wrote it):** consumed in Phase 2+ per `schema-discover-ai.md` (`profile_source: "iac_vertex"`).
+3. **From `ai-workload-profile.json` (when Step 7d wrote it):** consumed in Phase 2+ per `schemas/ai-workload-profile.schema.json` (`profile_source: "iac_vertex"`).
 
 ---
 

@@ -147,15 +147,15 @@ The `.migration/` directory is protected by a `.gitignore` created at init.
 
 ## Phase Summary Table
 
-| Phase        | Inputs                                                                                                                                                                   | Outputs                                                                                                                                                                                                                                       | Reference                                |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| **Discover** | `.tf` files, app source code, and/or billing exports (at least one required)                                                                                             | `gcp-resource-inventory.json`, `gcp-resource-clusters.json`, `ai-workload-profile.json`, `billing-profile.json`, `.phase-status.json` updated (outputs vary by input)                                                                         | `references/phases/discover/discover.md` |
-| **Clarify**  | Discovery artifacts (`gcp-resource-inventory.json`, `gcp-resource-clusters.json`, `ai-workload-profile.json`, `billing-profile.json` — whichever exist)                  | `preferences.json`, `.phase-status.json` updated                                                                                                                                                                                              | `references/phases/clarify/clarify.md`   |
-| **Design**   | `preferences.json` + discovery artifacts                                                                                                                                 | `aws-design.json` (infra), `aws-design-ai.json` (AI), `aws-design-billing.json` (billing-only)                                                                                                                                                | `references/phases/design/design.md`     |
-| **Estimate** | `aws-design.json` or `aws-design-billing.json` or `aws-design-ai.json`, `preferences.json`                                                                               | `estimation-infra.json` or `estimation-ai.json` or `estimation-billing.json`, `.phase-status.json` updated                                                                                                                                    | `references/phases/estimate/estimate.md` |
-| **Plan**     | `estimation-infra.json` or `estimation-ai.json` or `estimation-billing.json`, `aws-design*.json`, `preferences.json`                                                     | `generation-infra.json` or `generation-ai.json` or `generation-billing.json` (the execution plan), `.phase-status.json` updated                                                                                                              | `references/phases/plan/plan.md`         |
-| **Generate** | `generation-infra.json` or `generation-ai.json` or `generation-billing.json`, `aws-design*.json`, `preferences.json`                                                     | `terraform/`, `scripts/`, `ai-migration/`, `validation-report.json` (when infra route active), `MIGRATION_GUIDE.md`, `README.md`, `migration-report.html`, `.phase-status.json` updated                                                       | `references/phases/generate/generate.md` |
-| **Feedback** | `.phase-status.json` (discover completed minimum), all existing migration artifacts                                                                                      | `feedback.json`, `trace.json`, `.phase-status.json` updated                                                                                                                                                                                   | `references/phases/feedback/feedback.md` |
+| Phase        | Inputs                                                                                                                                                  | Outputs                                                                                                                                                                                 | Reference                                |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| **Discover** | `.tf` files, app source code, and/or billing exports (at least one required)                                                                            | `gcp-resource-inventory.json`, `gcp-resource-clusters.json`, `ai-workload-profile.json`, `billing-profile.json`, `.phase-status.json` updated (outputs vary by input)                   | `references/phases/discover/discover.md` |
+| **Clarify**  | Discovery artifacts (`gcp-resource-inventory.json`, `gcp-resource-clusters.json`, `ai-workload-profile.json`, `billing-profile.json` — whichever exist) | `preferences.json`, `.phase-status.json` updated                                                                                                                                        | `references/phases/clarify/clarify.md`   |
+| **Design**   | `preferences.json` + discovery artifacts                                                                                                                | `aws-design.json` (infra), `aws-design-ai.json` (AI), `aws-design-billing.json` (billing-only)                                                                                          | `references/phases/design/design.md`     |
+| **Estimate** | `aws-design.json` or `aws-design-billing.json` or `aws-design-ai.json`, `preferences.json`                                                              | `estimation-infra.json` or `estimation-ai.json` or `estimation-billing.json`, `.phase-status.json` updated                                                                              | `references/phases/estimate/estimate.md` |
+| **Plan**     | `estimation-infra.json` or `estimation-ai.json` or `estimation-billing.json`, `aws-design*.json`, `preferences.json`                                    | `generation-infra.json` or `generation-ai.json` or `generation-billing.json` (the execution plan), `.phase-status.json` updated                                                         | `references/phases/plan/plan.md`         |
+| **Generate** | `generation-infra.json` or `generation-ai.json` or `generation-billing.json`, `aws-design*.json`, `preferences.json`                                    | `terraform/`, `scripts/`, `ai-migration/`, `validation-report.json` (when infra route active), `MIGRATION_GUIDE.md`, `README.md`, `migration-report.html`, `.phase-status.json` updated | `references/phases/generate/generate.md` |
+| **Feedback** | `.phase-status.json` (discover completed minimum), all existing migration artifacts                                                                     | `feedback.json`, `trace.json`, `.phase-status.json` updated                                                                                                                             | `references/phases/feedback/feedback.md` |
 
 ---
 
@@ -248,9 +248,6 @@ gcp-to-aws/
 │   │   └── typed-edges-strategy.md             # Edge type assignment
 │   │
 │   ├── shared/
-│       ├── schema-discover-iac.md              # gcp-resource-inventory + clusters schemas
-│       ├── schema-discover-ai.md               # ai-workload-profile schema
-│       ├── schema-discover-billing.md          # billing-profile schema
 │       ├── schema-estimate-infra.md            # estimation-infra.json schema
 │       ├── validate-artifacts.md               # Pre-report validation (read-only)
 │       ├── migration-complexity.md             # Complexity tier definitions (timeline scaling)
@@ -263,12 +260,24 @@ gcp-to-aws/
 │       ├── estimate/estimation-infra.schema.json
 │       ├── pricing/aws-infra-pricing.json
 │       └── state/phase-status.schema.json
+│
+├── schemas/                                   # JSON Schemas for artifacts (shape + per-field descriptions), validated via _validate_schema
+│   ├── aws-design.schema.json                 # aws-design.json (design IaC route)
+│   ├── billing-profile.schema.json            # billing-profile.json (discover billing route)
+│   ├── gcp-resource-inventory.schema.json     # gcp-resource-inventory.json (discover IaC route)
+│   ├── gcp-resource-clusters.schema.json      # gcp-resource-clusters.json (discover IaC route)
+│   ├── ai-workload-profile.schema.json        # ai-workload-profile.json (discover AI route)
+│   ├── preferences.schema.json                # preferences.json (clarify output)
+│   ├── estimation-ai.schema.json              # estimation-ai.json (estimate AI route)
+│   └── estimation-billing.schema.json         # estimation-billing.json (estimate billing route)
 ```
 
-| Condition                                                     | Action                                                                                                                                                  |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| No GCP sources found (no `.tf`, no app code, no billing data) | Stop. Output: "No GCP sources detected. Provide at least one source type (Terraform files, application code, or billing exports) and try again."        |
-| awspricing unavailable after 3 attempts                       | Display user warning about ±5-25% accuracy. Use `pricing-cache.md`. Add `pricing_source: "cached_fallback"` to the applicable `estimation-*.json` file. |
+(estimation-infra.json uses the SHARED canonical schema at references/vendored/estimate/estimation-infra.schema.json)
+
+| Condition                                                     | Action                                                                                                                                                                                                                                    |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No GCP sources found (no `.tf`, no app code, no billing data) | Stop. Output: "No GCP sources detected. Provide at least one source type (Terraform files, application code, or billing exports) and try again."                                                                                          |
+| awspricing unavailable after 3 attempts                       | Display user warning about ±5-25% accuracy. Use `pricing-cache.md`. Add `pricing_source: "cached_fallback"` to the applicable `estimation-*.json` file.                                                                                   |
 | User skips questions or says "use defaults for the rest"      | Apply documented defaults for all remaining questions (essential questions and any unconfirmed sheet rows in wizard mode; current and subsequent batches in full mode). Q2/Q3 defaults add a report caveat. Phase 2 completes either way. |
 
 ## Defaults

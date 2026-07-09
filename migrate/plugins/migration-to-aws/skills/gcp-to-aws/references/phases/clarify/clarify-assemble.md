@@ -108,6 +108,12 @@ Assemble all resolved values — sheet confirmations, corrections, essential ans
 
 ### Schema Rules
 
+The artifact's SHAPE (envelope, the uniform `{ value, chosen_by, source? }` constraint-entry
+structure, and the `chosen_by` / `clarify_mode` / `migration_type` enums) is defined by
+`schemas/preferences.schema.json` and validated at the clarify completion gate (and again as
+design's entry gate). The rules below are the CONDITIONAL / PROVENANCE contract a schema cannot
+express — they remain the interpreter's responsibility:
+
 1. Every entry in `design_constraints` and `ai_constraints` is an object with `value` and `chosen_by` fields.
 2. `chosen_by` values: `"user"` (explicitly answered or corrected on the sheet), `"default"` (documented default applied — includes sheet-confirmed defaults and "I don't know" answers), `"extracted"` (inferred from inventory), `"derived"` (computed from combination of answers + detected capabilities).
 3. Only write a key to `design_constraints` / `ai_constraints` if the answer produces a constraint. Absent keys mean "no constraint — Design decides."

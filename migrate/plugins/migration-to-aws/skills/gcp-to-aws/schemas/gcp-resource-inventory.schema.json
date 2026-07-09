@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "gcp-resource-inventory.schema.json",
+  "title": "gcp-resource-inventory.json — Discover phase IaC inventory",
+  "description": "Complete inventory of discovered GCP resources with classification, dependencies, and AI detection. Produced by the discover-iac fragment. FLOOR contract (required structure only; additional properties allowed). Classification RULES (how a resource becomes PRIMARY/SECONDARY, tier assignment, depth calculation) are the discover-iac prose + references/clustering/, not this schema.",
+  "type": "object",
+  "required": ["summary", "resources", "ai_detection"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "description": "Report provenance.",
+      "properties": {
+        "report_date": { "type": "string", "description": "Date the inventory was generated (YYYY-MM-DD)." },
+        "project_directory": { "type": "string", "description": "Absolute path to the analyzed Terraform." },
+        "terraform_version": { "type": "string", "description": "Terraform version constraint discovered." }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "description": "Aggregate classification statistics.",
+      "required": ["total_resources"],
+      "properties": {
+        "total_resources": { "type": "integer", "description": "Count of all discovered resources." },
+        "primary_resources": { "type": "integer", "description": "Count classified PRIMARY (map independently)." },
+        "secondary_resources": { "type": "integer", "description": "Count classified SECONDARY (support primaries)." },
+        "total_clusters": { "type": "integer", "description": "Number of clusters formed." },
+        "classification_coverage": { "type": "string", "description": "Percent of resources classified (e.g. '100%')." }
+      }
+    },
+    "resources": {
+      "type": "array",
+      "description": "All discovered resources with classification, tier, dependency depth, and cluster assignment.",
+      "items": {
+        "type": "object",
+        "required": ["address", "type", "name", "classification", "tier", "confidence"],
+        "properties": {
+          "address": {
+            "type": "string",
+            "description": "Terraform resource address (e.g. google_cloud_run_service.orders_api). NOT id/resource_address."
+          },
+          "type": {
+            "type": "string",
+            "description": "Terraform resource type (e.g. google_cloud_run_service). NOT resource_type."
+          },
+          "name": { "type": "string", "description": "Resource name component. NOT resource_name." },
+          "classification": {
+            "type": "string",
+            "enum": ["PRIMARY", "SECONDARY"],
+            "description": "PRIMARY (maps independently) or SECONDARY (supports a primary). NOT class/category."
+          },
+          "tier": {
+            "type": "string",
+            "enum": ["compute", "database", "storage", "networking", "identity", "messaging", "monitoring"],
+            "description": "Infrastructure layer. NOT layer."
+          },
+          "confidence": { "type": "number", "description": "Classification confidence 0.0-1.0. NOT certainty." },
+          "secondary_role": {
+            "type": "string",
+            "enum": ["identity", "access_control", "network_path", "configuration", "encryption", "orchestration"],
+            "description": "SECONDARY resources only: the support role played."
+          },
+          "serves": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "SECONDARY resources only: primary resource addresses this resource serves."
+          },
+          "config": {
+            "type": "object",
+            "description": "Resource-type-specific configuration extracted from Terraform."
+          },
+          "depth": { "type": "integer", "description": "Dependency depth (0 = foundational, N depends on depth N-1)." },
+          "cluster_id": { "type": "string", "description": "Which cluster this resource belongs to." }
+        }
+      }
+    },
+    "ai_detection": {
+      "type": "object",
+      "description": "AI-workload detection results derived from the IaC.",
+      "required": ["has_ai_workload"],
+      "properties": {
+        "has_ai_workload": {
+          "type": "boolean",
+          "description": "Whether any AI/ML workload signal was found in the Terraform."
+        },
+        "confidence": { "type": "number", "description": "AI-detection confidence 0.0-1.0." },
+        "confidence_level": {
+          "type": "string",
+          "enum": ["very_high", "high", "medium", "low", "none"],
+          "description": "very_high (90%+), high (70-89%), medium (50-69%), low (<50%), none (0%)."
+        },
+        "signals_found": {
+          "type": "array",
+          "description": "Detection signals: method, pattern, confidence, evidence.",
+          "items": { "type": "object" }
+        },
+        "ai_services": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "AI services detected (e.g. vertex_ai, bigquery_ml)."
+        }
+      }
+    }
+  }
+}

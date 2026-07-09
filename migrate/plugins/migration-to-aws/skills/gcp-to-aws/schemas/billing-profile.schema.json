@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "billing-profile.schema.json",
+  "title": "billing-profile.json — Discover phase billing artifact",
+  "description": "Cost breakdown derived from a GCP billing export CSV. Produced by the discover-billing fragment (full path: Steps 0-4; lightweight path: the _extract_billing.py script). Provides service-level spend and AI-signal detection from billing data alone. This is the FLOOR contract (required structure only; additional properties allowed) so a legitimately richer profile never trips a false gate. The lightweight extraction path emits a subset (metadata/commitments/cost_basis may be absent); this schema's required set is therefore the intersection both paths must satisfy. Field VALUES and how to derive them are the discover-billing prose; this schema is the shape + per-field meaning.",
+  "type": "object",
+  "required": ["summary", "services", "ai_signals"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "description": "Provenance of the billing data. Present on the full path; may be omitted on the lightweight extraction path.",
+      "properties": {
+        "report_date": { "type": "string", "description": "Date the profile was generated (YYYY-MM-DD)." },
+        "project_directory": { "type": "string", "description": "Absolute path to the analyzed project." },
+        "billing_source": { "type": "string", "description": "The billing export file the profile was derived from." },
+        "billing_period": { "type": "string", "description": "The billing month the export covers (YYYY-MM)." }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "description": "Top-line totals across all services.",
+      "required": ["total_monthly_spend"],
+      "properties": {
+        "total_monthly_spend": {
+          "type": "number",
+          "description": "Total monthly GCP spend from the billing export (at list price when available)."
+        },
+        "service_count": {
+          "type": "integer",
+          "description": "Number of distinct GCP services with charges."
+        },
+        "currency": { "type": "string", "description": "ISO currency code (e.g. USD)." }
+      }
+    },
+    "services": {
+      "type": "array",
+      "description": "Per-service spend, sorted descending by monthly_cost. Only services with cost > 0 are included.",
+      "items": {
+        "type": "object",
+        "required": ["gcp_service", "monthly_cost"],
+        "properties": {
+          "gcp_service": { "type": "string", "description": "GCP service display name (e.g. 'Cloud Run')." },
+          "gcp_service_type": {
+            "type": "string",
+            "description": "Terraform resource type equivalent for the service (e.g. google_cloud_run_service); used by downstream phases to correlate billing with IaC."
+          },
+          "monthly_cost": {
+            "type": "number",
+            "description": "Monthly cost for this service (at list price; excludes commitment fee rows)."
+          },
+          "percentage_of_total": {
+            "type": "number",
+            "description": "This service's share of summary.total_monthly_spend (0..1)."
+          },
+          "top_skus": {
+            "type": "array",
+            "description": "Highest-cost line items within the service (excludes commitment fee SKUs).",
+            "items": {
+              "type": "object",
+              "required": ["sku_description", "monthly_cost"],
+              "properties": {
+                "sku_description": {
+                  "type": "string",
+                  "description": "SKU line-item description from the billing export."
+                },
+                "monthly_cost": { "type": "number", "description": "Monthly cost of this SKU line item." }
+              }
+            }
+          },
+          "ai_signals": {
+            "type": "array",
+            "description": "AI-related keywords found in this service's SKU descriptions (e.g. vertex_ai, generative_ai). Empty array when none.",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "commitments": {
+      "type": "object",
+      "description": "Committed-use discount (CUD) detection. Full path only.",
+      "properties": {
+        "has_active_cuds": {
+          "type": "boolean",
+          "description": "Whether any CUD commitment fees or credits were detected."
+        },
+        "total_monthly_commitment_fees": {
+          "type": "number",
+          "description": "Sum of commitment fee line items (positive values)."
+        },
+        "total_monthly_cud_credits": {
+          "type": "number",
+          "description": "Sum of CUD credits applied (negative values)."
+        },
+        "effective_discount_percent": {
+          "type": "number",
+          "description": "Overall discount rate from all commitments."
+        },
+        "details": {
+          "type": "array",
+          "description": "Individual commitment contracts.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["resource_based", "dollar_based"],
+                "description": "resource_based (vCPU/RAM commitments) or dollar_based (spend-based)."
+              },
+              "term": { "type": "string", "enum": ["1_year", "3_year"], "description": "Commitment term." },
+              "covered_services": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Services the commitment applies to."
+              },
+              "region": { "type": "string", "description": "Region the commitment is scoped to." },
+              "monthly_fee": { "type": "number", "description": "Monthly fee for this commitment." },
+              "sku_description": { "type": "string", "description": "The commitment SKU line-item description." }
+            }
+          }
+        }
+      }
+    },
+    "cost_basis": {
+      "type": "object",
+      "description": "List-vs-net price accounting. Full path only.",
+      "properties": {
+        "uses_list_price": {
+          "type": "boolean",
+          "description": "Whether costAtListUSD was available and used as the baseline."
+        },
+        "total_at_list": { "type": "number", "description": "Total spend at list price (before discounts)." },
+        "total_net_of_discounts": { "type": "number", "description": "Total spend after all discounts applied." },
+        "discount_breakdown": {
+          "type": "object",
+          "description": "Per-discount-type credit totals (negative values = savings).",
+          "properties": {
+            "committed_usage_discount": { "type": "number" },
+            "sustained_usage_discount": { "type": "number" },
+            "free_tier": { "type": "number" }
+          }
+        }
+      }
+    },
+    "ai_signals": {
+      "type": "object",
+      "description": "Project-level AI detection derived from billing SKU analysis.",
+      "required": ["detected"],
+      "properties": {
+        "detected": { "type": "boolean", "description": "Whether any AI/ML services were found in the billing data." },
+        "confidence": {
+          "type": "number",
+          "description": "Confidence that the project uses AI (0..1), derived from billing SKU analysis."
+        },
+        "services": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of AI-related GCP services found."
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "metadata": {
+        "report_date": "2026-02-24",
+        "project_directory": "/path/to/project",
+        "billing_source": "gcp-billing-export.csv",
+        "billing_period": "2026-01"
+      },
+      "summary": { "total_monthly_spend": 2450.00, "service_count": 8, "currency": "USD" },
+      "services": [
+        {
+          "gcp_service": "Cloud SQL",
+          "gcp_service_type": "google_sql_database_instance",
+          "monthly_cost": 800.00,
+          "percentage_of_total": 0.33,
+          "top_skus": [
+            { "sku_description": "Cloud SQL for PostgreSQL - DB custom CORE", "monthly_cost": 500.00 },
+            { "sku_description": "Cloud SQL for PostgreSQL - DB custom RAM", "monthly_cost": 300.00 }
+          ],
+          "ai_signals": []
+        },
+        {
+          "gcp_service": "Vertex AI",
+          "gcp_service_type": "google_vertex_ai_endpoint",
+          "monthly_cost": 600.00,
+          "percentage_of_total": 0.24,
+          "top_skus": [
+            { "sku_description": "Vertex AI Prediction - Online Prediction", "monthly_cost": 400.00 },
+            { "sku_description": "Generative AI - Gemini Pro Input Tokens", "monthly_cost": 200.00 }
+          ],
+          "ai_signals": ["vertex_ai", "generative_ai"]
+        }
+      ],
+      "commitments": {
+        "has_active_cuds": true,
+        "total_monthly_commitment_fees": 150.00,
+        "total_monthly_cud_credits": -120.00,
+        "effective_discount_percent": 8.2,
+        "details": [
+          {
+            "type": "resource_based",
+            "term": "1_year",
+            "covered_services": ["Compute Engine"],
+            "region": "us-central1",
+            "monthly_fee": 75.00,
+            "sku_description": "Commitment v1: E2 Cpu in Americas for 1 Year"
+          }
+        ]
+      },
+      "cost_basis": {
+        "uses_list_price": true,
+        "total_at_list": 2450.00,
+        "total_net_of_discounts": 2280.00,
+        "discount_breakdown": {
+          "committed_usage_discount": -120.00,
+          "sustained_usage_discount": -50.00,
+          "free_tier": 0.00
+        }
+      },
+      "ai_signals": { "detected": true, "confidence": 0.85, "services": ["Vertex AI"] }
+    }
+  ]
+}

@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "estimation-billing.schema.json",
+  "title": "estimation-billing.json — Estimate phase billing-only-route artifact",
+  "description": "Cost projection produced by the estimate-billing fragment on the billing-only fallback route (no IaC design available). FLOOR contract (required structure only; additional properties allowed). Wider accuracy bands than the infra route because the source is billing data alone. Cost RANGE formulas and the unknowns analysis are the estimate-billing prose, NOT this schema.",
+  "type": "object",
+  "required": ["phase", "metadata", "gcp_baseline", "aws_projection", "cost_comparison"],
+  "properties": {
+    "phase": { "const": "estimate" },
+    "timestamp": { "type": "string", "description": "ISO-8601 timestamp." },
+    "metadata": {
+      "type": "object",
+      "required": ["estimate_source", "pricing_source"],
+      "properties": {
+        "estimate_source": {
+          "type": "string",
+          "const": "billing_only",
+          "description": "Marks this as the billing-only route."
+        },
+        "pricing_source": { "type": "string", "enum": ["cached", "live", "cached_fallback", "unavailable"] },
+        "confidence_note": { "type": "string" }
+      }
+    },
+    "accuracy_confidence": {
+      "type": "string",
+      "description": "Accuracy band, wider for billing-only (e.g. '±30-40%')."
+    },
+    "gcp_baseline": {
+      "type": "object",
+      "description": "Source GCP spend from billing data.",
+      "required": ["total_monthly_spend"],
+      "properties": {
+        "source": { "type": "string" },
+        "total_monthly_spend": { "type": "number" },
+        "service_count": { "type": "integer" },
+        "services": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "gcp_service": { "type": "string" },
+              "monthly_cost": { "type": "number" }
+            }
+          }
+        }
+      }
+    },
+    "aws_projection": {
+      "type": "object",
+      "description": "Projected AWS cost with low/mid/high bands per service.",
+      "required": ["low_monthly", "mid_monthly", "high_monthly"],
+      "properties": {
+        "low_monthly": { "type": "number" },
+        "mid_monthly": { "type": "number" },
+        "high_monthly": { "type": "number" },
+        "services": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "gcp_service": { "type": "string" },
+              "gcp_monthly": { "type": "number" },
+              "aws_target": { "type": "string" },
+              "aws_low": { "type": "number" },
+              "aws_mid": { "type": "number" },
+              "aws_high": { "type": "number" },
+              "range_factor": { "type": "string" },
+              "unknowns": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    },
+    "cost_comparison": {
+      "type": "object",
+      "required": ["gcp_monthly", "aws_monthly_mid"],
+      "properties": {
+        "gcp_monthly": { "type": "number" },
+        "aws_monthly_low": { "type": "number" },
+        "aws_monthly_mid": { "type": "number" },
+        "aws_monthly_high": { "type": "number" },
+        "best_case_savings": { "type": "number" },
+        "worst_case_increase": { "type": "number" }
+      }
+    },
+    "migration_cost_considerations": {
+      "type": "object",
+      "description": "categories[] is empty (no human/professional-services dollar estimates).",
+      "properties": {
+        "categories": { "type": "array" },
+        "note": { "type": "string" },
+        "complexity_factors": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "unknowns": {
+      "type": "array",
+      "description": "Sources of estimate uncertainty, each with category + impact.",
+      "items": { "type": "object" }
+    }
+  }
+}

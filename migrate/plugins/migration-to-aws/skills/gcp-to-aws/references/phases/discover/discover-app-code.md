@@ -553,7 +553,7 @@ If no Terraform files were provided, set `infrastructure: []`.
 
 ## Step 8: Generate ai-workload-profile.json
 
-Load `references/shared/schema-discover-ai.md` and generate output following the `ai-workload-profile.json` schema.
+Generate output following `schemas/ai-workload-profile.schema.json` (the schema carries the shape, per-field descriptions, enums, and floor rules; capability-assignment logic is in Step 5B above). The discover phase's `_postconditions` validate `ai-workload-profile.json` against it at the completion gate.
 
 ### Pre-existing IaC profile (`profile_source: "iac_vertex"`)
 

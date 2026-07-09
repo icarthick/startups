@@ -43,6 +43,14 @@ _postconditions:
     _on_failure: _halt_and_inform
   - _assert: "migration-preview.json has complexity_signal set"
     _on_failure: _halt_and_inform
+  - _validate_schema: billing-profile.json
+    _on_failure: _halt_and_inform
+  - _validate_schema: gcp-resource-inventory.json
+    _on_failure: _halt_and_inform
+  - _validate_schema: gcp-resource-clusters.json
+    _on_failure: _halt_and_inform
+  - _validate_schema: ai-workload-profile.json
+    _on_failure: _halt_and_inform
 _forbids_files:
   - README.md
   - discovery-summary.md

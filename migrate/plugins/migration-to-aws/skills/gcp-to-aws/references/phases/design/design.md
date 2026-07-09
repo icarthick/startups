@@ -39,6 +39,8 @@ _preconditions:
     _on_failure: _unrecoverable
   - _validate_json: preferences.json
     _on_failure: _unrecoverable
+  - _validate_schema: preferences.json
+    _on_failure: _unrecoverable
   - _assert: "at least one discovery artifact exists (gcp-resource-inventory.json, billing-profile.json, or ai-workload-profile.json); if none, Design cannot run"
     _on_failure: _unrecoverable
 _postconditions:
@@ -46,7 +48,9 @@ _postconditions:
     _on_failure: _halt_and_inform
   - _assert: "every active route produced valid JSON: for each of aws-design.json / aws-design-billing.json / aws-design-ai.json that a triggered route was responsible for, the file exists and parses"
     _on_failure: _halt_and_inform
-  - _assert: "if aws-design.json exists: it has phase == 'design' and a valid timestamp; services[] is present (empty only if all resources deferred); every services[] entry has service_id, source_resource_id, aws_service, confidence, aws_config; metadata.total_services matches services[].length"
+  - _validate_schema: aws-design.json
+    _on_failure: _halt_and_inform
+  - _assert: "if aws-design.json exists: services[] is empty only if all resources were deferred; metadata.total_services equals services[].length"
     _on_failure: _halt_and_inform
   - _assert: "if BigQuery was flagged in discovery, the corresponding resources appear as 'Deferred — specialist engagement' in the design output (no Athena/Redshift/Glue/EMR recommendation)"
     _on_failure: _halt_and_inform

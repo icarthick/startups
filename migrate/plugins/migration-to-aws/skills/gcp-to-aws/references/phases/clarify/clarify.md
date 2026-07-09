@@ -34,6 +34,8 @@ _postconditions:
     _on_failure: _halt_and_inform
   - _validate_json: preferences.json
     _on_failure: _halt_and_inform
+  - _validate_schema: preferences.json
+    _on_failure: _halt_and_inform
   - _assert: "all Validation Checklist items in clarify-assemble.md pass"
     _on_failure: _halt_and_inform
   - _assert: "preferences.json has design_constraints.region set (all migration types); for a full migration design_constraints is populated, for an AI-only migration ai_constraints is fully populated and design_constraints is limited to region"

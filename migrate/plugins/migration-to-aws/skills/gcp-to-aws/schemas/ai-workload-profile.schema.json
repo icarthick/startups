@@ -1,0 +1,297 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ai-workload-profile.schema.json",
+  "title": "ai-workload-profile.json — Discover phase AI profile",
+  "description": "Profile of AI/ML workloads: models, capabilities, integration, and supporting infrastructure. Produced by discover-app-code (code AI confidence >= 70%) OR discover-iac (Vertex-strong IaC, minimal profile), and merged in discover-assemble. FLOOR contract (required structure only; additional properties allowed). CLASSIFICATION rules (capability assignment from data/sdk-capability-map.json, orchestration_pattern/transport/auth_hint evidence tables) live in the discover-app-code prose, NOT this schema. IMPORTANT floor notes: models[] MAY be empty for profile_source 'iac_vertex' (downstream must not assume non-empty); agentic_profile / tool_manifest / current_costs are CONDITIONAL and therefore NOT required (a non-agentic, no-billing profile is fully valid without them); workloads[] is always present (empty array if no AI call sites).",
+  "type": "object",
+  "required": ["metadata", "summary", "models", "integration", "workloads"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["profile_source"],
+      "properties": {
+        "report_date": { "type": "string", "description": "Date generated (YYYY-MM-DD)." },
+        "project_directory": { "type": "string", "description": "Absolute path to the analyzed project." },
+        "profile_source": {
+          "type": "string",
+          "enum": ["application_code", "iac_vertex", "merged"],
+          "description": "application_code (full profile from code), iac_vertex (minimal profile from Vertex-strong Terraform only), or merged (code + pre-existing IaC combined)."
+        },
+        "sources_analyzed": {
+          "type": "object",
+          "description": "Which data sources were provided (affects which sections are populated).",
+          "properties": {
+            "terraform": { "type": "boolean" },
+            "application_code": { "type": "boolean" },
+            "billing_data": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["ai_source"],
+      "properties": {
+        "overall_confidence": {
+          "type": "number",
+          "description": "Combined detection confidence from all signals (0.0-1.0)."
+        },
+        "confidence_level": {
+          "type": "string",
+          "enum": ["very_high", "high", "medium", "low", "none"],
+          "description": "Banded confidence."
+        },
+        "total_models_detected": { "type": "integer" },
+        "languages_found": { "type": "array", "items": { "type": "string" } },
+        "ai_source": {
+          "type": "string",
+          "enum": ["gemini", "openai", "anthropic", "both", "other"],
+          "description": "Source AI provider. Drives Design's migration-path routing (anthropic → Bedrock Claude, not SageMaker)."
+        },
+        "inferred_from_iac": {
+          "type": "boolean",
+          "description": "true when the profile was produced without app-code analysis (IaC-only); false when code drove detection."
+        }
+      }
+    },
+    "models": {
+      "type": "array",
+      "description": "Each distinct AI model/service detected. MAY be empty for profile_source 'iac_vertex' — downstream must not assume non-empty.",
+      "items": {
+        "type": "object",
+        "required": ["model_id", "service"],
+        "properties": {
+          "model_id": { "type": "string", "description": "Model identifier string. NOT model_name/name." },
+          "service": {
+            "type": "string",
+            "description": "GCP service category (e.g. vertex_ai_generative). NOT service_type/gcp_service."
+          },
+          "detected_via": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Detection sources (e.g. code, terraform). NOT detection_method/source."
+          },
+          "evidence": {
+            "type": "array",
+            "items": { "type": "object" },
+            "description": "Per-source evidence: file/line/pattern (code) or file/resource/pattern (terraform)."
+          },
+          "capabilities_used": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Capability strings for this model. NOT capabilities/features."
+          },
+          "usage_context": {
+            "type": "string",
+            "description": "Human-readable description of what the model does. NOT description/purpose."
+          }
+        }
+      }
+    },
+    "integration": {
+      "type": "object",
+      "description": "How the app connects to AI.",
+      "properties": {
+        "primary_sdk": { "type": "string" },
+        "sdk_version": { "type": "string" },
+        "frameworks": { "type": "array", "items": { "type": "string" } },
+        "languages": { "type": "array", "items": { "type": "string" } },
+        "pattern": {
+          "type": "string",
+          "enum": ["direct_sdk", "framework", "rest_api", "mixed", "unknown"],
+          "description": "Integration pattern; 'unknown' typical for IaC-only. NOT integration_type/method."
+        },
+        "gateway_type": {
+          "type": ["string", "null"],
+          "enum": ["llm_router", "api_gateway", "voice_platform", "framework", "direct", null],
+          "description": "Gateway/router type, or null."
+        },
+        "capabilities_summary": {
+          "type": "object",
+          "description": "Boolean map: union of all capabilities across all models. NOT capabilities/feature_flags.",
+          "properties": {
+            "text_generation": { "type": "boolean" },
+            "streaming": { "type": "boolean" },
+            "function_calling": { "type": "boolean" },
+            "vision": { "type": "boolean" },
+            "embeddings": { "type": "boolean" },
+            "batch_processing": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "infrastructure": {
+      "type": "array",
+      "description": "Terraform resources related to AI. Empty array if no Terraform was provided.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "address": { "type": "string" },
+          "type": { "type": "string" },
+          "file": { "type": "string" },
+          "role": { "type": "string" },
+          "config": { "type": "object" }
+        }
+      }
+    },
+    "current_costs": {
+      "type": "object",
+      "description": "CONDITIONAL — present ONLY if billing data was provided; omitted entirely otherwise.",
+      "properties": {
+        "monthly_ai_spend": { "type": "number" },
+        "services_detected": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "detection_signals": {
+      "type": "array",
+      "description": "Raw AI-detection signals for transparency: method, pattern, confidence, evidence.",
+      "items": { "type": "object" }
+    },
+    "workloads": {
+      "type": "array",
+      "description": "Per-workload disambiguation, one entry per unique (model_id, sdk_method, structured_output) tuple. ALWAYS present; empty array if no AI call sites detected.",
+      "items": {
+        "type": "object",
+        "required": [
+          "workload_id",
+          "model_id",
+          "sdk_method",
+          "capability",
+          "capability_confidence",
+          "structured_output",
+          "call_sites"
+        ],
+        "properties": {
+          "workload_id": {
+            "type": "string",
+            "description": "Deterministic hash 'wl_' + sha256(model_id|sdk_method|structured_flag)[:6]. Unique within the array. NOT id/name."
+          },
+          "model_id": {
+            "type": "string",
+            "description": "MUST exist in models[].model_id. NOT model_name/source_model."
+          },
+          "sdk_method": { "type": "string", "description": "Fully qualified SDK method name. NOT method/api_call." },
+          "capability": {
+            "type": "string",
+            "enum": [
+              "text_generation",
+              "structured_output",
+              "image_generation",
+              "embedding",
+              "speech_to_text",
+              "text_to_speech",
+              "unknown"
+            ],
+            "description": "Inferred capability. NOT capability_inferred/type."
+          },
+          "capability_confidence": {
+            "type": "string",
+            "enum": ["high", "medium", "low"],
+            "description": "NOT confidence/confidence_level."
+          },
+          "structured_output": {
+            "type": "boolean",
+            "description": "true iff structured-output indicators detected in call arguments."
+          },
+          "call_sites": {
+            "type": "array",
+            "description": "Non-empty; repo-relative POSIX paths.",
+            "items": {
+              "type": "object",
+              "required": ["file", "line"],
+              "properties": {
+                "file": {
+                  "type": "string",
+                  "description": "Repo-relative POSIX path (forward slashes, no absolute paths)."
+                },
+                "line": { "type": "integer" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "agentic_profile": {
+      "type": "object",
+      "description": "CONDITIONAL — present ONLY when agentic signals detected (is_agentic true); omitted entirely otherwise.",
+      "required": ["is_agentic"],
+      "properties": {
+        "is_agentic": {
+          "type": "boolean",
+          "description": "Always true when this section exists (explicit for downstream gates)."
+        },
+        "framework": {
+          "type": "string",
+          "enum": ["langgraph", "crewai", "autogen", "openai_agents", "strands", "custom", "none"],
+          "description": "Primary agentic framework. NOT agentic_framework/agent_framework."
+        },
+        "agents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["agent_id"],
+            "properties": {
+              "agent_id": { "type": "string", "description": "Agent identifier. NOT name/agent_name/id." },
+              "file": { "type": "string" },
+              "line": { "type": "integer" },
+              "model_id": { "type": "string", "description": "The LLM this agent uses; 'unknown' if not extractable." },
+              "tools": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Tool names; empty array if none."
+              },
+              "memory_type": {
+                "type": "string",
+                "enum": ["conversation_buffer", "rag", "none", "unknown"],
+                "description": "Per-agent memory type. NOT memory/memory_kind."
+              },
+              "role": { "type": "string" }
+            }
+          }
+        },
+        "orchestration_pattern": {
+          "type": "string",
+          "enum": ["single", "hierarchical", "swarm", "graph", "sequential", "unknown"],
+          "description": "How agents coordinate. NOT pattern/orchestration_type/coordination."
+        },
+        "agent_count": { "type": "integer", "description": "Must equal agents[].length." },
+        "tool_count": { "type": "integer", "description": "Total unique (deduplicated) tools across all agents." },
+        "has_human_in_loop": { "type": "boolean", "description": "NOT human_in_loop/hitl." },
+        "has_memory": { "type": "boolean" },
+        "memory_backend": {
+          "type": "string",
+          "enum": ["redis", "postgres", "in_memory", "vector_store", "unknown"],
+          "description": "System-level memory storage. NOT memory_store/backend."
+        }
+      }
+    },
+    "tool_manifest": {
+      "type": "array",
+      "description": "CONDITIONAL — present ONLY when agentic_profile exists. Empty array if agentic but no tools detected. Length MUST equal agentic_profile.tool_count.",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string", "description": "Tool name as defined in code. NOT tool_name/tool_id/id." },
+          "file": { "type": "string" },
+          "line": { "type": "integer" },
+          "transport": {
+            "type": "string",
+            "enum": ["function", "api", "mcp", "unknown"],
+            "description": "How the tool communicates. NOT transport_type/type/protocol."
+          },
+          "auth_hint": {
+            "type": "string",
+            "enum": ["none", "api_key", "oauth", "iam", "unknown"],
+            "description": "Detected auth pattern. NOT auth/auth_type/authentication."
+          },
+          "used_by_agents": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "agent_id values referencing this tool; each MUST exist in agentic_profile.agents[].agent_id. NOT agents/consumers."
+          }
+        }
+      }
+    }
+  }
+}

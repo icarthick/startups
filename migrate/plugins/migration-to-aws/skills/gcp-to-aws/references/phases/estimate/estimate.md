@@ -42,12 +42,20 @@ _preconditions:
     _on_failure: _unrecoverable
   - _assert: "at least one design artifact exists (aws-design.json, aws-design-billing.json, or aws-design-ai.json); if none, Estimate cannot run"
     _on_failure: _unrecoverable
+  - _validate_schema: aws-design.json
+    _on_failure: _unrecoverable
 _postconditions:
   - _assert: "at least one estimate route was active and produced its artifact: infra route -> estimation-infra.json; billing-only route -> estimation-billing.json; AI route -> estimation-ai.json. If no route is active, the phase must not complete"
     _on_failure: _halt_and_inform
   - _assert: "every active route produced valid JSON (each of estimation-infra.json / estimation-billing.json / estimation-ai.json that a triggered route was responsible for exists and parses)"
     _on_failure: _halt_and_inform
-  - _assert: "if estimation-infra.json exists: recommendation.path is one of {migrate_optimized, migrate_phased, stay}; recommendation.path_label is non-empty; recommendation.migrate_if and recommendation.stay_if are non-empty arrays"
+  - _validate_schema: estimation-infra.json
+    _on_failure: _halt_and_inform
+  - _validate_schema: estimation-billing.json
+    _on_failure: _halt_and_inform
+  - _validate_schema: estimation-ai.json
+    _on_failure: _halt_and_inform
+  - _assert: "if estimation-infra.json exists: recommendation.path is one of {migrate_optimized, migrate_phased, stay}; recommendation.path_label, recommendation.migrate_if, and recommendation.stay_if are non-empty"
     _on_failure: _halt_and_inform
   - _assert: "every service priced carries a pricing_source in {cached, live, cached_fallback, unavailable}; services with pricing_source unavailable are listed in services_with_missing_fallback and excluded from totals"
     _on_failure: _halt_and_inform

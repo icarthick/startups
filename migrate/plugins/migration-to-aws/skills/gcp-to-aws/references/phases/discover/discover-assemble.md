@@ -50,8 +50,7 @@ Reconcile the fragment contributions into one artifact:
 3. If **neither** contributed → do not write the file. AI is simply absent from this
    migration; that is a valid outcome (infra-only or billing-only run).
 
-Validate the merged artifact against the `ai-workload-profile.json` schema in
-`shared/schema-discover-ai.md`.
+Validate the merged artifact against `schemas/ai-workload-profile.schema.json`.
 
 ## Step 2: Compute the migration preview
 

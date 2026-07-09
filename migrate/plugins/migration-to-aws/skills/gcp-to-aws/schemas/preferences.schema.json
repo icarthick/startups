@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "preferences.schema.json",
+  "title": "preferences.json — Clarify phase output",
+  "description": "The resolved migration preferences produced by the clarify phase and consumed by design/estimate/plan/generate. FLOOR contract (required structure only; additional properties allowed). IMPORTANT: only the CHECKABLE part of clarify's contract lives here — the envelope, the uniform {value, chosen_by, source?} constraint-entry shape, and the closed enums. The CONDITIONAL and PROVENANCE rules (only write a key if it produces a constraint; source-prefix correctness; ai_constraints present iff Category F fired; the interview Validation Checklist) are JUDGMENT and remain prose in clarify-assemble.md — a schema cannot express them. design_constraints/ai_constraints hold zero-or-more constraint entries; absent keys mean 'no constraint — Design decides'. ai_constraints is OPTIONAL (present only when Category F / AI artifacts fired).",
+  "type": "object",
+  "required": ["metadata", "design_constraints"],
+  "$defs": {
+    "constraintEntry": {
+      "type": "object",
+      "description": "A single resolved constraint. Uniform shape across design_constraints and ai_constraints.",
+      "required": ["value", "chosen_by"],
+      "properties": {
+        "value": {
+          "description": "The resolved value (string, array, boolean, or number depending on the constraint). Never null — omit the key instead of writing null.",
+          "not": { "type": "null" }
+        },
+        "chosen_by": {
+          "type": "string",
+          "enum": ["user", "default", "extracted", "derived"],
+          "description": "How the value was resolved: user (answered/corrected), default (documented default or 'I don't know'), extracted (inferred from inventory/billing/code), derived (computed from answers + detected capabilities)."
+        },
+        "source": {
+          "type": "string",
+          "description": "Provenance signal. REQUIRED (in prose, not enforced here) when chosen_by is 'extracted' (prefix terraform:/billing:/code:/inventory:/ai-profile:) or 'default' (default:<Qid>). Omitted for 'user' and 'derived'."
+        }
+      }
+    }
+  },
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["migration_type", "clarify_mode"],
+      "properties": {
+        "migration_type": {
+          "type": "string",
+          "enum": ["full", "ai-only", "billing-only"],
+          "description": "The migration shape clarify resolved."
+        },
+        "timestamp": { "type": "string", "description": "ISO timestamp the final preferences were written." },
+        "discovery_artifacts": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Discovery artifacts that informed clarify."
+        },
+        "questions_asked": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Question IDs asked directly."
+        },
+        "questions_defaulted": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Question IDs resolved by documented default (sheet-confirmed or skipped)."
+        },
+        "questions_skipped_extracted": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Question IDs resolved because inventory already provided the answer."
+        },
+        "questions_skipped_early_exit": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Question IDs skipped by early-exit logic."
+        },
+        "questions_skipped_not_applicable": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Question IDs skipped because the service wasn't present or the firing condition wasn't met."
+        },
+        "category_e_enabled": { "type": "boolean" },
+        "clarify_mode": {
+          "type": "string",
+          "enum": ["wizard", "full", "fast_path", "simple_hybrid"],
+          "description": "Which clarify flow produced this artifact."
+        },
+        "inventory_clarifications": {
+          "type": "object",
+          "description": "Category B config-gap answers (billing-source inventories)."
+        }
+      }
+    },
+    "design_constraints": {
+      "type": "object",
+      "description": "Zero-or-more infrastructure constraints, each a constraintEntry. Absent key = no constraint (Design decides). No null values.",
+      "additionalProperties": { "$ref": "#/$defs/constraintEntry" }
+    },
+    "ai_constraints": {
+      "type": "object",
+      "description": "CONDITIONAL — present ONLY if Category F fired (AI artifacts exist). Zero-or-more AI constraints, each a constraintEntry.",
+      "additionalProperties": { "$ref": "#/$defs/constraintEntry" }
+    }
+  },
+  "examples": [
+    {
+      "metadata": {
+        "migration_type": "full",
+        "timestamp": "2026-02-26T10:30:00Z",
+        "discovery_artifacts": ["gcp-resource-inventory.json", "ai-workload-profile.json"],
+        "questions_asked": ["Q2", "Q7", "Q15"],
+        "questions_defaulted": ["Q5", "Q16", "Q21"],
+        "questions_skipped_extracted": ["Q1", "Q6", "Q12", "Q13"],
+        "clarify_mode": "wizard",
+        "inventory_clarifications": {}
+      },
+      "design_constraints": {
+        "target_region": { "value": "us-east-1", "chosen_by": "extracted", "source": "inventory:region=us-east1" },
+        "compliance": { "value": ["hipaa"], "chosen_by": "user" },
+        "availability": {
+          "value": "multi-az",
+          "chosen_by": "extracted",
+          "source": "terraform:availability_type=REGIONAL"
+        },
+        "kubernetes": { "value": "ecs-fargate", "chosen_by": "default", "source": "default:Q8" }
+      },
+      "ai_constraints": {
+        "ai_model_baseline": {
+          "value": "gemini-2.5-flash",
+          "chosen_by": "extracted",
+          "source": "ai-profile:models[0].model_id"
+        },
+        "ai_priority": { "value": "balanced", "chosen_by": "default", "source": "default:Q16" },
+        "ai_capabilities_required": { "value": ["text_generation", "streaming"], "chosen_by": "derived" }
+      }
+    }
+  ]
+}

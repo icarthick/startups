@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "estimation-ai.schema.json",
+  "title": "estimation-ai.json — Estimate phase AI-route artifact",
+  "description": "AI/Bedrock cost projection produced by the estimate-ai fragment when the AI route is active. FLOOR contract (required structure only; additional properties allowed). Cost FORMULAS (token math, long-context surcharge), the recommendation-path decision table, and the Validation Checklist are the estimate-ai prose, NOT this schema. The recommendation block is the load-bearing contract downstream (plan/generate) reads.",
+  "type": "object",
+  "required": ["phase", "pricing_source", "recommendation"],
+  "properties": {
+    "phase": { "const": "estimate" },
+    "timestamp": { "type": "string", "description": "ISO-8601 timestamp." },
+    "pricing_source": {
+      "type": "string",
+      "enum": ["cached", "live", "cached_fallback", "unavailable"],
+      "description": "Where prices came from."
+    },
+    "accuracy_confidence": { "type": "string", "description": "Stated accuracy band, e.g. '±5-10%' or '±15-25%'." },
+    "current_costs": {
+      "type": "object",
+      "description": "Current GCP AI spend baseline.",
+      "properties": {
+        "source": { "type": "string" },
+        "gcp_monthly_ai_spend": { "type": "number" },
+        "services": { "type": "array", "items": { "type": "object" } }
+      }
+    },
+    "token_volume": {
+      "type": "object",
+      "properties": {
+        "source": { "type": "string" },
+        "monthly_input_tokens": { "type": "number" },
+        "monthly_output_tokens": { "type": "number" }
+      }
+    },
+    "model_comparison": {
+      "type": "array",
+      "description": "ALL viable Bedrock models (not just recommended), each with cost + capability match.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "model": { "type": "string" },
+          "monthly_cost": { "type": "number" },
+          "vs_current": { "type": ["number", "string"] },
+          "quality": { "type": "string" },
+          "capabilities_match": {},
+          "missing_capabilities": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "recommended_model": {
+      "type": "object",
+      "description": "model, monthly_cost, breakdown (input/output/embeddings), rationale."
+    },
+    "backup_model": { "type": "object" },
+    "embeddings": { "type": "object" },
+    "cost_comparison": {
+      "type": "object",
+      "description": "current_gcp_monthly, projected_bedrock_monthly, monthly_difference, annual_difference, percent_change."
+    },
+    "migration_cost_considerations": {
+      "type": "object",
+      "description": "categories[] is always empty (no human/professional-services dollar estimates); complexity_factors[] technical only.",
+      "properties": {
+        "categories": { "type": "array" },
+        "complexity_factors": { "type": "array", "items": { "type": "string" } },
+        "note": { "type": "string" }
+      }
+    },
+    "roi_analysis": { "type": "object" },
+    "optimization_opportunities": { "type": "array", "items": { "type": "object" } },
+    "optimized_projection": { "type": "object" },
+    "recommendation": {
+      "type": "object",
+      "description": "The stay-vs-migrate verdict. MUST always be emitted (confidence 'low' if data insufficient).",
+      "required": ["path", "path_label", "migrate_if", "stay_if", "rationale"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "enum": ["migrate_optimized", "migrate_phased", "stay"],
+          "description": "The recommended path. MUST be 'stay' if Design honest_assessment = recommend_stay, regardless of cost."
+        },
+        "path_label": { "type": "string", "description": "Human label for the path." },
+        "migrate_if": { "type": "string", "description": "Condition under which migration makes sense." },
+        "stay_if": { "type": "string", "description": "Condition under which staying makes sense." },
+        "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+        "rationale": { "type": "string", "description": "Justification citing cost delta + non-cost factors." }
+      }
+    }
+  }
+}
