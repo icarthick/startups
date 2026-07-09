@@ -29,8 +29,8 @@ export interface ReEntryGuard {
 
 /** One check in a `_preconditions` / `_postconditions` list. */
 export interface CheckItem {
-  kind: string; // the check keyword: _check_phase_completed | _check_single_active_phase | _check_file_exists | _validate_json | _assert (or an unknown keyword → flagged)
-  arg: string[]; // normalized args (phase name / filenames / [] for _assert / the assert prose)
+  kind: string; // the check keyword: _check_phase_completed | _check_single_active_phase | _check_file_exists | _validate_json | _validate_schema | _assert (or an unknown keyword → flagged)
+  arg: string[]; // normalized args (phase name / filenames / artifact names for _validate_schema / [] for _assert / the assert prose)
   onFailure: string | null; // _on_failure action name
 }
 

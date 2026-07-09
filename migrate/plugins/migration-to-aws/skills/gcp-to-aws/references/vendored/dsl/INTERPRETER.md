@@ -355,13 +355,14 @@ heroku-to-aws's own gate contract — phases do NOT load any shared gate file.
 Each entry is a single check plus an `_on_failure` action (see the `_on_error`
 dictionary below). Closed vocabulary of check kinds:
 
-| Check                        | Arg                       | Passes when                                                    |
-| ---------------------------- | ------------------------- | -------------------------------------------------------------- |
-| `_check_phase_completed`     | a phase name              | `.phase-status.json` `phases.<name> == "completed"`            |
-| `_check_single_active_phase` | `true`                    | at most one core phase is `in_progress`                        |
-| `_check_file_exists`         | filename or `[names]`     | each named file exists in `$MIGRATION_DIR/`                    |
-| `_validate_json`             | filename or `[names]`     | each named file parses as valid JSON                           |
-| `_assert`                    | an opaque prose predicate | you (the interpreter) evaluate the prose against the artifacts |
+| Check                        | Arg                        | Passes when                                                    |
+| ---------------------------- | -------------------------- | -------------------------------------------------------------- |
+| `_check_phase_completed`     | a phase name               | `.phase-status.json` `phases.<name> == "completed"`            |
+| `_check_single_active_phase` | `true`                     | at most one core phase is `in_progress`                        |
+| `_check_file_exists`         | filename or `[names]`      | each named file exists in `$MIGRATION_DIR/`                    |
+| `_validate_json`             | filename or `[names]`      | each named file parses as valid JSON                           |
+| `_validate_schema`           | artifact name or `[names]` | each named artifact, IF PRESENT, conforms to its schema        |
+| `_assert`                    | an opaque prose predicate  | you (the interpreter) evaluate the prose against the artifacts |
 
 `_assert` is the JUDGMENT escape hatch: arithmetic (e.g. the Property-16 total ==
 sum invariant), enum-membership over an artifact's runtime content (e.g.
@@ -370,6 +371,37 @@ sum invariant), enum-membership over an artifact's runtime content (e.g.
 runtime artifact to verify them, so the interpreter evaluates them. CI validates
 only that the `_assert` form is well-formed, never the predicate's truth (same
 policy as `_when`).
+
+**`_validate_schema` — validate an artifact against its JSON Schema.** The arg
+names one artifact (or a list). The schema is resolved in this order: (1) the
+gcp-local `schemas/<artifact-basename>.schema.json` relative to the skill root
+(`aws-design.json` → `schemas/aws-design.schema.json`) — the primary home for
+skill-owned shapes; (2) a SHARED/canonical `<artifact-basename>.schema.json`
+materialized anywhere under `references/vendored/` — cross-skill contracts (e.g.
+`estimation-infra.json` → `references/vendored/estimate/estimation-infra.schema.json`)
+arrive through the vendored tree, the same way the DSL interpreter contract and
+pricing data do. Semantics you (the interpreter) apply at the gate:
+
+1. **Validate-if-present.** Re-read the named artifact from `$MIGRATION_DIR/`. If
+   it does NOT exist, this check PASSES silently — existence is a separate concern
+   (gate it with `_check_file_exists` / a route `_assert` when required). This lets
+   a route-conditional artifact carry a schema check unconditionally: the check is
+   a no-op on the runs where the route did not fire.
+2. **Conform-or-fail.** If the artifact exists, load its schema and validate the
+   artifact against it. On any nonconformance, the check FAILS (apply its
+   `_on_failure` action and emit `GATE_FAIL`). Do NOT edit the artifact to force a
+   pass.
+3. **Floor, not lockdown.** Schemas encode the REQUIRED structure only
+   (additional properties allowed), so a legitimately richer artifact never trips a
+   false failure. Cross-field invariants a schema cannot express (e.g.
+   `metadata.total_services == services[].length`) stay as a sibling `_assert`.
+
+The SAME schema backs a producer's `_postconditions` and a consumer's
+`_preconditions` — one contract file, referenced from both ends, so producer and
+consumer cannot drift. CI validates only that the schema file EXISTS and is a
+well-formed JSON Schema; it never runs the schema against a runtime artifact (the
+artifact exists only inside a user's `.migration/` run), so conformance is judged
+here, at the gate.
 
 ### `_on_error` actions
 

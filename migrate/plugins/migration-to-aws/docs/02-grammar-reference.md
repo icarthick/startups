@@ -22,8 +22,8 @@ silently ignored). The sets, verbatim from `parse.ts`:
 - **Fragment keys (3):** `_fragment`, `_of_phase`, `_contributes`.
 - **Assembler keys (5):** `_assemble`, `_of_phase`, `_reads`, `_produces`,
   `_knowledge`.
-- **Check kinds (5):** `_check_phase_completed`, `_check_single_active_phase`,
-  `_check_file_exists`, `_validate_json`, `_assert`.
+- **Check kinds (6):** `_check_phase_completed`, `_check_single_active_phase`,
+  `_check_file_exists`, `_validate_json`, `_validate_schema`, `_assert`.
 - **`_on_failure` / `_on_error` actions (4):** `_warn_and_skip`, `_default_and_warn`,
   `_halt_and_inform`, `_unrecoverable`.
 - **Re-entry guard sub-keys (4):** `_stale_if_completed`, `_stale_artifact`,
@@ -230,22 +230,46 @@ put high-consequence branching behind mechanical triggers where you can.
 
 ### Check kinds (used in `_preconditions` / `_postconditions`)
 
-Each list entry is one check plus an `_on_failure` action. Six are mechanical
+Each list entry is one check plus an `_on_failure` action. Five are mechanical
 (deterministic recipes); `_assert` is the judgment escape hatch.
 
-| Check                        | Arg                   | Passes when                                         | Kind         |
-| ---------------------------- | --------------------- | --------------------------------------------------- | ------------ |
-| `_check_phase_completed`     | a phase name          | `.phase-status.json` `phases.<name> == "completed"` | mechanical   |
-| `_check_single_active_phase` | `true`                | at most one backbone phase is `in_progress`         | mechanical   |
-| `_check_file_exists`         | filename or `[names]` | each named file exists in `$MIGRATION_DIR/`         | mechanical   |
-| `_validate_json`             | filename or `[names]` | each named file parses as valid JSON                | mechanical   |
-| `_assert`                    | opaque prose          | the LLM judges the prose true against the artifact  | **judgment** |
+| Check                        | Arg                   | Passes when                                                                            | Kind         |
+| ---------------------------- | --------------------- | -------------------------------------------------------------------------------------- | ------------ |
+| `_check_phase_completed`     | a phase name          | `.phase-status.json` `phases.<name> == "completed"`                                    | mechanical   |
+| `_check_single_active_phase` | `true`                | at most one backbone phase is `in_progress`                                            | mechanical   |
+| `_check_file_exists`         | filename or `[names]` | each named file exists in `$MIGRATION_DIR/`                                            | mechanical   |
+| `_validate_json`             | filename or `[names]` | each named file parses as valid JSON                                                   | mechanical   |
+| `_validate_schema`           | artifact or `[names]` | each named artifact, IF PRESENT, conforms to its schema (`schemas/<name>.schema.json`) | mechanical   |
+| `_assert`                    | opaque prose          | the LLM judges the prose true against the artifact                                     | **judgment** |
 
 `_assert` is where the whole postcondition contract can go soft: a `_validate_json`
 has real teeth, but an `_assert` body is only checked for "is a non-empty string in
 the right list" — CI never reads it. Use mechanical checks where you can; reserve
 `_assert` for genuine judgment (per-entry field presence, enum-over-content,
 conditionals CI can't evaluate).
+
+**Prefer `_validate_schema` over a field-presence `_assert`.** When the predicate
+is "the artifact has these fields with these shapes", encode that shape once in
+`schemas/<artifact>.schema.json` and reference it with `_validate_schema` — a JSON
+Schema is an unambiguous spec the interpreter checks reliably, whereas the
+equivalent prose sentence is opaque and drifts. Semantics: **validate-if-present**
+(a missing artifact PASSES — gate existence separately), **floor not lockdown**
+(required structure only; extra properties allowed, so a richer artifact never
+trips a false failure), and the SAME schema can back a producer's
+`_postconditions` and a consumer's `_preconditions` (one contract, no drift).
+Leave true cross-field invariants (e.g. `metadata.total_services ==
+services[].length`) as a sibling `_assert` — a schema cannot express them. CI
+checks only that the schema file exists and is a well-formed JSON Schema; runtime
+conformance is judged at the gate (the artifact exists only during a run). See
+`INTERPRETER.md` § `_validate_schema`.
+
+**Schema resolution (two locations).** `_validate_schema: <artifact>` finds its
+schema by name: first the gcp-local `schemas/<artifact>.schema.json` (the home for
+skill-owned shapes), then — if absent there — a `<artifact>.schema.json` anywhere
+under `references/vendored/` (shared/canonical schemas synced across skills, e.g.
+`estimation-infra.json` uses `references/vendored/estimate/estimation-infra.schema.json`).
+Author skill-specific shapes in `schemas/`; let cross-skill contracts arrive through
+the vendored tree.
 
 ### `_on_failure` / `_on_error` actions
 

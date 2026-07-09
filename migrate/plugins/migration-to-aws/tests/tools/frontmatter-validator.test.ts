@@ -516,6 +516,74 @@ _produces:
     assert.equal(findings.length, 0, `expected clean, got: ${JSON.stringify(findings)}`);
   });
 
+  // ---- _validate_schema (schema-file resolves + shallow well-formed) ----
+  //
+  // discover _produces discover.json, so its schema is schemas/discover.schema.json
+  // by convention. The fixture skill root is the tmp dir, so a `schemas/...` entry in
+  // the files map lands where the checker resolves it (join(referencesRoot, '..')).
+
+  const GOOD_SCHEMA =
+    '_postconditions:\n' +
+    '  - _validate_schema: discover.json\n' +
+    '    _on_failure: _halt_and_inform';
+
+  it('accepts _validate_schema when the schema exists and is well-formed', () => {
+    const files = gatesOnDiscover(GOOD_SCHEMA);
+    files['schemas/discover.schema.json'] =
+      '{ "$schema": "https://json-schema.org/draft/2020-12/schema", "type": "object", "required": ["phase"] }';
+    const findings = validateFixture(files);
+    assert.equal(findings.length, 0, `expected clean, got: ${JSON.stringify(findings)}`);
+  });
+
+  it('rejects _validate_schema whose schema file does not exist (by convention)', () => {
+    // no schemas/discover.schema.json in the fixture
+    const findings = validateFixture(gatesOnDiscover(GOOD_SCHEMA));
+    assert.match(
+      findings.map((f) => f.message).join('\n'),
+      /_validate_schema 'discover\.json' names no schema on disk .* expected 'schemas\/discover\.schema\.json'/,
+    );
+  });
+
+  it('rejects _validate_schema whose schema is not valid JSON', () => {
+    const files = gatesOnDiscover(GOOD_SCHEMA);
+    files['schemas/discover.schema.json'] = '{ not json';
+    const findings = validateFixture(files);
+    assert.match(findings.map((f) => f.message).join('\n'), /schema 'schemas\/discover\.schema\.json' is not valid JSON/);
+  });
+
+  it('rejects _validate_schema whose schema is valid JSON but not schema-shaped', () => {
+    const files = gatesOnDiscover(GOOD_SCHEMA);
+    files['schemas/discover.schema.json'] = '{ "foo": 1, "bar": 2 }';
+    const findings = validateFixture(files);
+    assert.match(findings.map((f) => f.message).join('\n'), /does not look like a JSON Schema/);
+  });
+
+  it('rejects _validate_schema whose schema is a JSON array (not an object)', () => {
+    const files = gatesOnDiscover(GOOD_SCHEMA);
+    files['schemas/discover.schema.json'] = '[1, 2, 3]';
+    const findings = validateFixture(files);
+    assert.match(findings.map((f) => f.message).join('\n'), /is not a JSON object/);
+  });
+
+  it('resolves a _validate_schema via references/vendored/ when not in schemas/ (shared schema)', () => {
+    // No schemas/discover.schema.json; instead a shared copy under references/vendored/.
+    // The resolver falls back to the vendored tree (cross-skill contracts arrive there).
+    const files = gatesOnDiscover(GOOD_SCHEMA);
+    files['references/vendored/estimate/discover.schema.json'] =
+      '{ "$schema": "https://json-schema.org/draft/2020-12/schema", "type": "object" }';
+    const findings = validateFixture(files);
+    assert.equal(findings.length, 0, `expected clean (vendored fallback), got: ${JSON.stringify(findings)}`);
+  });
+
+  it('rejects when the schema is in neither schemas/ nor references/vendored/', () => {
+    // GOOD_SCHEMA references discover.json but no schema exists anywhere.
+    const findings = validateFixture(gatesOnDiscover(GOOD_SCHEMA));
+    assert.match(
+      findings.map((f) => f.message).join('\n'),
+      /names no schema on disk .* references\/vendored\//,
+    );
+  });
+
   // ---- _knowledge + _input resolution ----
 
   it('accepts _knowledge whose file resolves on disk', () => {

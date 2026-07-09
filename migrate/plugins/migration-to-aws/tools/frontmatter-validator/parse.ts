@@ -26,7 +26,7 @@ const PHASE_KEYS = new Set([
 /** The closed vocabulary of check kinds usable in _preconditions/_postconditions. */
 export const CHECK_KINDS = new Set([
   "_check_phase_completed", "_check_single_active_phase", "_check_file_exists",
-  "_validate_json", "_assert",
+  "_validate_json", "_validate_schema", "_assert",
 ]);
 /** The closed vocabulary of _on_failure / _on_error actions. */
 export const ON_ERROR_ACTIONS = new Set([

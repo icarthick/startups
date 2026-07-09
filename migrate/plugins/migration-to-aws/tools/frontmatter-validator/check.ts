@@ -11,9 +11,90 @@ import type {
   FragmentFrontmatter,
   PhaseFrontmatter,
 } from "./types.ts";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { CHECK_KINDS, EXEC_TIER_SET, EXEC_TIERS, ON_ERROR_ACTIONS } from "./parse.ts";
+
+/** The schema file for an artifact, by CONVENTION: schemas/<basename>.schema.json
+ *  (relative to the skill root). `aws-design.json` -> `schemas/aws-design.schema.json`.
+ *  A non-`.json` artifact simply gets `.schema.json` appended. */
+function schemaPathFor(artifact: string): string {
+  const base = artifact.endsWith(".json") ? artifact.slice(0, -".json".length) : artifact;
+  return join("schemas", `${base}.schema.json`);
+}
+
+/** The schema FILENAME for an artifact: `<basename>.schema.json`. */
+function schemaFileName(artifact: string): string {
+  const base = artifact.endsWith(".json") ? artifact.slice(0, -".json".length) : artifact;
+  return `${base}.schema.json`;
+}
+
+/** Recursively find a file by exact name under a root; returns the first match or null.
+ *  Used to locate a SHARED/canonical schema materialized under references/vendored/
+ *  (a skill gets cross-skill contracts through its vendored tree, not schemas/). */
+function findFileNamed(root: string, name: string): string | null {
+  if (!existsSync(root)) return null;
+  for (const entry of readdirSync(root)) {
+    const abs = join(root, entry);
+    const st = statSync(abs);
+    if (st.isDirectory()) {
+      const hit = findFileNamed(abs, name);
+      if (hit) return hit;
+    } else if (entry === name) {
+      return abs;
+    }
+  }
+  return null;
+}
+
+/** Resolve an artifact's schema. Convention order:
+ *   1. gcp-local `schemas/<name>.schema.json` (the primary home for skill-owned shapes);
+ *   2. a SHARED/canonical `<name>.schema.json` materialized anywhere under
+ *      `references/vendored/` (cross-skill contracts arrive via the vendored tree).
+ *  Returns { abs, rel } for the first hit, or null. */
+function resolveSchema(skillRoot: string, artifact: string): { abs: string; rel: string } | null {
+  const localRel = schemaPathFor(artifact);
+  const localAbs = join(skillRoot, localRel);
+  if (existsSync(localAbs)) return { abs: localAbs, rel: localRel };
+  const vendoredRoot = join(skillRoot, "references", "vendored");
+  const hit = findFileNamed(vendoredRoot, schemaFileName(artifact));
+  if (hit) return { abs: hit, rel: hit.replace(skillRoot + "/", "") };
+  return null;
+}
+
+/** Shallow, ZERO-DEP well-formedness of a JSON Schema file: it must parse as JSON,
+ *  be an object, and carry at least one schema-shaped top-level key. This is NOT
+ *  full JSON-Schema meta-validation — that would need a dependency, which this
+ *  toolchain forbids. It catches an empty file, a non-object, or JSON that is
+ *  plainly not a schema; it does NOT (and at build time CANNOT) run the schema
+ *  against a runtime artifact — that artifact only exists inside a user's
+ *  `.migration/` run, so the interpreter validates conformance at the gate. Returns
+ *  a problem string, or null when the file looks like a schema. */
+function shallowSchemaProblem(absPath: string): string | null {
+  let raw: string;
+  try {
+    raw = readFileSync(absPath, "utf8");
+  } catch {
+    return "could not be read";
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return "is not valid JSON";
+  }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return "is not a JSON object";
+  }
+  const SCHEMA_KEYS = [
+    "$schema", "type", "properties", "required", "$ref",
+    "allOf", "anyOf", "oneOf", "enum", "items",
+  ];
+  if (!SCHEMA_KEYS.some((k) => k in (parsed as Record<string, unknown>))) {
+    return "does not look like a JSON Schema (no $schema/type/properties/required/... key)";
+  }
+  return null;
+}
 
 export interface BoundSkill {
   /** absolute path to the skill's `references/` root (where phase _file paths resolve). */
@@ -245,6 +326,7 @@ export function check(skill: BoundSkill): Finding[] {
   // _produces cross-check. _assert bodies are opaque prose (bound, not evaluated).
   for (const phase of skill.phases) {
     const pf = skill.rel(phase.sourceFile);
+    const skillRootForSchema = join(skill.referencesRoot, "..");
     const checkList = (items: typeof phase.preconditions, label: string) => {
       for (const c of items) {
         if (!CHECK_KINDS.has(c.kind)) {
@@ -256,6 +338,22 @@ export function check(skill: BoundSkill): Finding[] {
         // _check_phase_completed arg SHOULD name a declared phase (partial-rollout tolerant).
         if (c.kind === "_check_phase_completed" && c.arg[0] && declaredPhases.size > 1 && !declaredPhases.has(c.arg[0])) {
           add(pf, `${label} _check_phase_completed '${c.arg[0]}' names no declared phase`);
+        }
+        // _validate_schema: each named artifact's schema (schemas/<name>.schema.json, by
+        // convention) must (1) resolve on disk and (2) be a shallow-well-formed JSON Schema.
+        // CI cannot run the schema against a runtime artifact (it does not exist at build
+        // time) — the interpreter validates conformance at the gate. Same on-disk-resolution
+        // pattern as _knowledge; the well-formedness is shallow + zero-dep (no schema lib).
+        if (c.kind === "_validate_schema") {
+          for (const artifact of c.arg) {
+            const resolved = resolveSchema(skillRootForSchema, artifact);
+            if (!resolved) {
+              add(pf, `${label} _validate_schema '${artifact}' names no schema on disk — expected '${schemaPathFor(artifact)}' (gcp-local) or a '${schemaFileName(artifact)}' under references/vendored/ (shared); a phase may only validate an artifact whose schema the skill ships`);
+            } else {
+              const problem = shallowSchemaProblem(resolved.abs);
+              if (problem) add(pf, `${label} _validate_schema '${artifact}' schema '${resolved.rel}' ${problem}`);
+            }
+          }
         }
       }
     };
