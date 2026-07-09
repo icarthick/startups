@@ -1,3 +1,10 @@
+---
+_fragment: estimate-ai
+_of_phase: estimate
+_contributes:
+  - estimation-ai.json
+---
+
 # Estimate Phase: AI Workload Cost Analysis
 
 > Loaded by estimate.md when aws-design-ai.json exists.

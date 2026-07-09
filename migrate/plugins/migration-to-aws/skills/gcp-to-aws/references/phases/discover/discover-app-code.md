@@ -1,3 +1,10 @@
+---
+_fragment: app-code
+_of_phase: discover
+_contributes:
+  - { file: ai-workload-profile.json, _when: "overall AI confidence >= 70%" }
+---
+
 # Discover Phase: App Code Discovery
 
 > Self-contained application code discovery sub-file. Scans for source code, detects GCP SDK imports, infers resources, flags AI signals, and if AI confidence >= 70%, extracts detailed AI workload information and generates `ai-workload-profile.json`.

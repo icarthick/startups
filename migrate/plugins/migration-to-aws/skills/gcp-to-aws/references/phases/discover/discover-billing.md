@@ -1,3 +1,10 @@
+---
+_fragment: billing
+_of_phase: discover
+_contributes:
+  - billing-profile.json
+---
+
 # Discover Phase: Billing Discovery
 
 > Self-contained billing discovery sub-file. Scans for billing CSV/JSON files, parses billing data, builds service usage profiles, flags AI signals, and generates `billing-profile.json`.

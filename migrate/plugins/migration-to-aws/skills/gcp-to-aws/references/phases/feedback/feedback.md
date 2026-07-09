@@ -1,8 +1,46 @@
+---
+_phase: feedback
+_title: "Feedback (Optional)"
+_kind: checkpoint
+_requires_phase: discover
+_input: "**/.phase-status.json"
+_trigger: { _when: "the user opts in to providing feedback at a feedback checkpoint (offered after Discover and after Estimate)" }
+_fragments:
+  - _id: trace
+    _trigger: { _always: true }
+    _file: phases/feedback/feedback-trace.md
+_assemble:
+  _file: phases/feedback/feedback-assemble.md
+_produces:
+  - feedback.json
+  - trace.json
+_preconditions:
+  - _check_phase_completed: discover
+    _on_failure: _halt_and_inform
+_postconditions:
+  - _check_file_exists: feedback.json
+    _on_failure: _warn_and_skip
+  - _validate_json: feedback.json
+    _on_failure: _warn_and_skip
+_forbids_files:
+  - README.md
+  - "*.txt"
+  - "terraform/**"
+---
+
 # Phase 6: Feedback (Optional)
 
 Builds an anonymized usage trace and directs the user to the Pulse survey form.
 
 **Execute ALL steps in order. Do not skip or deviate.**
+
+This is an **off-backbone checkpoint** (`_kind: checkpoint`), entered by its phase-level
+`_trigger` when the user opts in. Per `INTERPRETER.md` § Backbone vs checkpoint it
+returns control instead of advancing (no `_advances_to`). WHERE it is offered (after
+Discover and after Estimate) is orchestration prose in SKILL.md, not part of this
+phase's contract. Marking `phases.feedback` `"completed"` means the checkpoint was
+**resolved** (offered and dealt with), not that the user participated — participation
+is signalled by the presence of `feedback.json`.
 
 ## Prerequisites
 
@@ -77,32 +115,8 @@ into the "Migration trace (optional)" field and submit.
 
 Replace `$IDE_TYPE` and `$PLUGIN_VERSION` with the actual values detected in Step 0. Example: `https://pulse.amazon/survey/MY0ZY7UA?ide=claude-code&version=1.0.0`
 
-## Step 3: Write feedback.json
+## Step 3: Assemble and Complete
 
-Write `$MIGRATION_DIR/feedback.json`:
-
-```json
-{
-  "timestamp": "<ISO 8601>",
-  "survey_url": "https://pulse.amazon/survey/MY0ZY7UA?ide=$IDE_TYPE&version=$PLUGIN_VERSION",
-  "phases_completed_at_feedback": ["<list of completed phases>"],
-  "trace_included": true
-}
-```
-
-If trace building failed: set `"trace_included": false`.
-
-## Step 4: Update Phase Status
-
-Before status update, enforce output gate:
-
-- `feedback.json` must exist.
-- If `trace_included` is true, `trace.json` must exist.
-
-If output gate fails: STOP and output: "Feedback outputs are incomplete. Fix feedback artifacts before completion."
-
-Use the Phase Status Update Protocol (read-merge-write) to update `.phase-status.json` with `phases.feedback` set to `"completed"` — **in the same turn** as the output message below.
-
-Output to user: "Thank you for helping improve this tool."
-
-After feedback completes, return control to the workflow execution in SKILL.md. The calling checkpoint determines whether to advance to the next phase or end the migration.
+Load `references/phases/feedback/feedback-assemble.md` (the phase's assembler) and
+follow it to write `feedback.json`, enforce the output gate, and resolve the
+checkpoint. It owns the artifact-level contract for this phase.

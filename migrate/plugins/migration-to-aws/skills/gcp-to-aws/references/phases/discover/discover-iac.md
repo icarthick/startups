@@ -1,3 +1,12 @@
+---
+_fragment: iac
+_of_phase: discover
+_contributes:
+  - gcp-resource-inventory.json
+  - gcp-resource-clusters.json
+  - { file: ai-workload-profile.json, _when: "Vertex-strong IaC inference (Step 7d)" }
+---
+
 # Discover Phase: IaC (Terraform) Discovery
 
 > Self-contained IaC discovery sub-file. Scans for IaC files, extracts Terraform resources, classifies, builds dependency graphs, clusters, and generates output files.

@@ -1,6 +1,80 @@
+---
+_phase: estimate
+_title: "Estimate AWS Costs"
+_requires_phase: design
+_input:
+  - preferences.json
+  - aws-design.json
+  - aws-design-billing.json
+  - aws-design-ai.json
+_knowledge:
+  - { file: references/shared/pricing-cache.md }
+_fragments:
+  - _id: estimate-infra
+    _trigger: { _when: "aws-design.json exists" }
+    _file: phases/estimate/estimate-infra.md
+  - _id: estimate-billing
+    _trigger: { _when: "aws-design-billing.json exists AND aws-design.json does NOT exist (billing-only fallback)" }
+    _file: phases/estimate/estimate-billing.md
+  - _id: estimate-ai
+    _trigger: { _when: "aws-design-ai.json exists" }
+    _file: phases/estimate/estimate-ai.md
+_assemble:
+  _file: phases/estimate/estimate-assemble.md
+_produces:
+  - { file: estimation-infra.json, _when: "infra route active (aws-design.json exists)" }
+  - { file: estimation-billing.json, _when: "billing-only route active (aws-design-billing.json exists, no aws-design.json)" }
+  - { file: estimation-ai.json, _when: "AI route active (aws-design-ai.json exists)" }
+_advances_to: generate
+_re_entry_guard:
+  _stale_if_completed: generate
+  _stale_artifact: MIGRATION_GUIDE.md
+  _on_reentry: stop_unless_confirmed
+  _on_confirm: reset_downstream_to_pending
+_preconditions:
+  - _check_phase_completed: design
+    _on_failure: _halt_and_inform
+  - _check_single_active_phase: true
+    _on_failure: _halt_and_inform
+  - _check_file_exists: preferences.json
+    _on_failure: _unrecoverable
+  - _validate_json: preferences.json
+    _on_failure: _unrecoverable
+  - _assert: "at least one design artifact exists (aws-design.json, aws-design-billing.json, or aws-design-ai.json); if none, Estimate cannot run"
+    _on_failure: _unrecoverable
+_postconditions:
+  - _assert: "at least one estimate route was active and produced its artifact: infra route -> estimation-infra.json; billing-only route -> estimation-billing.json; AI route -> estimation-ai.json. If no route is active, the phase must not complete"
+    _on_failure: _halt_and_inform
+  - _assert: "every active route produced valid JSON (each of estimation-infra.json / estimation-billing.json / estimation-ai.json that a triggered route was responsible for exists and parses)"
+    _on_failure: _halt_and_inform
+  - _assert: "if estimation-infra.json exists: recommendation.path is one of {migrate_optimized, migrate_phased, stay}; recommendation.path_label is non-empty; recommendation.migrate_if and recommendation.stay_if are non-empty arrays"
+    _on_failure: _halt_and_inform
+  - _assert: "every service priced carries a pricing_source in {cached, live, cached_fallback, unavailable}; services with pricing_source unavailable are listed in services_with_missing_fallback and excluded from totals"
+    _on_failure: _halt_and_inform
+  - _assert: "estimate-infra and estimate-billing never both produced an artifact in the same run"
+    _on_failure: _halt_and_inform
+_forbids_files:
+  - README.md
+  - "*.txt"
+  - "terraform/**"
+  - MIGRATION_GUIDE.md
+  - generation-infra.json
+  - generation-ai.json
+  - generation-billing.json
+---
+
 # Phase 4: Estimate AWS Costs (Orchestrator)
 
 **Execute ALL steps in order. Do not skip or optimize.**
+
+This phase is driven by the interpreter loop in `INTERPRETER.md`. The entry gate
+(design completed, single active phase, preferences present + valid, ≥1 design
+artifact), the `.phase-status.json` write, and the `HANDOFF_OK`/`GATE_FAIL` completion
+gate are owned by the interpreter and this phase's frontmatter. The prose below is the
+estimate **procedure** — pricing-mode setup (shared across routes) then the per-route
+cost analysis. Each route is a fragment fired by its `_when` trigger and writes its
+own conditional artifact (see `_produces`). Infra and billing-only are mutually
+exclusive; AI runs independently.
 
 ## Step 0: Pricing Mode Selection
 
@@ -56,87 +130,30 @@ If cache is > 90 days old and MCP is unavailable:
 - Add warning: "Cached pricing data is >90 days old; accuracy may be significantly degraded"
 - **Display to user**: Add visible warning with staleness notice
 
-## Step 1: Prerequisites
+## Step 1: Run the Active Estimate Routes
 
-1. Read `$MIGRATION_DIR/.phase-status.json`. If missing, invalid, or `phases.clarify` is not exactly `"completed"`: **STOP**. Output: "Phase 2 (Clarify) not completed or phase state is missing/invalid. Complete Clarify before Estimate."
-2. Read `$MIGRATION_DIR/preferences.json`. If missing: **STOP**. Output: "Phase 2 (Clarify) not completed. Run Phase 2 first."
+The entry gate (design completed, single active phase, preferences present + valid, ≥1
+design artifact) is enforced by this phase's `_preconditions` frontmatter per
+`INTERPRETER.md` § Gate protocol; proceed once it passes. Run each route whose `_when`
+trigger holds:
 
-Check which design artifacts exist in `$MIGRATION_DIR/`:
+- **Infrastructure** (`estimate-infra.md`) — when `aws-design.json` exists. Writes
+  `estimation-infra.json`.
+- **Billing-only** (`estimate-billing.md`) — when `aws-design-billing.json` exists and
+  `aws-design.json` does NOT (fallback). Writes `estimation-billing.json`.
+- **AI** (`estimate-ai.md`) — when `aws-design-ai.json` exists. Writes
+  `estimation-ai.json`. Runs independently of the infra/billing route; run it after
+  the infra/billing estimate completes.
 
-- `aws-design.json` (infrastructure design from IaC)
-- `aws-design-ai.json` (AI workload design)
-- `aws-design-billing.json` (billing-only design)
+Each route uses the Pricing Hierarchy from Step 0 (cache primary, MCP secondary,
+cached-fallback, unavailable).
 
-If **none** of these artifacts exist: **STOP**. Output: "No design artifacts found. Run Phase 3 (Design) first."
+## Step 2: Assemble and Validate
 
-## Step 2: Routing Rules
-
-### Infrastructure Estimate
-
-IF `aws-design.json` exists:
-
-> Load `estimate-infra.md`
-
-Produces: `estimation-infra.json`
-
-### Billing-Only Estimate
-
-IF `aws-design-billing.json` exists AND `aws-design.json` does **NOT** exist:
-
-> Load `estimate-billing.md`
-
-Produces: `estimation-billing.json`
-
-### AI Estimate
-
-IF `aws-design-ai.json` exists:
-
-> Load `estimate-ai.md`
-
-Produces: `estimation-ai.json`
-
-### Mutual Exclusion
-
-- **estimate-infra** and **estimate-billing** never both run (billing-only is the fallback when no IaC exists).
-- **estimate-ai** runs independently of either estimate-infra or estimate-billing (no shared state). Run it after the infra/billing estimate completes.
-
-## Phase Completion
-
-Before marking Estimate complete, enforce route output gates (fail closed):
-
-1. Determine which estimate routes ran:
-   - Infra route: `aws-design.json` exists
-   - Billing-only route: `aws-design-billing.json` exists AND `aws-design.json` does NOT exist
-   - AI route: `aws-design-ai.json` exists
-2. Require at least one route to be active. If none active: STOP.
-3. For each active route, require its expected artifact:
-   - Infra route -> `estimation-infra.json`
-   - Billing-only route -> `estimation-billing.json`
-   - AI route -> `estimation-ai.json`
-4. If any active route is missing its expected output: STOP and output: "Estimate route [name] did not produce required artifact(s). Re-run the failed sub-estimate before completing Phase 4."
-
-## Completion Handoff Gate (Fail Closed)
-
-Load `shared/handoff-gates.md`. **Re-read from disk** each active estimate artifact before checking.
-
-**Re-entry guard:** If `generation-infra.json` (or sibling generation artifacts) exists and `phases.generate` is not `"pending"`: STOP unless the user explicitly confirms re-running Estimate. Emit `GATE_FAIL | phase=estimate | field=generation-infra.json | reason=stale_downstream`.
-
-**Infra route additional checks** (when `estimation-infra.json` exists):
-
-- `recommendation.path` ∈ `{migrate_optimized, migrate_phased, stay}`
-- `recommendation.path_label` is non-empty
-- `recommendation.migrate_if` and `recommendation.stay_if` are non-empty arrays
-
-**On any FAIL:** Emit `GATE_FAIL | phase=estimate | field=<path> | reason=missing`. **Do NOT modify artifacts to pass the gate.** **Do NOT update `.phase-status.json`.** Tell the user to re-run `estimate-infra.md` Part 7 (recommendation block).
-
-**On PASS:** Emit `HANDOFF_OK | phase=estimate | artifacts=<comma-separated active estimate files>`.
-
-After `HANDOFF_OK`, use the Phase Status Update Protocol (read-merge-write) to update `.phase-status.json` — **in the same turn** as the output message below:
-
-- Set `phases.estimate` to `"completed"`
-- Set `current_phase` to `"generate"`
-
-Output to user: "Cost estimation complete. Proceeding to Phase 5: Generate Migration Artifacts."
+Load `references/phases/estimate/estimate-assemble.md` (the phase's assembler) and
+follow it to enforce the route output gates (≥1 active route produced its artifact;
+infra XOR billing; infra recommendation-block checks) and own the phase's
+artifact-level contract.
 
 ## Reference Files
 

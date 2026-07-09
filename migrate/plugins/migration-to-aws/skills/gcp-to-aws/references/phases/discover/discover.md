@@ -1,7 +1,69 @@
+---
+_phase: discover
+_title: "Discover GCP Resources"
+_init: true
+_input: workspace
+_fragments:
+  - _id: iac
+    _trigger: { _glob: "**/*.tf" }
+    _file: phases/discover/discover-iac.md
+  - _id: app-code
+    _trigger: { _when: "source code or dependency manifests exist in the workspace (**/*.py, **/*.js, **/*.ts, requirements.txt, package.json, go.mod, pom.xml, etc.)" }
+    _file: phases/discover/discover-app-code.md
+  - _id: billing
+    _trigger: { _glob: "**/*{billing,cost,usage}*.{csv,json}" }
+    _file: phases/discover/discover-billing.md
+_assemble:
+  _file: phases/discover/discover-assemble.md
+_produces:
+  - { file: gcp-resource-inventory.json, _when: "Terraform/IaC files were found (discover-iac ran)" }
+  - { file: gcp-resource-clusters.json, _when: "Terraform/IaC files were found (discover-iac ran)" }
+  - { file: ai-workload-profile.json, _when: "AI confidence >= 70% in app code, and/or Vertex-strong IaC inference" }
+  - { file: billing-profile.json, _when: "billing/cost/usage export files were found" }
+  - migration-preview.json
+_advances_to: clarify
+_re_entry_guard:
+  _stale_if_completed: clarify
+  _stale_artifact: preferences.json
+  _on_reentry: stop_unless_confirmed
+  _on_confirm: reset_downstream_to_pending
+_preconditions:
+  - _check_single_active_phase: true
+    _on_failure: _halt_and_inform
+  - _assert: "at least one GCP source is present in the workspace: a .tf/.tfvars/.tfstate file, application source code, or a billing/cost/usage export"
+    _on_failure: _unrecoverable
+_postconditions:
+  - _check_file_exists: migration-preview.json
+    _on_failure: _halt_and_inform
+  - _validate_json: migration-preview.json
+    _on_failure: _halt_and_inform
+  - _assert: "at least one discovery artifact was produced (gcp-resource-inventory.json, ai-workload-profile.json, or billing-profile.json); if none, the phase must not complete"
+    _on_failure: _halt_and_inform
+  - _assert: "every triggered discovery route produced its required artifact(s): if discover-iac ran then gcp-resource-inventory.json and gcp-resource-clusters.json exist; if full discover-billing ran or lightweight billing extraction ran then billing-profile.json exists; if app-code discovery continued past its confidence gate then ai-workload-profile.json exists"
+    _on_failure: _halt_and_inform
+  - _assert: "migration-preview.json has complexity_signal set"
+    _on_failure: _halt_and_inform
+_forbids_files:
+  - README.md
+  - discovery-summary.md
+  - EXECUTION_REPORT.txt
+  - discovery-log.md
+  - "*.txt"
+  - "terraform/**"
+---
+
 # Phase 1: Discover GCP Resources
 
 Lightweight orchestrator that delegates to domain-specific discoverers. Each sub-discovery file is self-contained — it scans for its own input, processes what it finds, and exits cleanly if nothing is relevant.
 **Execute ALL steps in order. Do not skip or deviate.**
+
+This skill is driven by the interpreter loop in `INTERPRETER.md`. The entry gate
+(single active phase, at least one source present), the `.phase-status.json` write,
+and the `HANDOFF_OK`/`GATE_FAIL` completion gate are all owned by the interpreter and
+this phase's frontmatter — the prose below is the discovery **procedure** only. This
+phase carries `_init: true`; per `INTERPRETER.md` § `_init` it bootstraps migration
+state (resume-vs-fresh, `$MIGRATION_DIR`, `.gitignore`, initial `.phase-status.json`)
+before the fragments run.
 
 ## Sub-Discovery Files
 

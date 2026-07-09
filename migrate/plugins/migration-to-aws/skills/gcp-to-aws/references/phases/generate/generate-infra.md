@@ -1,3 +1,10 @@
+---
+_fragment: plan-infra
+_of_phase: generate
+_contributes:
+  - generation-infra.json
+---
+
 # Generate Phase: Infrastructure Migration Plan
 
 > Loaded by generate.md when estimation-infra.json exists.

@@ -1,3 +1,10 @@
+---
+_fragment: design-billing
+_of_phase: design
+_contributes:
+  - aws-design-billing.json
+---
+
 # Design Phase: Billing-Only Service Mapping
 
 > Loaded by `design.md` when `billing-profile.json` exists and `gcp-resource-inventory.json` does NOT exist.

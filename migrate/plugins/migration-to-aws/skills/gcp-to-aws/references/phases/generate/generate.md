@@ -1,160 +1,122 @@
+---
+_phase: generate
+_title: "Generate Migration Artifacts"
+_requires_phase: estimate
+_input:
+  - preferences.json
+  - estimation-infra.json
+  - estimation-ai.json
+  - estimation-billing.json
+  - aws-design.json
+  - aws-design-ai.json
+  - aws-design-billing.json
+_fragments:
+  - _id: plan-infra
+    _trigger: { _when: "estimation-infra.json exists" }
+    _file: phases/generate/generate-infra.md
+  - _id: plan-ai
+    _trigger: { _when: "estimation-ai.json exists" }
+    _file: phases/generate/generate-ai.md
+  - _id: plan-billing
+    _trigger: { _when: "estimation-billing.json exists" }
+    _file: phases/generate/generate-billing.md
+_assemble:
+  _file: phases/generate/generate-assemble.md
+_produces:
+  - { file: generation-infra.json, _when: "infra route active (estimation-infra.json exists)" }
+  - { file: generation-ai.json, _when: "AI route active (estimation-ai.json exists)" }
+  - { file: generation-billing.json, _when: "billing-only route active (estimation-billing.json exists)" }
+  - { file: terraform/, _when: "infra artifact route active (generation-infra.json AND aws-design.json exist)" }
+  - { file: scripts/, _when: "infra artifact route active (generation-infra.json AND aws-design.json exist)" }
+  - { file: validation-report.json, _when: "infra artifact route active" }
+  - { file: ai-migration/, _when: "AI artifact route active (generation-ai.json AND aws-design-ai.json exist)" }
+  - { file: terraform/skeleton.tf, _when: "billing artifact route active (generation-billing.json AND aws-design-billing.json exist)" }
+  - MIGRATION_GUIDE.md
+  - README.md
+  - { file: migration-report.html, _when: "artifact validation passed (report is optional, non-blocking on validation failure)" }
+_advances_to: complete
+_preconditions:
+  - _check_phase_completed: estimate
+    _on_failure: _halt_and_inform
+  - _check_single_active_phase: true
+    _on_failure: _halt_and_inform
+  - _check_file_exists: preferences.json
+    _on_failure: _unrecoverable
+  - _validate_json: preferences.json
+    _on_failure: _unrecoverable
+  - _assert: "at least one estimation artifact exists (estimation-infra.json, estimation-ai.json, or estimation-billing.json); if none, Generate cannot run"
+    _on_failure: _unrecoverable
+_postconditions:
+  - _check_file_exists: [MIGRATION_GUIDE.md, README.md]
+    _on_failure: _halt_and_inform
+  - _assert: "Stage 1 route gates pass: for each estimation artifact present, the matching plan exists — estimation-infra.json -> generation-infra.json; estimation-ai.json -> generation-ai.json; estimation-billing.json -> generation-billing.json"
+    _on_failure: _halt_and_inform
+  - _assert: "Stage 2 route gates pass: if the infra artifact route is active (generation-infra.json AND aws-design.json) then terraform/, scripts/, and validation-report.json (status in {passed, passed_degraded_offline, skipped_user_continue}) exist; if the AI artifact route is active (generation-ai.json AND aws-design-ai.json) then ai-migration/ exists; if the billing artifact route is active (generation-billing.json AND aws-design-billing.json) then terraform/skeleton.tf exists"
+    _on_failure: _halt_and_inform
+  - _assert: "MIGRATION_GUIDE.md has Prerequisites and Verification sections; README.md lists the generated artifacts"
+    _on_failure: _halt_and_inform
+  - _assert: "no unresolved placeholder tokens remain in generated Terraform .tf files (variable references belong in variables as var.* references)"
+    _on_failure: _halt_and_inform
+_forbids_files:
+  - preferences.json
+  - aws-design.json
+  - aws-design-ai.json
+  - aws-design-billing.json
+  - estimation-infra.json
+  - estimation-ai.json
+  - estimation-billing.json
+---
+
 # Phase 5: Generate Migration Artifacts (Orchestrator)
 
 **Execute ALL steps in order. Do not skip or optimize.**
 
+This phase is driven by the interpreter loop in `INTERPRETER.md`. The entry gate
+(estimate completed, single active phase, preferences present + valid, ≥1 estimation
+artifact), the `.phase-status.json` write, and the `HANDOFF_OK`/`GATE_FAIL` completion
+gate are owned by the interpreter and this phase's frontmatter. The prose below is the
+generate **procedure**.
+
 ## Overview
 
-The Generate phase has **2 mandatory stages** that run sequentially:
+Generate runs in **two stages**:
 
-1. **Stage 1: Migration Planning** — Produces execution plans (JSON) from estimation + design artifacts
-2. **Stage 2: Artifact Generation** — Produces deployable code (Terraform, scripts, adapters, docs) from plans + designs
+1. **Stage 1 — Migration Planning** (the `plan-*` fragments): each active route turns
+   its estimation + design artifacts into an execution plan (`generation-*.json`).
+   Fragments are independent — each reads only its own upstream artifacts.
+2. **Stage 2 — Artifact Generation** (the assembler, `generate-assemble.md`): reads
+   the Stage 1 plans + designs and derives the deployable artifacts — `terraform/`,
+   `scripts/`, `ai-migration/`, the always-on docs, and the optional HTML report.
+   Because Stage 2 depends on Stage 1's output, it lives in the assembler (which is
+   allowed to read fragment output), not in a second set of fragments (fragments
+   never read each other's output — `INTERPRETER.md` § the unit kinds).
 
-Both stages must complete for the phase to succeed.
+Multiple routes can run independently; infra and billing-only are mutually exclusive
+upstream (Design/Estimate already enforced that).
 
-## Prerequisites
+## Stage 1: Migration Planning (the `plan-*` fragments)
 
-1. Read `$MIGRATION_DIR/.phase-status.json`. If missing, invalid, or `phases.clarify` is not exactly `"completed"`: **STOP**. Output: "Phase 2 (Clarify) not completed or phase state is missing/invalid. Complete Clarify before Generate."
-2. Read `$MIGRATION_DIR/preferences.json`. If missing: **STOP**. Output: "Phase 2 (Clarify) not completed. Run Phase 2 first."
+Run each planning route whose `_when` trigger holds (the interpreter loads the
+fragment only when its trigger fires). Each reads only its own upstream artifacts:
 
-Check which estimation artifacts exist in `$MIGRATION_DIR/`:
+- **Infrastructure** (`generate-infra.md`) — when `estimation-infra.json` exists.
+  Writes `generation-infra.json`.
+- **AI** (`generate-ai.md`) — when `estimation-ai.json` exists. Writes
+  `generation-ai.json`.
+- **Billing-only** (`generate-billing.md`) — when `estimation-billing.json` exists.
+  Writes `generation-billing.json`.
 
-- `estimation-infra.json` (infrastructure estimation)
-- `estimation-ai.json` (AI workload estimation)
-- `estimation-billing.json` (billing-only estimation)
+## Stage 2: Artifact Generation + Completion (the assembler)
 
-If **none** of these estimation artifacts exist: **STOP**. Output: "No estimation artifacts found. Run Phase 4 (Estimate) first."
-
-## Stage 1: Migration Planning
-
-**Dirty-state tracking**: Before producing any Stage 1 outputs, set `dirty_state` in `.phase-status.json`:
-
-```json
-"dirty_state": {
-  "phase": "generate",
-  "stage": "stage_1_planning",
-  "started_at": "<ISO 8601 UTC>",
-  "partial_outputs": [],
-  "missing_outputs": ["generation-infra.json", "generation-ai.json", "generation-billing.json"]
-}
-```
-
-Trim `missing_outputs` to only the artifacts expected for the active routes. Update `partial_outputs` and `missing_outputs` after each sub-file completes.
-
-Route based on which estimation artifacts exist. Multiple paths can run independently.
-
-### Infrastructure Migration Plan
-
-IF `estimation-infra.json` exists:
-
-> Load `generate-infra.md`
-
-Produces: `generation-infra.json`
-
-### AI Migration Plan
-
-IF `estimation-ai.json` exists:
-
-> Load `generate-ai.md`
-
-Produces: `generation-ai.json`
-
-### Billing-Only Migration Plan
-
-IF `estimation-billing.json` exists:
-
-> Load `generate-billing.md`
-
-Produces: `generation-billing.json`
-
-## Stage 2: Artifact Generation
-
-**MUST proceed only after Stage 1 completes.** Route based on generation plans + design artifacts.
-
-**Dirty-state tracking**: Before producing any Stage 2 outputs, update `dirty_state` in `.phase-status.json`:
-
-```json
-"dirty_state": {
-  "phase": "generate",
-  "stage": "stage_2_artifacts",
-  "started_at": "<ISO 8601 UTC>",
-  "partial_outputs": ["generation-infra.json"],
-  "missing_outputs": ["terraform/", "scripts/", "MIGRATION_GUIDE.md", "README.md"]
-}
-```
-
-Carry forward `partial_outputs` from Stage 1. Trim `missing_outputs` to only the artifacts expected for the active routes plus mandatory docs. Update after each sub-file completes.
-
-### Infrastructure Artifacts
-
-IF `generation-infra.json` AND `aws-design.json` exist:
-
-> Load `generate-artifacts-infra.md`
-
-Produces: `terraform/` directory
-
-After generate-artifacts-infra.md completes (terraform files generated),
-load `generate-artifacts-scripts.md` to generate migration scripts.
-
-Produces: `scripts/` directory
-
-### AI Artifacts
-
-IF `generation-ai.json` AND `aws-design-ai.json` exist:
-
-> Load `generate-artifacts-ai.md`
-
-Produces: `ai-migration/` directory
-
-### Billing Skeleton Artifacts
-
-IF `generation-billing.json` AND `aws-design-billing.json` exist:
-
-> Load `generate-artifacts-billing.md`
-
-Produces: `terraform/skeleton.tf` (with TODO markers)
-
-### Documentation (ALWAYS runs after artifact generation)
-
-AFTER all above artifact generation sub-files complete:
-
-> Load `generate-artifacts-docs.md`
-
-Produces: `MIGRATION_GUIDE.md`, `README.md`
-
-### HTML Report (ALWAYS runs last, after documentation)
-
-AFTER generate-artifacts-docs.md completes:
-
-> Load `generate-artifacts-report.md`
-
-Produces: `migration-report.html`
-
-**Validation gate:** Report generation runs `shared/validate-artifacts.md` first. If validation emits `GATE_FAIL`: log the failure to the user, **do not write** `migration-report.html`, and continue to Phase Completion (report is optional output; validation failure is not a silent skip). Do **NOT** patch artifacts to pass validation.
-
-## Phase Completion
-
-Load `shared/handoff-gates.md`. **Re-read from disk** before checking.
-
-Verify both stages are complete:
-
-1. **Stage 1 route gates (fail closed)**:
-   - If `estimation-infra.json` exists -> require `generation-infra.json`
-   - If `estimation-ai.json` exists -> require `generation-ai.json`
-   - If `estimation-billing.json` exists -> require `generation-billing.json`
-2. **Stage 2 route gates (fail closed)**:
-   - If infra artifact route is active (`generation-infra.json` AND `aws-design.json`) -> require `terraform/`, `scripts/`, and `validation-report.json` (with `status` in `{passed, passed_degraded_offline, skipped_user_continue}`)
-   - If AI artifact route is active (`generation-ai.json` AND `aws-design-ai.json`) -> require `ai-migration/`
-   - If billing artifact route is active (`generation-billing.json` AND `aws-design-billing.json`) -> require `terraform/skeleton.tf`
-3. **Documentation gate (always)**:
-   - Require `MIGRATION_GUIDE.md` and `README.md`
-4. If any active route is missing expected outputs: Emit `GATE_FAIL | phase=generate | field=<artifact> | reason=missing`. **Do NOT modify artifacts.** STOP — do not mark phase complete.
-
-**On PASS:** Emit `HANDOFF_OK | phase=generate | artifacts=<key files verified>`.
-
-After `HANDOFF_OK`, use the Phase Status Update Protocol (read-merge-write) to update `.phase-status.json` — **in the same turn** as the summary below:
-
-- Set `phases.generate` to `"completed"`
-- Set `current_phase` to `"complete"`
+Load `references/phases/generate/generate-assemble.md` (the phase's assembler) and
+follow it. **Stage 2 depends on Stage 1's plans**, so it lives in the assembler (the
+only unit allowed to read fragment output). It derives the deployable artifacts from
+the plans + designs — `terraform/`, `scripts/`, `ai-migration/`, the billing skeleton,
+the always-on docs (`MIGRATION_GUIDE.md`, `README.md`), and the optional HTML report
+— loading the `generate-artifacts-*.md` sub-files for each active route. It also
+carries the dirty-state resumability tracking and owns the phase's completion gate
+(Stage 1 + Stage 2 route gates, documentation gate). It emits `HANDOFF_OK | phase=generate`
+on pass and advances to `complete`.
 
 ## Summary
 

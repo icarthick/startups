@@ -1,3 +1,10 @@
+---
+_fragment: trace
+_of_phase: feedback
+_contributes:
+  - trace.json
+---
+
 # Feedback Trace Builder
 
 Builds an anonymized telemetry trace from migration artifacts in `$MIGRATION_DIR/`. The trace never includes resource names, file paths, account IDs, IPs, variable values, or secrets.

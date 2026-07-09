@@ -45,7 +45,10 @@ run = "markdownlint-cli2 '**/*.md' '#node_modules' --fix"
 
 [tasks."lint:frontmatter"]
 description = "Validate phase/fragment/assembler frontmatter (typed, zero-dep; skill-agnostic)"
-run = "node migrate/plugins/migration-to-aws/tools/frontmatter-validator/validate.ts migrate/plugins/migration-to-aws/skills/heroku-to-aws"
+run = [
+  "node migrate/plugins/migration-to-aws/tools/frontmatter-validator/validate.ts migrate/plugins/migration-to-aws/skills/heroku-to-aws",
+  "node migrate/plugins/migration-to-aws/tools/frontmatter-validator/validate.ts migrate/plugins/migration-to-aws/skills/gcp-to-aws",
+]
 
 [tasks."lint:types"]
 description = "Type-check the frontmatter validator + its test (tsc --noEmit, strict)"

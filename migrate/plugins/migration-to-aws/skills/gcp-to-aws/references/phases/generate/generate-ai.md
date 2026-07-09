@@ -1,3 +1,10 @@
+---
+_fragment: plan-ai
+_of_phase: generate
+_contributes:
+  - generation-ai.json
+---
+
 # Generate Phase: AI Migration Plan
 
 > Loaded by generate.md when estimation-ai.json exists.

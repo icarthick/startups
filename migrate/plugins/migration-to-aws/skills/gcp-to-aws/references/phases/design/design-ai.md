@@ -1,3 +1,10 @@
+---
+_fragment: design-ai
+_of_phase: design
+_contributes:
+  - aws-design-ai.json
+---
+
 # Design Phase: AI Workloads (Bedrock)
 
 > Loaded by `design.md` when `ai-workload-profile.json` exists.

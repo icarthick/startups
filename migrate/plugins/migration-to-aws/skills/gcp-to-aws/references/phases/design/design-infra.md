@@ -1,3 +1,10 @@
+---
+_fragment: design-infra
+_of_phase: design
+_contributes:
+  - aws-design.json
+---
+
 # Design Phase: Infrastructure Mapping
 
 > Loaded by `design.md` when `gcp-resource-inventory.json` and `gcp-resource-clusters.json` exist.

@@ -1,3 +1,10 @@
+---
+_fragment: plan-billing
+_of_phase: generate
+_contributes:
+  - generation-billing.json
+---
+
 # Generate Phase: Billing-Only Migration Plan
 
 > Loaded by generate.md when estimation-billing.json exists.

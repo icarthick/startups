@@ -1,3 +1,10 @@
+---
+_fragment: estimate-billing
+_of_phase: estimate
+_contributes:
+  - estimation-billing.json
+---
+
 # Estimate Phase: Billing-Only Cost Analysis
 
 > Loaded by estimate.md when aws-design-billing.json exists and aws-design.json does NOT exist.

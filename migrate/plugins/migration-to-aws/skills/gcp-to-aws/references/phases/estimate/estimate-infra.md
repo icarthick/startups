@@ -1,3 +1,10 @@
+---
+_fragment: estimate-infra
+_of_phase: estimate
+_contributes:
+  - estimation-infra.json
+---
+
 # Estimate Phase: Infrastructure Cost Analysis
 
 > Loaded by estimate.md when aws-design.json exists.
