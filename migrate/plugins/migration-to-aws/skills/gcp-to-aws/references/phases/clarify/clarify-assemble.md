@@ -19,7 +19,7 @@ _produces:
 
 ## Step 5: Assemble and Write preferences.json
 
-Assemble all interpreted answers from the completed batches into the final `$MIGRATION_DIR/preferences.json`. If `preferences-draft.json` exists, use it as the base — merge in the final batch's answers, remove the draft-specific metadata fields (`draft`, `batches_completed`, `batches_remaining`), and set `metadata.timestamp` to the current time. Write `$MIGRATION_DIR/preferences.json`:
+Assemble all resolved values — sheet confirmations, corrections, essential answers, and defaults — into the final `$MIGRATION_DIR/preferences.json`. If `preferences-draft.json` exists, use it as the base — merge in the final answers, remove the draft-specific metadata fields (`draft`, `wizard_stage`, `batches_completed`, `batches_remaining`), and set `metadata.timestamp` to the current time. Write `$MIGRATION_DIR/preferences.json`:
 
 ```json
 {
@@ -27,62 +27,80 @@ Assemble all interpreted answers from the completed batches into the final `$MIG
     "migration_type": "full",
     "timestamp": "<ISO timestamp>",
     "discovery_artifacts": ["gcp-resource-inventory.json", "ai-workload-profile.json"],
-    "questions_asked": [
-      "Q1",
-      "Q2",
-      "Q3",
-      "Q5",
-      "Q6",
-      "Q7",
-      "Q16",
-      "Q17",
-      "Q19",
-      "Q21",
-      "Q22"
-    ],
-    "questions_defaulted": ["Q9"],
-    "questions_skipped_extracted": ["Q14"],
+    "questions_asked": ["Q2", "Q7", "Q15"],
+    "questions_defaulted": ["Q5", "Q9", "Q11", "Q16", "Q17", "Q18", "Q21", "Q22", "Q27"],
+    "questions_skipped_extracted": ["Q1", "Q6", "Q12", "Q13", "Q13b", "Q14", "Q19", "Q20"],
     "questions_skipped_early_exit": ["Q8"],
-    "questions_skipped_not_applicable": ["Q4", "Q10", "Q11", "Q12", "Q13", "Q13b"],
-    "detected_settings": [
-      {
-        "key": "availability",
-        "value": "multi-az",
-        "source": "terraform:availability_type=REGIONAL",
-        "questions_skipped": ["Q6"],
-        "confirmed": true,
-        "corrected_by_user": false
-      }
-    ],
+    "questions_skipped_not_applicable": ["Q3.5", "Q4", "Q10", "Q23", "Q24", "Q25", "Q26"],
     "category_e_enabled": false,
-    "clarify_mode": "full",
+    "clarify_mode": "wizard",
     "inventory_clarifications": {}
   },
   "design_constraints": {
-    "target_region": { "value": "us-east-1", "chosen_by": "user" },
+    "target_region": {
+      "value": "us-east-1",
+      "chosen_by": "extracted",
+      "source": "inventory:region=us-east1"
+    },
     "compliance": { "value": ["hipaa"], "chosen_by": "user" },
-    "gcp_monthly_spend": { "value": "$5K-$20K", "chosen_by": "user" },
-    "funding_stage": { "value": "series-a", "chosen_by": "user" },
-    "availability": { "value": "multi-az", "chosen_by": "default" },
+    "gcp_monthly_spend": {
+      "value": "$5K-$20K",
+      "chosen_by": "extracted",
+      "source": "billing:monthly_total=$8200"
+    },
+    "availability": {
+      "value": "multi-az",
+      "chosen_by": "extracted",
+      "source": "terraform:availability_type=REGIONAL"
+    },
     "cutover_strategy": { "value": "maintenance-window-weekly", "chosen_by": "user" },
-    "kubernetes": { "value": "eks-or-ecs", "chosen_by": "user" },
-    "database_traffic": { "value": "steady", "chosen_by": "user" },
-    "db_io_workload": { "value": "medium", "chosen_by": "user" },
-    "db_size": { "value": "10-100GB", "chosen_by": "user" }
+    "kubernetes": { "value": "ecs-fargate", "chosen_by": "default", "source": "default:Q8" },
+    "database_traffic": {
+      "value": "steady",
+      "chosen_by": "extracted",
+      "source": "inventory:db_tier=db-f1-micro"
+    },
+    "db_io_workload": {
+      "value": "low",
+      "chosen_by": "extracted",
+      "source": "inventory:db_tier=db-f1-micro"
+    },
+    "db_size": {
+      "value": "10-100GB",
+      "chosen_by": "extracted",
+      "source": "inventory:disk_size_gb=10"
+    }
   },
   "ai_constraints": {
-    "ai_framework": { "value": ["direct"], "chosen_by": "extracted" },
+    "ai_framework": {
+      "value": ["direct"],
+      "chosen_by": "extracted",
+      "source": "ai-profile:integration.pattern=direct_sdk"
+    },
     "ai_monthly_spend": { "value": "$500-$2K", "chosen_by": "user" },
-    "ai_priority": { "value": "balanced", "chosen_by": "user" },
-    "ai_critical_feature": { "value": "function-calling", "chosen_by": "user" },
-    "ai_token_volume": { "value": "low", "chosen_by": "user" },
-    "ai_model_baseline": { "value": "claude-sonnet-4-6", "chosen_by": "user" },
-    "ai_vision": { "value": "text-only", "chosen_by": "user" },
-    "ai_latency": { "value": "important", "chosen_by": "user" },
-    "ai_complexity": { "value": "moderate", "chosen_by": "user" },
+    "ai_priority": { "value": "balanced", "chosen_by": "default", "source": "default:Q16" },
+    "ai_critical_feature": { "value": "none", "chosen_by": "default", "source": "default:Q17" },
+    "ai_token_volume": { "value": "low", "chosen_by": "default", "source": "default:Q18" },
+    "ai_model_baseline": {
+      "value": "gemini-2.5-flash",
+      "chosen_by": "extracted",
+      "source": "ai-profile:models[0].model_id"
+    },
+    "ai_vision": {
+      "value": "text-only",
+      "chosen_by": "extracted",
+      "source": "ai-profile:capabilities_summary.vision=false"
+    },
+    "ai_latency": { "value": "important", "chosen_by": "default", "source": "default:Q21" },
+    "ai_complexity": { "value": "moderate", "chosen_by": "default", "source": "default:Q22" },
+    "startup_program_status": {
+      "value": "unknown",
+      "chosen_by": "default",
+      "source": "default:Q27"
+    },
     "ai_capabilities_required": {
-      "value": ["text_generation", "streaming", "function_calling"],
-      "chosen_by": "extracted"
+      "value": ["text_generation", "streaming"],
+      "chosen_by": "derived"
     }
   }
 }
@@ -91,17 +109,19 @@ Assemble all interpreted answers from the completed batches into the final `$MIG
 ### Schema Rules
 
 1. Every entry in `design_constraints` and `ai_constraints` is an object with `value` and `chosen_by` fields.
-2. `chosen_by` values: `"user"` (explicitly answered), `"default"` (system default applied — includes "I don't know" answers), `"extracted"` (inferred from inventory), `"derived"` (computed from combination of answers + detected capabilities).
+2. `chosen_by` values: `"user"` (explicitly answered or corrected on the sheet), `"default"` (documented default applied — includes sheet-confirmed defaults and "I don't know" answers), `"extracted"` (inferred from inventory), `"derived"` (computed from combination of answers + detected capabilities).
 3. Only write a key to `design_constraints` / `ai_constraints` if the answer produces a constraint. Absent keys mean "no constraint — Design decides."
 4. Do not write null values.
 5. For billing-source inventories, `metadata.inventory_clarifications` records Category B answers.
 6. `metadata.questions_skipped_early_exit` records questions skipped due to early-exit logic (e.g., Q8 skipped because Q5=multi-cloud).
-7. `metadata.questions_skipped_extracted` records questions skipped because inventory already provided the answer.
-8. `metadata.detected_settings` records each auto-detected setting with source, confirmation status, and whether the user corrected it in Step 2.5.
-9. `metadata.questions_skipped_not_applicable` records questions skipped because the relevant service wasn't in the inventory.
-10. `ai_constraints` section is present ONLY if Category F fired. Omit entirely if no AI artifacts exist.
-11. `ai_constraints.ai_capabilities_required` is the UNION of detected capabilities from `ai-workload-profile.json` + critical feature from Q17 + vision from Q20. `chosen_by` is `"derived"`.
-12. `ai_constraints.ai_framework` is an array (Q14 is select-all-that-apply). If auto-detected, `chosen_by` is `"extracted"`.
+7. `metadata.questions_skipped_extracted` records questions resolved because inventory already provided the answer.
+8. `metadata.questions_defaulted` records questions resolved by documented default — whether sheet-confirmed (wizard) or skipped (full flow / "use defaults").
+9. **`source` field on constraints:** Every constraint with `chosen_by: "extracted"` or `chosen_by: "default"` MUST include a `source` field. Extracted: raw provenance signal (prefix `terraform:`, `billing:`, `code:`, `inventory:`, or artifact filename). Default: `"default:<Qid>"`. Omit `source` for `"user"` and `"derived"`. Report generation uses `source` prefixed `default:` to flag unverified assumptions.
+10. `metadata.questions_skipped_not_applicable` records questions skipped because the relevant service wasn't in the inventory or their firing condition wasn't met.
+11. `ai_constraints` section is present ONLY if Category F fired. Omit entirely if no AI artifacts exist.
+12. `ai_constraints.ai_capabilities_required` is the UNION of detected capabilities from `ai-workload-profile.json` + critical feature from Q17 + vision from Q20. `chosen_by` is `"derived"`.
+13. `ai_constraints.ai_framework` is an array (Q14 is select-all-that-apply). If auto-detected, `chosen_by` is `"extracted"`.
+14. `metadata.clarify_mode` is one of `"wizard"`, `"full"`, `"fast_path"`, `"simple_hybrid"`.
 
 After writing `preferences.json`, delete `$MIGRATION_DIR/preferences-draft.json` if it exists.
 
@@ -111,8 +131,9 @@ After writing `preferences.json`, delete `$MIGRATION_DIR/preferences-draft.json`
 
 Before handing off to Design:
 
-- [ ] If extractions were made, Step 2.5 detected-settings confirmation was shown and user responded before questions
-- [ ] If extractions were made, `metadata.detected_settings` records each inferred value with `confirmed` status
+- [ ] In wizard mode, the Step 2.5 Assumption Sheet was shown (detected + assumed sections) and the user responded before any essential question was asked
+- [ ] Every constraint with `chosen_by: "extracted"` or `chosen_by: "default"` has a `source` field with the correct prefix (`terraform:`, `billing:`, `inventory:`, `ai-profile:`, or `default:<Qid>`)
+- [ ] Essential questions (Q2, Q7, and conditional Q1/Q3/Q3.5/Q15/Q23–Q25/conflicts) were asked, answered, or explicitly defaulted via "use defaults for the rest"
 - [ ] If `bigquery_present` was **true**, the Step 4 BigQuery specialist advisory was shown before questions — **or**, if Step 0 option A (reuse preferences), the same advisory was shown after BigQuery detection
 - [ ] `preferences.json` written to `$MIGRATION_DIR/`
 - [ ] `design_constraints.target_region` is populated with `value` and `chosen_by`
@@ -127,6 +148,6 @@ Before handing off to Design:
 - [ ] `ai_constraints.ai_framework` is an array (Q14 is multi-select)
 - [ ] Output is valid JSON
 - [ ] `preferences-draft.json` has been deleted (if it existed)
-- [ ] `metadata.clarify_mode` is set to `"fast_path"`, `"simple_hybrid"`, or `"full"`
+- [ ] `metadata.clarify_mode` is set to `"wizard"`, `"full"`, `"fast_path"`, or `"simple_hybrid"`
 
 ---
