@@ -501,18 +501,16 @@ Generate `generation-infra.json` in `$MIGRATION_DIR/` with the following schema:
 - All cluster IDs reference valid clusters from `gcp-resource-clusters.json`
 - Output is valid JSON
 
-## Completion Handoff Gate (Fail Closed)
+## Return Contract
 
-Before returning control to `generate.md`, require:
+This is a Stage 1 fragment; it does not run the phase completion gate. Before returning
+control to `generate.md`, ensure `generation-infra.json` exists and satisfies the
+Output Validation Checklist above. The actual completion gate (Stage 1 + Stage 2 route
+gates and the `HANDOFF_OK`/`GATE_FAIL` decision) is run by the generate assembler + the
+phase's `_postconditions` per `INTERPRETER.md` § Gate protocol. If this fragment cannot
+produce a valid `generation-infra.json`, stop and report it so the phase gate fails
+cleanly rather than patching the artifact.
 
-- `generation-infra.json` exists and passes the Output Validation Checklist above.
-
-If this gate fails: STOP and output: "generate-infra did not produce a valid `generation-infra.json`; do not continue Generate Stage 2."
-
-## Generate Phase Integration
-
-The parent orchestrator (`generate.md`) uses `generation-infra.json` to:
-
-1. Gate Stage 2 artifact generation — `generate-artifacts-infra.md` requires this file
-2. Provide timeline context to `generate-artifacts-docs.md` for MIGRATION_GUIDE.md
-3. Set phase completion status in `.phase-status.json`
+`generation-infra.json` is consumed downstream by the generate assembler's Stage 2
+(`generate-artifacts-infra.md` for `terraform/`, and timeline context for
+`generate-artifacts-docs.md`).

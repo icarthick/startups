@@ -179,13 +179,15 @@ Write to `$MIGRATION_DIR/aws-design-billing.json`:
 - Every `unknowns[]` entry has `gcp_service`, `monthly_cost`, `reason`, `suggestion`
 - Output is valid JSON
 
-## Completion Handoff Gate (Fail Closed)
+## Return Contract
 
-Before returning control to `design.md`, require:
-
-- `aws-design-billing.json` exists and passes the Output Validation Checklist above.
-
-If this gate fails: STOP and output: "design-billing did not produce a valid `aws-design-billing.json`; do not complete Phase 3."
+This is a fragment; it does not run the phase completion gate. Before returning
+control to `design.md`, ensure `aws-design-billing.json` exists and satisfies the
+Output Validation Checklist above. The actual completion gate (route output gates +
+the `HANDOFF_OK`/`GATE_FAIL` decision) is run by the design assembler + the phase's
+`_postconditions` per `INTERPRETER.md` § Gate protocol. If this fragment cannot produce
+a valid `aws-design-billing.json`, stop and report it so the phase gate fails cleanly
+rather than patching the artifact.
 
 ## Present Summary
 

@@ -343,18 +343,16 @@ The example below shows a **small** tier migration. Adjust `complexity_tier`, `c
 - `recommendation.estimated_total_effort_hours` is within the tier's range from `migration-complexity.md`
 - Output is valid JSON
 
-## Completion Handoff Gate (Fail Closed)
+## Return Contract
 
-Before returning control to `generate.md`, require:
+This is a Stage 1 fragment; it does not run the phase completion gate. Before returning
+control to `generate.md`, ensure `generation-billing.json` exists and satisfies the
+Output Validation Checklist above. The actual completion gate (Stage 1 + Stage 2 route
+gates and the `HANDOFF_OK`/`GATE_FAIL` decision) is run by the generate assembler + the
+phase's `_postconditions` per `INTERPRETER.md` § Gate protocol. If this fragment cannot
+produce a valid `generation-billing.json`, stop and report it so the phase gate fails
+cleanly rather than patching the artifact.
 
-- `generation-billing.json` exists and passes the Output Validation Checklist above.
-
-If this gate fails: STOP and output: "generate-billing did not produce a valid `generation-billing.json`; do not continue Generate Stage 2."
-
-## Generate Phase Integration
-
-The parent orchestrator (`generate.md`) uses `generation-billing.json` to:
-
-1. Gate Stage 2 artifact generation — `generate-artifacts-billing.md` requires this file
-2. Provide billing context to `generate-artifacts-docs.md` for MIGRATION_GUIDE.md
-3. Set phase completion status in `.phase-status.json`
+`generation-billing.json` is consumed downstream by the generate assembler's Stage 2
+(`generate-artifacts-billing.md` for the skeleton Terraform, and billing context for
+`generate-artifacts-docs.md`).

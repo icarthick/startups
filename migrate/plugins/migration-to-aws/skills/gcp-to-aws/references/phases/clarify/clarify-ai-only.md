@@ -294,18 +294,13 @@ After writing `preferences.json`, delete `$MIGRATION_DIR/preferences-draft.json`
 
 ---
 
-## Step 4: Update Phase Status
+## Return Contract
 
-Before phase completion, enforce output gate:
-
-- `preferences.json` must exist.
-- `preferences.json.metadata.migration_type` must equal `"ai-only"`.
-
-If either check fails: STOP and output: "AI-only clarify output validation failed. Fix `preferences.json` before completing Phase 2."
-
-Use the Phase Status Update Protocol (read-merge-write) to update `.phase-status.json` in the same turn as the output message:
-
-- Set `phases.clarify` to `"completed"`
-- Set `current_phase` to `"design"`
-
-Output: "Clarification complete. Proceeding to Phase 3: Design AI Migration Architecture."
+This AI-only flow is a routing branch of the `interview` fragment; it does not run the
+phase completion gate or update `.phase-status.json` itself. Before returning control,
+ensure `preferences.json` exists with `metadata.migration_type == "ai-only"` (and, if a
+draft was used, that `preferences-draft.json` has been deleted). The clarify assembler
+(`clarify-assemble.md`) + the phase's `_postconditions` run the actual completion gate,
+and the interpreter applies the phase-status update and advances to `design` per
+`INTERPRETER.md` § Gate protocol / Phase-status update protocol. If `preferences.json`
+is missing or not `ai-only`, stop and report it so the phase gate fails cleanly.

@@ -223,13 +223,15 @@ All cost values are numbers, not strings. Output must be valid JSON.
 - [ ] No compute, database, storage, or networking costs (those belong in `estimate-infra.md`)
 - [ ] `migration_cost_considerations.categories` is `[]` — no human one-time migration costs presented
 
-## Completion Handoff Gate (Fail Closed)
+## Return Contract
 
-Before returning control to `estimate.md`, require:
-
-- `estimation-ai.json` exists and passes the Validation Checklist above.
-
-If this gate fails: STOP and output: "estimate-ai did not produce a valid `estimation-ai.json`; do not complete Phase 4."
+This is a fragment; it does not run the phase completion gate. Before returning
+control to `estimate.md`, ensure `estimation-ai.json` exists and satisfies the
+Validation Checklist above. The actual completion gate (route output gates + the
+`HANDOFF_OK`/`GATE_FAIL` decision) is run by the estimate assembler + the phase's
+`_postconditions` per `INTERPRETER.md` § Gate protocol. If this fragment cannot produce
+a valid `estimation-ai.json`, stop and report it so the phase gate fails cleanly rather
+than patching the artifact.
 
 ## Present Summary
 

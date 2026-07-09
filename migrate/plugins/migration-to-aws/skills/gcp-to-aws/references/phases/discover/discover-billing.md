@@ -14,6 +14,65 @@ _contributes:
 
 ---
 
+## Mode: Full vs Lightweight Extraction
+
+This fragment runs in one of two modes, decided by whether Terraform is also present
+in the workspace (the `iac` fragment's `_glob` trigger):
+
+- **Billing is the PRIMARY source** (no Terraform found) → run the full processing
+  below (Steps 0–4): it feeds the billing-only design path and needs complete
+  service/SKU/commitment analysis.
+- **Billing is SUPPLEMENTARY** (Terraform found) → run the **Lightweight Extraction**
+  path immediately below instead of Steps 0–4. Only service-level costs and AI signal
+  detection are needed; the raw file must not be read into context.
+
+### Lightweight Extraction (when IaC is the primary source)
+
+Extract via a script to avoid reading the raw billing file into context:
+
+1. Use Bash to read only the **first line** of the billing file to identify column
+   headers.
+2. Write a script to `$MIGRATION_DIR/_extract_billing.py` (or `.js` / shell — use
+   whatever runtime is available) that:
+   - Reads the billing CSV/JSON file
+   - Groups line items by service description, sums cost per service
+   - Extracts top 3 SKU descriptions per service by cost
+   - Scans service and SKU descriptions (case-insensitive) for AI keywords:
+     `vertex ai`, `ai platform`, `bigquery ml`, `generative ai`, `gemini`,
+     `document ai`, `vision ai`, `speech-to-text`, `natural language`, `dialogflow`,
+     `translation`
+   - Outputs JSON to stdout matching the lightweight schema below
+3. Run the script: try `python3 _extract_billing.py` first. If `python3` is not found,
+   try `python _extract_billing.py`. If neither is available, delete the script and
+   fall back to the **full** processing (Steps 0–4 below).
+4. Write the script's JSON output to `$MIGRATION_DIR/billing-profile.json` with this
+   exact schema:
+
+   ```json
+   {
+     "summary": { "total_monthly_spend": 0.00 },
+     "services": [
+       {
+         "gcp_service": "Cloud Run",
+         "monthly_cost": 450.00,
+         "top_skus": [
+           { "sku_description": "Cloud Run - CPU Allocation Time", "monthly_cost": 300.00 }
+         ]
+       }
+     ],
+     "ai_signals": { "detected": false }
+   }
+   ```
+
+   Services sorted descending by `monthly_cost`. Only include services with cost > 0.
+5. Delete the script file after successful execution.
+
+**Critical:** In lightweight mode, do **not** Read the billing file with the Read tool
+and do **not** run the full Steps 0–4 or load `schema-discover-billing.md`. Once
+`billing-profile.json` is written, this fragment is done.
+
+---
+
 ## Step 0: Self-Scan for Billing Files
 
 Scan the target directory for billing data:

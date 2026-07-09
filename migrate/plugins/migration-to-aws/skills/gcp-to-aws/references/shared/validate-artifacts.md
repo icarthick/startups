@@ -2,7 +2,7 @@
 
 > **Read-only validation.** Load at the start of `generate-artifacts-report.md` (Step 0) and before writing `migration-report.html`. Do NOT modify artifacts during this step.
 
-On any failure: emit `GATE_FAIL` per `shared/handoff-gates.md`, skip report generation, tell the user which phase to re-run. **Do NOT patch JSON to pass validation.**
+On any failure: emit `GATE_FAIL` per `INTERPRETER.md` § Gate protocol, skip report generation, tell the user which phase to re-run. **Do NOT patch JSON to pass validation.**
 
 ---
 

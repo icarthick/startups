@@ -554,20 +554,22 @@ Tailor `migrate_if` and `stay_if` to THIS stack (deferred services, AI cost delt
 
 Read `shared/schema-estimate-infra.md` for the `estimation-infra.json` schema and validation checklist, then write `estimation-infra.json` to `$MIGRATION_DIR/`.
 
-## Completion Handoff Gate (Fail Closed)
+## Return Contract
 
-Load `shared/handoff-gates.md`. **Re-read from disk** before checking.
+This is a fragment; it does not run the phase completion gate. Before returning
+control to `estimate.md`, ensure `estimation-infra.json` exists and passes
+`shared/schema-estimate-infra.md` validation, with:
 
-Before returning control to `estimate.md`, require:
+- `recommendation.path` one of `migrate_optimized`, `migrate_phased`, or `stay`
+- `recommendation.path_label` non-empty
+- `recommendation.migrate_if` and `recommendation.stay_if` non-empty arrays (Part 7
+  MUST persist `recommendation`)
 
-- `estimation-infra.json` exists and passes `shared/schema-estimate-infra.md` validation.
-- `recommendation.path` is one of `migrate_optimized`, `migrate_phased`, or `stay`
-- `recommendation.path_label` is non-empty
-- `recommendation.migrate_if` and `recommendation.stay_if` are non-empty arrays (Part 7 MUST persist `recommendation`)
-
-**On FAIL:** Emit `GATE_FAIL | phase=estimate | field=<path> | reason=missing`. **Do NOT patch `estimation-infra.json` to pass the gate.** STOP — do not return control to `estimate.md` for phase completion.
-
-**On PASS:** Emit `HANDOFF_OK | phase=estimate | artifacts=estimation-infra.json` (parent `estimate.md` emits the combined handoff after all routes pass).
+The actual completion gate (route output gates, the recommendation-block checks, and
+the `HANDOFF_OK`/`GATE_FAIL` decision) is run by the estimate assembler + the phase's
+`_postconditions` per `INTERPRETER.md` § Gate protocol. If this fragment cannot produce
+a valid `estimation-infra.json`, stop and report it so the phase gate fails cleanly
+rather than patching the artifact.
 
 ## Present Summary
 

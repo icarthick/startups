@@ -359,13 +359,15 @@ Write `aws-design-ai.json` to `$MIGRATION_DIR/`.
 - [ ] If `agentic_profile.is_agentic == true`: `agentic_design` object is present with `migration_approach` matching `preferences.json`
 - [ ] If `agentic_profile.is_agentic == false` or absent: `agentic_design` is null or absent
 
-## Completion Handoff Gate (Fail Closed)
+## Return Contract
 
-Before returning control to `design.md`, require:
-
-- `aws-design-ai.json` exists and passes the Validation Checklist above.
-
-If this gate fails: STOP and output: "design-ai did not produce a valid `aws-design-ai.json`; do not complete Phase 3."
+This is a fragment; it does not run the phase completion gate. Before returning
+control to `design.md`, ensure `aws-design-ai.json` exists and satisfies the
+Validation Checklist above. The actual completion gate (route output gates + the
+`HANDOFF_OK`/`GATE_FAIL` decision) is run by the design assembler + the phase's
+`_postconditions` per `INTERPRETER.md` § Gate protocol. If this fragment cannot
+produce a valid `aws-design-ai.json`, stop and report it so the phase gate fails
+cleanly rather than patching the artifact.
 
 ## Present Summary
 

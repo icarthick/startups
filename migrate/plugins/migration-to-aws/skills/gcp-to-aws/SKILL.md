@@ -237,13 +237,11 @@ gcp-to-aws/
 │   │   └── typed-edges-strategy.md             # Edge type assignment
 │   │
 │   └── shared/
-│       ├── schema-phase-status.md              # .phase-status.json schema (canonical reference)
 │       ├── schema-discover-iac.md              # gcp-resource-inventory + clusters schemas (loaded by discover-iac.md)
 │       ├── schema-discover-ai.md               # ai-workload-profile schema (loaded by discover-app-code.md and discover-iac.md Step 7d)
 │       ├── schema-discover-billing.md          # billing-profile schema (loaded by discover-billing.md)
 │       ├── schema-estimate-infra.md            # estimation-infra.json schema (loaded by estimate-infra.md at write time)
-│       ├── handoff-gates.md                    # Fail-closed phase handoff protocol (GATE_FAIL / HANDOFF_OK)
-│       ├── validate-artifacts.md               # Pre-report validation (Generate Step 0; read-only)
+│       ├── validate-artifacts.md               # Pre-report validation (Generate report step; read-only)
 │       ├── migration-complexity.md             # Complexity tier definitions (small/medium/large) for timeline scaling
 │       ├── pricing-cache.md                    # Cached AWS + source provider pricing (±5-25%, primary source)
 │       └── bedrock-quotas.md                   # Bedrock TPM/RPM quota awareness, burndown rates, capacity planning
