@@ -1,6 +1,7 @@
 # Generate Phase: HTML Migration Report
 
-> Loaded by generate.md AFTER generate-artifacts-docs.md completes.
+> Loaded by the generate assembler (`generate-assemble.md`) AFTER `generate-docs.md`.
+> Validates + reads all generated artifacts, so it is assembler-owned, not a fragment.
 
 **Execute ALL steps in order. Do not skip or optimize.**
 

@@ -1,6 +1,14 @@
+---
+_fragment: artifacts-billing
+_of_phase: generate
+_contributes:
+  - terraform/skeleton.tf
+---
+
 # Generate Phase: Billing Skeleton Artifact Generation
 
-> Loaded by generate.md when generation-billing.json and aws-design-billing.json exist.
+> Loaded as the `artifacts-billing` fragment of the generate phase when
+> `generation-billing.json` and `aws-design-billing.json` exist.
 
 **Execute ALL steps in order. Do not skip or optimize.**
 
@@ -15,7 +23,7 @@ Every resource block includes TODO markers indicating what is missing and where 
 Read from `$MIGRATION_DIR/`:
 
 - `aws-design-billing.json` (REQUIRED) — Billing-based service mapping from Phase 3
-- `generation-billing.json` (REQUIRED) — Conservative migration plan from Stage 1
+- `generation-billing.json` (REQUIRED) — Conservative migration plan from the plan phase
 
 If any required file is missing: **STOP**. Output: "Missing required artifact: [filename]. Complete the prior phase that produces it."
 

@@ -25,10 +25,10 @@ _produces:
   - { file: estimation-infra.json, _when: "infra route active (aws-design.json exists)" }
   - { file: estimation-billing.json, _when: "billing-only route active (aws-design-billing.json exists, no aws-design.json)" }
   - { file: estimation-ai.json, _when: "AI route active (aws-design-ai.json exists)" }
-_advances_to: generate
+_advances_to: plan
 _re_entry_guard:
-  _stale_if_completed: generate
-  _stale_artifact: MIGRATION_GUIDE.md
+  _stale_if_completed: plan
+  _stale_artifact: generation-infra.json
   _on_reentry: stop_unless_confirmed
   _on_confirm: reset_downstream_to_pending
 _preconditions:

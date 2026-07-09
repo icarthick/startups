@@ -59,9 +59,9 @@ At least one discovery artifact must exist to proceed.
 - **Full migration**: `gcp-resource-inventory.json` or `billing-profile.json` exists (may also have `ai-workload-profile.json`)
 - **AI-only migration**: ONLY `ai-workload-profile.json` exists (no infrastructure or billing artifacts)
 
-**If AI-only**: Read `clarify-ai-only.md` NOW and follow that flow. Skip all remaining steps below.
+**If AI-only**: Read `references/clarify-questions/clarify-ai-only.md` NOW and follow that flow. Skip all remaining steps below.
 
-> **HARD GATE — AI-Only Path:** You MUST read `clarify-ai-only.md` before presenting any questions. The question text, answer options, and interpretation rules are ONLY in that file — they are NOT in this file. Do NOT fabricate questions from the summaries above.
+> **HARD GATE — AI-Only Path:** You MUST read `references/clarify-questions/clarify-ai-only.md` before presenting any questions. The question text, answer options, and interpretation rules are ONLY in that file — they are NOT in this file. Do NOT fabricate questions from the summaries above.
 
 ### Discovery Summary
 
@@ -110,7 +110,7 @@ ELSE skip to Step 2 (full Clarify)
 
 **If user chooses Yes:**
 
-1. Ask only: **Q1** (region), **Q2** (compliance), **Q7** (maintenance window) — from `clarify-global.md`.
+1. Ask only: **Q1** (region), **Q2** (compliance), **Q7** (maintenance window) — from `references/clarify-questions/clarify-global.md`.
 2. Apply documented defaults for ALL other questions. Record each in `metadata.questions_defaulted`.
 3. Still run the BigQuery advisory if `bigquery_present` is true.
 4. Write `preferences.json` with `metadata.clarify_mode: "fast_path"`. Skip Steps 2–4.
@@ -132,8 +132,8 @@ ELSE skip to Step 2 (full Clarify)
 3. Ask only questions **not** resolved by extraction (after any user corrections):
    - **Q2** (compliance) — always ask
    - **Q7** (maintenance window) — always ask
-   - **Q16** (AI priority) — from `clarify-ai.md`
-   - **Q21** (AI latency) — from `clarify-ai.md`
+   - **Q16** (AI priority) — from `references/clarify-questions/clarify-ai.md`
+   - **Q21** (AI latency) — from `references/clarify-questions/clarify-ai.md`
    - **Q3** (GCP spend) — only if billing did not extract it
    - **Q1** (region) — only if region extraction ambiguous (multiple GCP regions)
 4. Apply documented defaults for all other unanswered questions. Record in `metadata.questions_defaulted`.
@@ -309,12 +309,12 @@ When user confirms: mark all rows `"confirmed": true` in `metadata.detected_sett
 
 | Category | Name               | Firing Rule                                                                    | Reference File        | Questions                                                                                                           |
 | -------- | ------------------ | ------------------------------------------------------------------------------ | --------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| **A**    | Global/Strategic   | **Always fires**                                                               | `clarify-global.md`   | Q1 (location), Q2 (compliance), Q3 (GCP spend), Q4 (funding stage), Q5 (multi-cloud), Q6 (uptime), Q7 (maintenance) |
-| **B**    | Configuration Gaps | `billing-profile.json` exists AND `gcp-resource-inventory.json` does NOT exist | `clarify-compute.md`  | Cloud SQL HA, Cloud Run count, Memorystore memory, Functions gen                                                    |
-| **C**    | Compute Model      | Compute resources present (Cloud Run, Cloud Functions, GKE, GCE)               | `clarify-compute.md`  | Q8 (K8s sentiment), Q9 (WebSocket), Q10 (Cloud Run traffic), Q11 (Cloud Run spend)                                  |
-| **D**    | Database Model     | Database resources present (Cloud SQL, Spanner, Memorystore)                   | `clarify-database.md` | Q12 (DB traffic pattern), Q13 (DB I/O), Q13b (DB size)                                                              |
+| **A**    | Global/Strategic   | **Always fires**                                                               | `references/clarify-questions/clarify-global.md`   | Q1 (location), Q2 (compliance), Q3 (GCP spend), Q4 (funding stage), Q5 (multi-cloud), Q6 (uptime), Q7 (maintenance) |
+| **B**    | Configuration Gaps | `billing-profile.json` exists AND `gcp-resource-inventory.json` does NOT exist | `references/clarify-questions/clarify-compute.md`  | Cloud SQL HA, Cloud Run count, Memorystore memory, Functions gen                                                    |
+| **C**    | Compute Model      | Compute resources present (Cloud Run, Cloud Functions, GKE, GCE)               | `references/clarify-questions/clarify-compute.md`  | Q8 (K8s sentiment), Q9 (WebSocket), Q10 (Cloud Run traffic), Q11 (Cloud Run spend)                                  |
+| **D**    | Database Model     | Database resources present (Cloud SQL, Spanner, Memorystore)                   | `references/clarify-questions/clarify-database.md` | Q12 (DB traffic pattern), Q13 (DB I/O), Q13b (DB size)                                                              |
 | **E**    | Migration Posture  | **Disabled by default** — requires explicit user opt-in                        | _(inline below)_      | HA upgrades, right-sizing                                                                                           |
-| **F**    | AI/Bedrock         | `ai-workload-profile.json` exists                                              | `clarify-ai.md`       | Q14–Q26 (Q14–Q22 always; Q23–Q26 only when `agentic_profile.is_agentic == true`)                                    |
+| **F**    | AI/Bedrock         | `ai-workload-profile.json` exists                                              | `references/clarify-questions/clarify-ai.md`       | Q14–Q26 (Q14–Q22 always; Q23–Q26 only when `agentic_profile.is_agentic == true`)                                    |
 
 **Apply firing rules to determine which categories are active:**
 
@@ -337,10 +337,10 @@ When user confirms: mark all rows `"confirmed": true` in `metadata.detected_sett
 >
 > | Active Category | File to Read          |
 > | --------------- | --------------------- |
-> | A (always)      | `clarify-global.md`   |
-> | B or C          | `clarify-compute.md`  |
-> | D               | `clarify-database.md` |
-> | F               | `clarify-ai.md`       |
+> | A (always)      | `references/clarify-questions/clarify-global.md`   |
+> | B or C          | `references/clarify-questions/clarify-compute.md`  |
+> | D               | `references/clarify-questions/clarify-database.md` |
+> | F               | `references/clarify-questions/clarify-ai.md`       |
 >
 > **Do NOT proceed to Step 4 until you have read every applicable file above.**
 

@@ -1,13 +1,13 @@
 ---
 _fragment: plan-ai
-_of_phase: generate
+_of_phase: plan
 _contributes:
   - generation-ai.json
 ---
 
-# Generate Phase: AI Migration Plan
+# Plan Phase: AI Migration Plan
 
-> Loaded by generate.md when estimation-ai.json exists.
+> Loaded by plan.md when estimation-ai.json exists.
 
 **Execute ALL steps in order. Do not skip or optimize.**
 
@@ -163,12 +163,17 @@ Write `generation-ai.json` to `$MIGRATION_DIR/`.
 - [ ] `rollback_plan.mechanism` is `"feature_flag"`
 - [ ] `success_criteria` covers quality, latency, and cost
 
-## Generate Phase Integration
+## Return Contract
 
-The parent orchestrator (`generate.md`) uses `generation-ai.json` to:
+This is a plan fragment; it does not run the phase completion gate. Before returning
+control to `plan.md`, ensure `generation-ai.json` exists and satisfies the Output
+Validation Checklist above. The actual completion gate (route gates + the
+`HANDOFF_OK`/`GATE_FAIL` decision) is run by the plan assembler + the phase's
+`_postconditions` per `INTERPRETER.md` § Gate protocol.
 
-1. Gate Stage 2 artifact generation — `generate-artifacts-ai.md` requires this file
-2. Provide AI migration context to `generate-artifacts-docs.md` for MIGRATION_GUIDE.md
+`generation-ai.json` is the plan phase's artifact, consumed by the downstream
+`generate` phase (its `generate-ai-artifacts.md` fragment for `ai-migration/`, and AI
+context for the generate assembler's docs).
 3. Set phase completion status in `.phase-status.json`
 
 ## Part 7: Generate STARTUP_PROGRAMS.md

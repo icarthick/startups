@@ -28,7 +28,7 @@ _forbids_files:
   - "terraform/**"
 ---
 
-# Phase 6: Feedback (Optional)
+# Feedback (Optional Checkpoint)
 
 Builds an anonymized usage trace and directs the user to the Pulse survey form.
 

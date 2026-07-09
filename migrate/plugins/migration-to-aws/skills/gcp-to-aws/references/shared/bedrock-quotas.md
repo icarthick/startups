@@ -114,5 +114,5 @@ Estimated peak TPM = (daily_tokens / active_hours / 60) × 3  (3× for peak head
 | -------- | -------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | Design   | `design-ai.md`             | Compute `quota_risk` per table above; include in `aws-design-ai.json`                                         |
 | Estimate | `estimate-ai.md`           | If `quota_risk` = `"high"`, add to `complexity_factors[]`: "Bedrock quota increase required before migration" |
-| Generate | `generate-artifacts-ai.md` | Add quota check step to `setup_bedrock.sh`; include checklist items above in production readiness             |
+| Generate | `generate-ai-artifacts.md` | Add quota check step to `setup_bedrock.sh`; include checklist items above in production readiness             |
 | Generate | `generate-ai.md`           | If `quota_risk` ≥ `"medium"`, add "Request quota increase" to Week 1 activities                               |

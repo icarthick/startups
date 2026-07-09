@@ -6,7 +6,7 @@
 
 The plugin always emits `baseline.tf` with account-wide security controls — GuardDuty, CloudTrail (multi-region, log file validation), IMDSv2 enforcement, EBS encryption by default, S3 public access block, Access Analyzer, and budget alerts. For compliance stacks (soc2/pci/hipaa/fedramp), Config and Security Hub are added conditionally.
 
-**Do not duplicate these controls in `security.tf` or other domain files.** See `references/phases/generate/generate-artifacts-infra.md` Step 1.5 for the full baseline specification.
+**Do not duplicate these controls in `security.tf` or other domain files.** See `references/phases/generate/generate-terraform.md` Step 1.5 for the full baseline specification.
 
 ---
 

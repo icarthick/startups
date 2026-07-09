@@ -55,7 +55,7 @@ Validate the merged artifact against the `ai-workload-profile.json` schema in
 
 ## Step 2: Compute the migration preview
 
-Load `references/phases/discover/discover-preview.md` and follow it to compute the
+Load `references/discover/discover-preview.md` and follow it to compute the
 migration preview from whatever discovery artifacts exist. It writes
 `migration-preview.json` (always written when any discovery artifact exists) and the
 preview chat block surfaced in the completion message. `migration-preview.json` must

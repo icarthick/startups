@@ -1,6 +1,9 @@
 # Generate Phase: Documentation Generation
 
-> Loaded by generate.md LAST, after all other artifact generation sub-files complete.
+> Loaded by the generate assembler (`generate-assemble.md`) LAST, after the artifact
+> fragments complete. Reads all generated artifacts (`terraform/`, `scripts/`,
+> `ai-migration/`) — which is why documentation is assembler-owned, not a fragment
+> (fragments may not read sibling fragment output).
 
 **Execute ALL steps in order. Do not skip or optimize.**
 
@@ -28,7 +31,7 @@ Scan for all generated artifacts:
 - `scripts/` directory (migration scripts)
 - `ai-migration/` directory (AI provider adapter and test harness)
 
-If **no** generation JSON exists: **STOP**. Output: "No migration plans found. Stage 1 of Generate phase did not complete."
+If **no** generation JSON exists: **STOP**. Output: "No migration plans found. The plan phase did not complete."
 
 ## Output Structure
 
@@ -222,9 +225,9 @@ Table with columns: Artifact, Description, Status. List all generated files/dire
 
 Subsections:
 
-- Migration Plans (Stage 1): list generation-*.json files
-- Infrastructure (Stage 2): list .tf files, **`terraform/README.md`** (when infra Terraform was generated), and migration scripts if they exist
-- AI Migration (Stage 2): list adapter, test harness, setup script if they exist
+- Migration Plans (from the plan phase): list generation-*.json files
+- Infrastructure: list .tf files, **`terraform/README.md`** (when infra Terraform was generated), and migration scripts if they exist
+- AI Migration: list adapter, test harness, setup script if they exist
 - Documentation: MIGRATION_GUIDE.md and README.md
 
 #### Architecture Overview
@@ -340,7 +343,7 @@ Before reporting completion, enforce artifact output gate:
 - Conditional sections in docs match tracks that actually ran (infra/ai/billing).
 - Referenced artifact paths in docs exist.
 
-If this gate fails: STOP and output: "generate-artifacts-docs did not produce complete documentation artifacts."
+If this gate fails: STOP and output: "Documentation generation did not produce complete documentation artifacts."
 
 Output:
 

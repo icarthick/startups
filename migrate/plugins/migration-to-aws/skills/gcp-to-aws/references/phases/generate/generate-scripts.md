@@ -1,6 +1,15 @@
+---
+_fragment: artifacts-scripts
+_of_phase: generate
+_contributes:
+  - scripts/
+---
+
 # Generate Phase: Migration Script Generation
 
-> Loaded by generate.md after generate-artifacts-infra.md completes (terraform files generated).
+> Loaded as the `artifacts-scripts` fragment of the generate phase when
+> `generation-infra.json` and `aws-design.json` exist. Reads the plan + design (not
+> the generated `terraform/`), so it is an independent fragment.
 
 **Execute ALL steps in order. Do not skip or optimize.**
 

@@ -1,6 +1,14 @@
+---
+_fragment: artifacts-ai
+_of_phase: generate
+_contributes:
+  - ai-migration/
+---
+
 # Generate Phase: AI Artifact Generation
 
-> Loaded by generate.md when generation-ai.json and aws-design-ai.json exist.
+> Loaded as the `artifacts-ai` fragment of the generate phase when
+> `generation-ai.json` and `aws-design-ai.json` exist.
 
 **Execute ALL steps in order. Do not skip or optimize.**
 

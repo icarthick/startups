@@ -1,13 +1,13 @@
 ---
 _fragment: plan-infra
-_of_phase: generate
+_of_phase: plan
 _contributes:
   - generation-infra.json
 ---
 
-# Generate Phase: Infrastructure Migration Plan
+# Plan Phase: Infrastructure Migration Plan
 
-> Loaded by generate.md when estimation-infra.json exists.
+> Loaded by plan.md when estimation-infra.json exists.
 
 **Execute ALL steps in order. Do not skip or optimize.**
 
@@ -98,7 +98,7 @@ Standard phased plan. Apply the data-migration skip rule below.
 #### Stage 4: Data Migration (Weeks 8-9)
 
 **Include this phase ONLY if `aws-design.json` contains database or storage resources
-(see resource detection rules in generate-artifacts-scripts.md Step 1).**
+(see resource detection rules in the generate phase's `generate-scripts.md` Step 1).**
 **If no data migration is needed, compress the timeline: move Cutover to Weeks 8-9
 and Validation to Week 10. Reduce `total_weeks` accordingly.**
 
@@ -503,14 +503,14 @@ Generate `generation-infra.json` in `$MIGRATION_DIR/` with the following schema:
 
 ## Return Contract
 
-This is a Stage 1 fragment; it does not run the phase completion gate. Before returning
-control to `generate.md`, ensure `generation-infra.json` exists and satisfies the
-Output Validation Checklist above. The actual completion gate (Stage 1 + Stage 2 route
-gates and the `HANDOFF_OK`/`GATE_FAIL` decision) is run by the generate assembler + the
+This is a plan fragment; it does not run the phase completion gate. Before returning
+control to `plan.md`, ensure `generation-infra.json` exists and satisfies the
+Output Validation Checklist above. The actual completion gate (route gates
+and the `HANDOFF_OK`/`GATE_FAIL` decision) is run by the plan assembler + the
 phase's `_postconditions` per `INTERPRETER.md` § Gate protocol. If this fragment cannot
 produce a valid `generation-infra.json`, stop and report it so the phase gate fails
 cleanly rather than patching the artifact.
 
-`generation-infra.json` is consumed downstream by the generate assembler's Stage 2
-(`generate-artifacts-infra.md` for `terraform/`, and timeline context for
-`generate-artifacts-docs.md`).
+`generation-infra.json` is the plan phase's artifact, consumed by the downstream
+`generate` phase (its `generate-terraform.md` fragment for `terraform/`, and timeline
+context for the generate assembler's docs).

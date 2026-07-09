@@ -1,12 +1,21 @@
+---
+_fragment: artifacts-infra
+_of_phase: generate
+_contributes:
+  - terraform/
+  - validation-report.json
+---
+
 # Generate Phase: Infrastructure Artifact Generation
 
-> Loaded by generate.md when generation-infra.json and aws-design.json exist.
+> Loaded as the `artifacts-infra` fragment of the generate phase when
+> `generation-infra.json` and `aws-design.json` exist.
 
 **Execute ALL steps in order. Do not skip or optimize.**
 
 ## Overview
 
-Transform the design (`aws-design.json`) and migration plan (`generation-infra.json`) into deployable Terraform configurations. Migration scripts are generated separately by `generate-artifacts-scripts.md`.
+Transform the design (`aws-design.json`) and migration plan (`generation-infra.json`) into deployable Terraform configurations. Migration scripts are generated separately by the `artifacts-scripts` fragment (`generate-scripts.md`).
 
 ## Prerequisites
 
@@ -354,18 +363,19 @@ Verify these quality rules before reporting completion:
 - [ ] `baseline.tf` does NOT mention "Trusted Advisor" anywhere (Trusted Advisor is docs-action only and out of scope).
 - [ ] Security Hub subscribes to FSBP (always when the compliance-conditional section is emitted) and PCI DSS (only when `compliance` contains `pci`). No other standards subscriptions.
 
-## Phase Completion
+## Return Contract
 
-Report generated files to the parent orchestrator. **Do NOT update `.phase-status.json`** — the parent `generate.md` handles phase completion.
-
-Before reporting completion, enforce artifact output gate:
+This is the `artifacts-infra` fragment; it does not run the phase completion gate or
+update `.phase-status.json` — the generate assembler + the phase's `_postconditions`
+do. Before returning control, ensure:
 
 - `terraform/` directory exists.
 - At minimum: `terraform/main.tf`, `terraform/variables.tf`, and `terraform/outputs.tf` exist.
 - At least one domain file exists among: `vpc.tf`, `security.tf`, `storage.tf`, `database.tf`, `compute.tf`, `monitoring.tf`.
-- `terraform/baseline.tf` MUST exist (baseline is always emitted).
+- `terraform/baseline.tf` exists (baseline is always emitted).
 
-If this gate fails: STOP and output: "generate-artifacts-infra did not produce required Terraform artifacts; do not complete Generate Stage 2."
+If these cannot be produced, stop and report it so the phase gate fails cleanly rather
+than patching artifacts.
 
 ```
 Generated terraform artifacts:

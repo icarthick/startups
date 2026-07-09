@@ -1,6 +1,6 @@
 # Validate Artifacts (Pre-Report)
 
-> **Read-only validation.** Load at the start of `generate-artifacts-report.md` (Step 0) and before writing `migration-report.html`. Do NOT modify artifacts during this step.
+> **Read-only validation.** Load at the start of `generate-report.md` (Step 0) and before writing `migration-report.html`. Do NOT modify artifacts during this step.
 
 On any failure: emit `GATE_FAIL` per `INTERPRETER.md` § Gate protocol, skip report generation, tell the user which phase to re-run. **Do NOT patch JSON to pass validation.**
 
@@ -52,7 +52,7 @@ After building report content in memory, re-read from disk and confirm these **t
 
 1. `estimation-infra.json` → `recommendation.path_label` OR fallback documented in Step 1 is available for Section 0.
 2. `migration-preview.json` → `complexity_signal` present (if file exists).
-3. Planned HTML includes `<section id="decision-summary">` — see `generate-artifacts-report.md` HTML skeleton.
+3. Planned HTML includes `<section id="decision-summary">` — see `generate-report.md` HTML skeleton.
 
 If any pre-write check fails: do not write the file; emit `GATE_FAIL` and stop.
 
@@ -64,4 +64,4 @@ If any pre-write check fails: do not write the file; emit `GATE_FAIL` and stop.
 VALIDATE_OK | checks=10/10 | ready=migration-report.html
 ```
 
-Then proceed to `generate-artifacts-report.md` Step 1.
+Then proceed to `generate-report.md` Step 1.

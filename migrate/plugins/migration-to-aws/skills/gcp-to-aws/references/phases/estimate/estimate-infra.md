@@ -595,6 +595,6 @@ The Generate phase (`generate.md`) uses `estimation-infra.json` as follows:
 3. **`optimization_opportunities`** — Which optimizations to implement and when (some during initial migration, some post-migration)
 4. **`cost_comparison`** — Set cost monitoring targets and alerts for each migrated cluster
 5. **`recommendation`** — Migrate/stay guidance (`path`, `path_label`, `migrate_if`, `stay_if`, `next_steps`); consumed by HTML report Section 0
-6. **Cost tier vs Terraform** — Generated **`terraform/`** implements **one** baseline aligned with the **Balanced** scenario; **Premium** and **Optimized** are **estimate-only** bands unless the user changes IaC. See `generate-artifacts-infra.md` (`terraform/README.md`, `migration_summary` output).
+6. **Cost tier vs Terraform** — Generated **`terraform/`** implements **one** baseline aligned with the **Balanced** scenario; **Premium** and **Optimized** are **estimate-only** bands unless the user changes IaC. See `generate-terraform.md` (`terraform/README.md`, `migration_summary` output).
 
 The generated artifacts reference the cost estimates to set per-cluster cost monitoring thresholds and validate that actual AWS spend aligns with projections after each cluster migration.

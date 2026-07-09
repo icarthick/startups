@@ -1,6 +1,6 @@
 # Terraform Validation Protocol (Shared Reference)
 
-> Canonical definition of the `fmt → init → validate → fix-and-retry → offline-fallback` protocol used by any phase that emits Terraform. Referenced by `references/phases/generate/generate-artifacts-infra.md` Step 6 and reusable by future artifact generators.
+> Canonical definition of the `fmt → init → validate → fix-and-retry → offline-fallback` protocol used by any phase that emits Terraform. Referenced by `references/phases/generate/generate-terraform.md` Step 6 and reusable by future artifact generators.
 
 ## When to Use
 

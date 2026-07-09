@@ -1,6 +1,6 @@
 ---
 name: gcp-to-aws
-description: "Migrate workloads from Google Cloud Platform to AWS — including AI and agentic workloads regardless of cloud provider. Triggers on: migrate from GCP, GCP to AWS, move off Google Cloud, migrate Terraform to AWS, migrate Cloud SQL to RDS, migrate GKE to EKS, migrate Cloud Run to Fargate, Google Cloud migration, migrate from OpenAI to Bedrock, move off OpenAI, switch from ChatGPT API to AWS, migrate from Gemini to Bedrock, migrate LangChain to Bedrock, migrate LangGraph to AWS, migrate agentic workloads to AWS, move AI workloads to AWS, migrate my AI app to AWS. Runs a 6-phase process: discover GCP resources from Terraform files, app code, or billing exports, clarify migration requirements, design AWS architecture, estimate costs, generate migration artifacts, and collect optional feedback. Clarify must finish before Design, Estimate, or Generate. Includes AI provider migration guidance (for example, OpenAI to Amazon Bedrock) by selecting closest-fit Bedrock model families for required modality, latency/quality targets, context windows, and cost constraints. Model mapping is compatibility-guided, not 1:1 parity; validate prompts, tool-calling behavior, and eval metrics before cutover. Do not use for: Azure or on-premises migrations to AWS, AWS-to-GCP reverse migration, general AWS architecture advice without migration intent, GCP-to-GCP refactoring, or multi-cloud deployments that do not involve migrating off GCP."
+description: "Migrate workloads from Google Cloud Platform to AWS — including AI and agentic workloads regardless of cloud provider. Triggers on: migrate from GCP, GCP to AWS, move off Google Cloud, migrate Terraform to AWS, migrate Cloud SQL to RDS, migrate GKE to EKS, migrate Cloud Run to Fargate, Google Cloud migration, migrate from OpenAI to Bedrock, move off OpenAI, switch from ChatGPT API to AWS, migrate from Gemini to Bedrock, migrate LangChain to Bedrock, migrate LangGraph to AWS, migrate agentic workloads to AWS, move AI workloads to AWS, migrate my AI app to AWS. Runs a 7-phase process: discover GCP resources from Terraform files, app code, or billing exports, clarify migration requirements, design AWS architecture, estimate costs, plan the migration execution, generate migration artifacts, and collect optional feedback. Clarify must finish before Design, Estimate, Plan, or Generate. Includes AI provider migration guidance (for example, OpenAI to Amazon Bedrock) by selecting closest-fit Bedrock model families for required modality, latency/quality targets, context windows, and cost constraints. Model mapping is compatibility-guided, not 1:1 parity; validate prompts, tool-calling behavior, and eval metrics before cutover. Do not use for: Azure or on-premises migrations to AWS, AWS-to-GCP reverse migration, general AWS architecture advice without migration intent, GCP-to-GCP refactoring, or multi-cloud deployments that do not involve migrating off GCP."
 ---
 
 # GCP-to-AWS Migration Skill
@@ -32,9 +32,9 @@ fragment/assembler model, and the interpreter loop. **Load it first** (once, at 
 start of a migration), then execute a phase file's prose body. Elsewhere in this skill,
 `INTERPRETER.md` (without a path) refers to this same loaded contract.
 
-The backbone (discover → clarify → design → estimate → generate → complete) is wired
-by each phase's `_advances_to` / `_requires_phase`; `feedback` is an off-backbone
-checkpoint. Design, Estimate, and Generate fan out into up to three routes
+The backbone (discover → clarify → design → estimate → plan → generate → complete) is
+wired by each phase's `_advances_to` / `_requires_phase`; `feedback` is an off-backbone
+checkpoint. Design, Estimate, Plan, and Generate fan out into up to three routes
 (infrastructure / AI / billing-only) via fragment `_when` triggers and conditional
 `_produces` artifacts.
 
@@ -108,11 +108,11 @@ phases are reached by following each phase's `_advances_to`. On a warm start,
 The backbone is a single linear chain:
 
 ```
-discover (_init) → clarify → design → estimate → generate → complete
-                                                  ↖ feedback (checkpoint, off-backbone)
+discover (_init) → clarify → design → estimate → plan → generate → complete
+                                                               ↖ feedback (checkpoint, off-backbone)
 ```
 
-**Multi-route phases.** Design, Estimate, and Generate each fan out into up to three
+**Multi-route phases.** Design, Estimate, Plan, and Generate each fan out into up to three
 routes (infrastructure / AI / billing-only), selected by which upstream artifacts
 exist. Each route is a fragment fired by its `_when` trigger and writes its own
 conditional artifact (see each phase's `_produces`). Multiple routes can run in one
@@ -153,7 +153,8 @@ The `.migration/` directory is protected by a `.gitignore` created at init.
 | **Clarify**  | Discovery artifacts (`gcp-resource-inventory.json`, `gcp-resource-clusters.json`, `ai-workload-profile.json`, `billing-profile.json` — whichever exist)                  | `preferences.json`, `.phase-status.json` updated                                                                                                                                                                                              | `references/phases/clarify/clarify.md`   |
 | **Design**   | `preferences.json` + discovery artifacts                                                                                                                                 | `aws-design.json` (infra), `aws-design-ai.json` (AI), `aws-design-billing.json` (billing-only)                                                                                                                                                | `references/phases/design/design.md`     |
 | **Estimate** | `aws-design.json` or `aws-design-billing.json` or `aws-design-ai.json`, `preferences.json`                                                                               | `estimation-infra.json` or `estimation-ai.json` or `estimation-billing.json`, `.phase-status.json` updated                                                                                                                                    | `references/phases/estimate/estimate.md` |
-| **Generate** | `estimation-infra.json` or `estimation-ai.json` or `estimation-billing.json`, `aws-design.json` or `aws-design-billing.json` or `aws-design-ai.json`, `preferences.json` | `generation-infra.json` or `generation-ai.json` or `generation-billing.json` + `terraform/`, `scripts/`, `ai-migration/`, `validation-report.json` (when infra route active), `MIGRATION_GUIDE.md`, `README.md`, `.phase-status.json` updated | `references/phases/generate/generate.md` |
+| **Plan**     | `estimation-infra.json` or `estimation-ai.json` or `estimation-billing.json`, `aws-design*.json`, `preferences.json`                                                     | `generation-infra.json` or `generation-ai.json` or `generation-billing.json` (the execution plan), `.phase-status.json` updated                                                                                                              | `references/phases/plan/plan.md`         |
+| **Generate** | `generation-infra.json` or `generation-ai.json` or `generation-billing.json`, `aws-design*.json`, `preferences.json`                                                     | `terraform/`, `scripts/`, `ai-migration/`, `validation-report.json` (when infra route active), `MIGRATION_GUIDE.md`, `README.md`, `migration-report.html`, `.phase-status.json` updated                                                       | `references/phases/generate/generate.md` |
 | **Feedback** | `.phase-status.json` (discover completed minimum), all existing migration artifacts                                                                                      | `feedback.json`, `trace.json`, `.phase-status.json` updated                                                                                                                                                                                   | `references/phases/feedback/feedback.md` |
 
 ---
@@ -175,22 +176,17 @@ gcp-to-aws/
 ├── SKILL.md                                    ← You are here (skill entry point)
 │
 ├── references/
-│   ├── phases/
+│   ├── phases/                                 # ONLY declared units (phase / fragment / assembler)
 │   │   ├── discover/
 │   │   │   ├── discover.md                     # Phase 1: Discover orchestrator (_init entry)
 │   │   │   ├── discover-iac.md                 # Fragment: Terraform/IaC discovery
 │   │   │   ├── discover-app-code.md            # Fragment: App code discovery
-│   │   │   ├── discover-billing.md             # Fragment: Billing data discovery
+│   │   │   ├── discover-billing.md             # Fragment: Billing discovery (full + lightweight modes)
 │   │   │   └── discover-assemble.md            # Assembler: AI-profile merge + migration-preview
 │   │   ├── clarify/
-│   │   │   ├── clarify.md                     # Phase 2: Clarify orchestrator (thin)
-│   │   │   ├── clarify-interview.md           # Fragment: full adaptive interview + AI-only flow
-│   │   │   ├── clarify-assemble.md            # Assembler: writes + validates preferences.json
-│   │   │   ├── clarify-global.md              # Category A: Global/Strategic (Q1-Q7)
-│   │   │   ├── clarify-compute.md             # Categories B+C: Config Gaps + Compute (Q8-Q11)
-│   │   │   ├── clarify-database.md            # Category D: Database (Q12–Q13b)
-│   │   │   ├── clarify-ai.md                  # Categories F/G/H: AI/Bedrock, Agentic, Programs (Q14-Q27)
-│   │   │   └── clarify-ai-only.md             # Standalone AI-only migration flow
+│   │   │   ├── clarify.md                      # Phase 2: Clarify orchestrator (thin)
+│   │   │   ├── clarify-interview.md            # Fragment: full adaptive interview + AI-only routing
+│   │   │   └── clarify-assemble.md             # Assembler: writes + validates preferences.json
 │   │   ├── design/
 │   │   │   ├── design.md                       # Phase 3: Design orchestrator (3-route)
 │   │   │   ├── design-infra.md                 # Fragment: Infrastructure design (IaC-based)
@@ -203,22 +199,37 @@ gcp-to-aws/
 │   │   │   ├── estimate-ai.md                  # Fragment: AI workload cost analysis
 │   │   │   ├── estimate-billing.md             # Fragment: Billing-only cost analysis
 │   │   │   └── estimate-assemble.md            # Assembler: route + recommendation gates
+│   │   ├── plan/
+│   │   │   ├── plan.md                         # Phase 5: Plan orchestrator (3-route; execution plan JSON)
+│   │   │   ├── plan-infra.md                   # Fragment: Infrastructure migration plan
+│   │   │   ├── plan-ai.md                      # Fragment: AI migration plan
+│   │   │   ├── plan-billing.md                 # Fragment: Billing-only migration plan
+│   │   │   └── plan-assemble.md                # Assembler: route output gates
 │   │   ├── generate/
-│   │   │   ├── generate.md                     # Phase 5: Generate orchestrator (2-stage)
-│   │   │   ├── generate-infra.md               # Fragment (Stage 1): Infrastructure migration plan
-│   │   │   ├── generate-ai.md                  # Fragment (Stage 1): AI migration plan
-│   │   │   ├── generate-billing.md             # Fragment (Stage 1): Billing-only migration plan
-│   │   │   ├── generate-assemble.md            # Assembler (Stage 2): derives all deployable artifacts
-│   │   │   ├── generate-artifacts-infra.md     # Terraform configurations (loaded by assembler)
-│   │   │   ├── generate-artifacts-scripts.md  # Migration scripts (loaded by assembler)
-│   │   │   ├── generate-artifacts-ai.md        # Provider adapter + test harness (loaded by assembler)
-│   │   │   ├── generate-artifacts-billing.md   # Skeleton Terraform (loaded by assembler)
-│   │   │   ├── generate-artifacts-docs.md      # MIGRATION_GUIDE.md + README.md (loaded by assembler)
-│   │   │   └── generate-artifacts-report.md    # migration-report.html (loaded by assembler)
+│   │   │   ├── generate.md                     # Phase 6: Generate orchestrator (artifact fragments)
+│   │   │   ├── generate-terraform.md           # Fragment: terraform/ (+ validation-report.json)
+│   │   │   ├── generate-scripts.md             # Fragment: scripts/
+│   │   │   ├── generate-ai-artifacts.md        # Fragment: ai-migration/ (adapters + test harness)
+│   │   │   ├── generate-billing-skeleton.md    # Fragment: terraform/skeleton.tf
+│   │   │   └── generate-assemble.md            # Assembler: docs + report + completion (reads all fragments)
 │   │   └── feedback/
-│   │       ├── feedback.md                     # Phase 6: Feedback checkpoint orchestrator
+│   │       ├── feedback.md                     # Feedback checkpoint orchestrator (off-backbone)
 │   │       ├── feedback-trace.md               # Fragment: anonymized trace builder
 │   │       └── feedback-assemble.md            # Assembler: writes feedback.json, resolves checkpoint
+│   │
+│   ├── clarify-questions/                      # Question catalogs (reference data; read by clarify-interview)
+│   │   ├── clarify-global.md                   # Category A: Global/Strategic (Q1-Q7)
+│   │   ├── clarify-compute.md                  # Categories B+C: Config Gaps + Compute (Q8-Q11)
+│   │   ├── clarify-database.md                 # Category D: Database (Q12–Q13b)
+│   │   ├── clarify-ai.md                       # Categories F/G/H: AI/Bedrock, Agentic, Programs (Q14-Q27)
+│   │   └── clarify-ai-only.md                  # Standalone AI-only migration flow
+│   │
+│   ├── discover/                               # Discover reference procedure (read by discover-assemble)
+│   │   └── discover-preview.md                 # migration-preview.json heuristic (derives from artifacts)
+│   │
+│   ├── generate/                               # Generate reference procedure (read by generate-assemble)
+│   │   ├── generate-docs.md                    # MIGRATION_GUIDE.md + README.md (reads all artifacts)
+│   │   └── generate-report.md                  # migration-report.html (validates + reads all artifacts)
 │   │
 │   ├── design-refs/
 │   │   ├── index.md                            # Lookup table: GCP type → design-ref file
@@ -237,14 +248,14 @@ gcp-to-aws/
 │   │   └── typed-edges-strategy.md             # Edge type assignment
 │   │
 │   └── shared/
-│       ├── schema-discover-iac.md              # gcp-resource-inventory + clusters schemas (loaded by discover-iac.md)
-│       ├── schema-discover-ai.md               # ai-workload-profile schema (loaded by discover-app-code.md and discover-iac.md Step 7d)
-│       ├── schema-discover-billing.md          # billing-profile schema (loaded by discover-billing.md)
-│       ├── schema-estimate-infra.md            # estimation-infra.json schema (loaded by estimate-infra.md at write time)
-│       ├── validate-artifacts.md               # Pre-report validation (Generate report step; read-only)
-│       ├── migration-complexity.md             # Complexity tier definitions (small/medium/large) for timeline scaling
-│       ├── pricing-cache.md                    # Cached AWS + source provider pricing (±5-25%, primary source)
-│       └── bedrock-quotas.md                   # Bedrock TPM/RPM quota awareness, burndown rates, capacity planning
+│       ├── schema-discover-iac.md              # gcp-resource-inventory + clusters schemas
+│       ├── schema-discover-ai.md               # ai-workload-profile schema
+│       ├── schema-discover-billing.md          # billing-profile schema
+│       ├── schema-estimate-infra.md            # estimation-infra.json schema
+│       ├── validate-artifacts.md               # Pre-report validation (read-only)
+│       ├── migration-complexity.md             # Complexity tier definitions (timeline scaling)
+│       ├── pricing-cache.md                    # Cached AWS + source provider pricing (±5-25%)
+│       └── bedrock-quotas.md                   # Bedrock TPM/RPM quota awareness + capacity planning
 ```
 
 | Condition                                                     | Action                                                                                                                                                  |
