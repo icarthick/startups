@@ -35,15 +35,13 @@ Generate migration artifacts from the AI migration plan and design. Artifacts va
 - `ai-migration/eval-prompts.jsonl` — Evaluation prompt dataset
 - `ai-migration/run-evaluation.sh` — Bedrock evaluation job script
 
-## Prerequisites
+## Inputs
 
-Read from `$MIGRATION_DIR/`:
+Read from `$MIGRATION_DIR/` (entry gate enforced by the generate phase's `_preconditions`):
 
-- `aws-design-ai.json` (REQUIRED) — AI architecture with model mappings and code migration plan
-- `generation-ai.json` (REQUIRED) — AI migration plan with timeline and rollback strategy
-- `ai-workload-profile.json` (REQUIRED) — AI workload profile with models, languages, and capabilities
-
-If any required file is missing: **STOP**. Output: "Missing required artifact: [filename]. Complete the prior phase that produces it."
+- `aws-design-ai.json` — AI architecture with model mappings and code migration plan
+- `generation-ai.json` — AI migration plan with timeline and rollback strategy
+- `ai-workload-profile.json` — AI workload profile with models, languages, and capabilities
 
 **Sparse / IaC-only profile:** If `ai-workload-profile.json` has empty `models[]` or `metadata.profile_source` is `iac_vertex`, use `aws-design-ai.json` for Bedrock targets and example prompts; do **not** fail solely because discovery did not list model IDs.
 

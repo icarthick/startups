@@ -11,11 +11,12 @@ _contributes:
 
 **Execute ALL steps in order. Do not skip or optimize.**
 
-## Step 0: Validate Inputs
+## Step 0: Inputs
 
-Read `preferences.json`. If missing: **STOP**. Output: "Phase 2 (Clarify) not completed. Run Phase 2 first."
-
-Read `gcp-resource-clusters.json`.
+Read `preferences.json` and `gcp-resource-clusters.json` from `$MIGRATION_DIR/`. Their
+presence + the clarify-completed entry gate are enforced by the design phase's
+`_preconditions` (see `design.md` / INTERPRETER § Gate protocol) — this fragment just
+consumes them.
 
 ## Step 1: Order Clusters
 

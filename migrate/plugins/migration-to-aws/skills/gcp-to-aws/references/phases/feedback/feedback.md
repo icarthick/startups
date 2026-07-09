@@ -42,10 +42,6 @@ phase's contract. Marking `phases.feedback` `"completed"` means the checkpoint w
 **resolved** (offered and dealt with), not that the user participated — participation
 is signalled by the presence of `feedback.json`.
 
-## Prerequisites
-
-Read `$MIGRATION_DIR/.phase-status.json`. Verify `phases.discover == "completed"`. If not: **STOP**. Output: "Feedback requires at least the Discover phase to be completed."
-
 ## Step 0: Detect IDE Type and Plugin Version
 
 Detect the IDE type and plugin version for the survey URL. These are passed as hidden fields — the user never sees or enters them.

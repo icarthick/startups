@@ -11,16 +11,14 @@ _contributes:
 
 **Execute ALL steps in order. Do not skip or optimize.**
 
-## Prerequisites
+## Inputs
 
-Read from `$MIGRATION_DIR/`:
+Read from `$MIGRATION_DIR/` (entry gate enforced by the plan phase's `_preconditions`):
 
-- `aws-design-ai.json` (REQUIRED) — AI architecture design from Phase 3
-- `estimation-ai.json` (REQUIRED) — AI cost estimates from Phase 4
-- `ai-workload-profile.json` (REQUIRED) — AI workload profile from Phase 1
-- `preferences.json` (REQUIRED) — User migration preferences from Phase 2
-
-If any required file is missing: **STOP**. Output: "Missing required artifact: [filename]. Complete the prior phase that produces it."
+- `aws-design-ai.json` — AI architecture design (from Design)
+- `estimation-ai.json` — AI cost estimates (from Estimate)
+- `ai-workload-profile.json` — AI workload profile (from Discover)
+- `preferences.json` — User migration preferences (from Clarify)
 
 ## Part 1: Fast-Track Timeline
 

@@ -21,16 +21,14 @@ This file produces a **complexity-scaled migration plan** with wider timelines a
 - Wider success criteria thresholds scaled by tier
 - Explicit recommendation to run IaC discovery before executing the plan
 
-## Prerequisites
+## Inputs
 
-Read the following artifacts from `$MIGRATION_DIR/`:
+Read from `$MIGRATION_DIR/` (entry gate enforced by the plan phase's `_preconditions`):
 
-- `aws-design-billing.json` (REQUIRED) — Billing-based service mapping from Phase 3
-- `estimation-billing.json` (REQUIRED) — Billing-only cost estimates from Phase 4
-- `billing-profile.json` (REQUIRED) — GCP billing breakdown from Phase 1
-- `preferences.json` (REQUIRED) — User migration preferences from Phase 2
-
-If any required file is missing: **STOP**. Output: "Missing required artifact: [filename]. Complete the prior phase that produces it."
+- `aws-design-billing.json` — Billing-based service mapping (from Design)
+- `estimation-billing.json` — Billing-only cost estimates (from Estimate)
+- `billing-profile.json` — GCP billing breakdown (from Discover)
+- `preferences.json` — User migration preferences (from Clarify)
 
 ## Part 1: Context and Limitations
 

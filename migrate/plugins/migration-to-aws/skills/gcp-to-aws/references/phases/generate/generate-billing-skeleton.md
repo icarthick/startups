@@ -18,14 +18,12 @@ Generate **skeleton Terraform** with TODO markers for billing-only migrations. T
 
 Every resource block includes TODO markers indicating what is missing and where to get it.
 
-## Prerequisites
+## Inputs
 
-Read from `$MIGRATION_DIR/`:
+Read from `$MIGRATION_DIR/` (entry gate enforced by the generate phase's `_preconditions`):
 
-- `aws-design-billing.json` (REQUIRED) — Billing-based service mapping from Phase 3
-- `generation-billing.json` (REQUIRED) — Conservative migration plan from the plan phase
-
-If any required file is missing: **STOP**. Output: "Missing required artifact: [filename]. Complete the prior phase that produces it."
+- `aws-design-billing.json` — Billing-based service mapping (from Design)
+- `generation-billing.json` — Conservative migration plan (from the plan phase)
 
 ## Output Structure
 

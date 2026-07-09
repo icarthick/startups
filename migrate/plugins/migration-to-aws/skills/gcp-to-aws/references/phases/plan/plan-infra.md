@@ -11,16 +11,16 @@ _contributes:
 
 **Execute ALL steps in order. Do not skip or optimize.**
 
-## Prerequisites
+## Inputs
 
-Read the following artifacts from `$MIGRATION_DIR/`:
+Read from `$MIGRATION_DIR/` (the entry gate that these exist + the estimate phase
+completed is enforced by the plan phase's `_preconditions` — see `plan.md` / INTERPRETER
+§ Gate protocol):
 
-- `aws-design.json` (REQUIRED) — AWS architecture design from Phase 3
-- `estimation-infra.json` (REQUIRED) — Cost estimates from Phase 4
-- `gcp-resource-clusters.json` (REQUIRED) — Cluster dependency graph from Phase 1
-- `preferences.json` (REQUIRED) — User migration preferences from Phase 2
-
-If any required file is missing: **STOP**. Output: "Missing required artifact: [filename]. Complete the prior phase that produces it."
+- `aws-design.json` — AWS architecture design (from Design)
+- `estimation-infra.json` — Cost estimates (from Estimate)
+- `gcp-resource-clusters.json` — Cluster dependency graph (from Discover)
+- `preferences.json` — User migration preferences (from Clarify)
 
 ## Part 1: Migration Timeline
 

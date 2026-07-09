@@ -24,19 +24,14 @@ The parent `estimate.md` determines pricing source before loading this file.
 
 For typical migrations (Fargate, Aurora/RDS, Aurora Serverless v2, S3, ALB, NAT Gateway, Lambda, Secrets Manager, CloudWatch, ElastiCache, DynamoDB), ALL prices are in `pricing-cache.md`. Zero MCP calls needed.
 
-## Step 0: Validate Design Output
+## Step 0: Inputs
 
-Before pricing queries, validate `aws-design.json`:
-
-1. **File exists**: If missing, **STOP**. Output: "Phase 3 (Design) not completed. Run Phase 3 first."
-2. **Valid JSON**: If parse fails, **STOP**. Output: "Design file corrupted (invalid JSON). Re-run Phase 3."
-3. **Required fields**:
-   - `clusters` array is not empty: If empty, **STOP**. Output: "No clusters in design. Re-run Phase 3."
-   - Each cluster has `resources` array: If missing, **STOP**. Output: "Cluster [id] missing resources. Re-run Phase 3."
-   - Each resource has `aws_service` field: If missing, **STOP**. Output: "Resource [address] missing aws_service. Re-run Phase 3."
-   - Each resource has `aws_config` field: If missing, **STOP**. Output: "Resource [address] missing aws_config. Re-run Phase 3."
-
-If all validations pass, proceed to Part 1.
+Read `aws-design.json` from `$MIGRATION_DIR/`. Its presence + valid JSON are enforced by
+the estimate phase's `_preconditions`, and its shape (non-empty clusters/services;
+every resource carries `aws_service` and `aws_config`) is guaranteed by the design
+phase's completion `_postconditions` — so this fragment consumes it without
+re-validating. If a field it needs is genuinely absent at runtime, surface it and stop
+rather than fabricating a price; the phase gate will fail cleanly.
 
 ## Pricing Recipes (MCP Fallback Only)
 

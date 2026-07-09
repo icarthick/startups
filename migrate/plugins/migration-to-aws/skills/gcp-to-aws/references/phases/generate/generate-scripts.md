@@ -21,15 +21,13 @@ Transform the migration plan (`generation-infra.json`) into numbered migration s
 
 - `scripts/` directory — Numbered migration scripts for data and service migration
 
-## Prerequisites
+## Inputs
 
-Read the following artifacts from `$MIGRATION_DIR/`:
+Read from `$MIGRATION_DIR/` (entry gate enforced by the generate phase's `_preconditions`):
 
-- `aws-design.json` (REQUIRED) — AWS architecture design with cluster-level resource mappings
-- `generation-infra.json` (REQUIRED) — Migration plan with timeline and service assignments
-- `preferences.json` (REQUIRED) — User preferences including target region, sizing, compliance
-
-If any REQUIRED file is missing: **STOP**. Output: "Missing required artifact: [filename]. Complete the prior phase that produces it."
+- `aws-design.json` — AWS architecture design with cluster-level resource mappings
+- `generation-infra.json` — Migration plan with timeline and service assignments
+- `preferences.json` — User preferences including target region, sizing, compliance
 
 ## Step 1: Detect Resource Categories
 
