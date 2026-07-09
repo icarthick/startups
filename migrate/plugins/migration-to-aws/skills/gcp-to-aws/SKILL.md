@@ -27,7 +27,7 @@ description: "Migrate workloads from Google Cloud Platform to AWS — including 
 Phase and unit files carry a YAML frontmatter block that declares how the phase is
 composed — its inputs, the fragments it runs, the assembler that combines them, what it
 produces, its gates, and what it requires/advances-to. The DSL interpreter contract is
-the plugin-shared `../shared/dsl/INTERPRETER.md`: it defines every frontmatter key, the
+the vendored `references/vendored/dsl/INTERPRETER.md`: it defines every frontmatter key, the
 fragment/assembler model, and the interpreter loop. **Load it first** (once, at the
 start of a migration), then execute a phase file's prose body. Elsewhere in this skill,
 `INTERPRETER.md` (without a path) refers to this same loaded contract.
@@ -91,7 +91,7 @@ If none of the above are found, stop and ask user to provide at least one source
 ## Execution
 
 This skill is driven by the interpreter loop in `INTERPRETER.md` (the plugin-shared
-`../shared/dsl/INTERPRETER.md`): it reads `.phase-status.json`, determines the current
+`references/vendored/dsl/INTERPRETER.md`): it reads `.phase-status.json`, determines the current
 phase, runs each phase's `_preconditions` / fragments / `_assemble` / `_postconditions`,
 advances on `HANDOFF_OK` via `_advances_to`, and validates state. **Load
 `INTERPRETER.md` first** (once, at the start of a migration), then execute a phase
@@ -247,7 +247,7 @@ gcp-to-aws/
 │   │   ├── depth-calculation.md                # Topological depth calculation
 │   │   └── typed-edges-strategy.md             # Edge type assignment
 │   │
-│   └── shared/
+│   ├── shared/
 │       ├── schema-discover-iac.md              # gcp-resource-inventory + clusters schemas
 │       ├── schema-discover-ai.md               # ai-workload-profile schema
 │       ├── schema-discover-billing.md          # billing-profile schema
@@ -256,6 +256,13 @@ gcp-to-aws/
 │       ├── migration-complexity.md             # Complexity tier definitions (timeline scaling)
 │       ├── pricing-cache.md                    # Cached AWS + source provider pricing (±5-25%)
 │       └── bedrock-quotas.md                   # Bedrock TPM/RPM quota awareness + capacity planning
+│   │
+│   └── vendored/                               # DO NOT EDIT — synced copies of skills/shared/ (mise run shared:sync)
+│       ├── dsl/INTERPRETER.md                  # the DSL interpreter contract (the program the LLM runs)
+│       ├── estimate/complexity-tiers.json
+│       ├── estimate/estimation-infra.schema.json
+│       ├── pricing/aws-infra-pricing.json
+│       └── state/phase-status.schema.json
 ```
 
 | Condition                                                     | Action                                                                                                                                                  |
