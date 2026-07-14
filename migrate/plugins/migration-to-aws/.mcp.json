@@ -7,7 +7,7 @@
         "/Volumes/workplace/AWSPricingMCP/dist/mcp/server.js"
       ],
       "env": {
-        "PRICING_MCP_LOG_FILE": "/Volumes/workplace/AWSPricingMCP/server.log",
+        "PRICING_MCP_LOG_FILE": "/Volumes/workplace/AWSPricingMCP/logs/server.log",
         "PRICING_MCP_LOG_LEVEL": "debug"
       },
       "timeout": 120000,
