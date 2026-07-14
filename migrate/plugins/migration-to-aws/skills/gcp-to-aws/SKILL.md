@@ -205,25 +205,20 @@ Replace `MMDD-HHMM` with the actual migration ID, generate the `last_updated` IS
 
 ## MCP Servers
 
-**awspricingfree** (primary cost-estimation source):
+**awspricingfree** (the ONLY cost-estimation pricing source):
 
 - Provides `resolve_service`, `list_services`, `describe_service`, `price` tools.
 - Credential-free — reproduces calculator.aws to the cent, no AWS account needed (matters for
   pre-migration customers). Only needed during the Estimate phase.
-- **Primary pricing source for infrastructure services** (Fargate, RDS/Aurora, ElastiCache, ALB,
+- **Sole pricing source for infrastructure services** (Fargate, RDS/Aurora, ElastiCache, ALB,
   NAT, S3, Lambda, CloudWatch, DynamoDB, Route 53, etc.). See `phases/estimate/estimate.md` Step 0.
 
-**awspricing** (fallback / AI models):
-
-- Provides `get_pricing`, `get_pricing_service_codes`, `get_pricing_service_attributes` tools.
-- Requires AWS credentials. Reached as a LAST RESORT for infrastructure services not modeled by
-  `awspricingfree` and NOT in the cache, and as the live fallback for Bedrock/AI model pricing
-  (which `awspricingfree` does not model).
-
-**Pricing hierarchy:** `awspricingfree` MCP (primary, infra) → `references/shared/pricing-cache.md`
-(fallback + all AI model rates, ±5-25%) → credentialed `awspricing` MCP (last resort). AI/Bedrock
-models are the documented exception — cache-first, since `awspricingfree` models infrastructure, not
-token pricing.
+**Pricing rule:** `awspricingfree` MCP is the ONLY source. There is **no `pricing-cache.md`
+fallback and no credentialed `awspricing` fallback** for the Estimate phase. A service the MCP does
+not model (SES, Amazon MQ, OpenSearch, EKS node rates, MSK, X-Ray, RDS Proxy) — and all Bedrock/AI
+per-token pricing — is recorded as `pricing_source: "unavailable"` and excluded from totals, surfaced
+to the user as a known gap rather than substituted from a cache. If `awspricingfree` is unreachable,
+the Estimate phase STOPS (build + register the server); it does NOT fall back to cached pricing.
 
 ---
 
@@ -297,7 +292,7 @@ gcp-to-aws/
 │       ├── validate-artifacts.md               # Pre-report validation (Generate Step 0; read-only)
 │       ├── validate-migration-report.md          # Post-write HTML completeness (Generate Step 4)
 │       ├── migration-complexity.md             # Complexity tier definitions (small/medium/large) for timeline scaling
-│       ├── pricing-cache.md                    # Cached AWS + source provider pricing (±5-25%, fallback + AI model rates)
+│       ├── pricing-cache.md                    # NOT used by the Estimate phase (awspricingfree-only). Retained for other phases.
 │       └── bedrock-quotas.md                   # Bedrock TPM/RPM quota awareness, burndown rates, capacity planning
 ```
 
@@ -305,7 +300,7 @@ gcp-to-aws/
 | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | No GCP sources found (no `.tf`, no app code, no billing data) | Stop. Output: "No GCP sources detected. Provide at least one source type (Terraform files, application code, or billing exports) and try again."                                                                                          |
 | `.phase-status.json` missing phase gate                       | Stop. Output: "Cannot enter Phase X: Phase Y-1 not completed. Start from Phase Y or resume Phase Y-1."                                                                                                                                    |
-| awspricingfree unreachable AND awspricing unavailable after 3 attempts | Display user warning about ±5-25% accuracy. Use `pricing-cache.md`. Add `pricing_source: "cached_fallback"` to the applicable `estimation-*.json` file.                                                                                   |
+| awspricingfree unreachable (Estimate phase)                   | STOP — there is no cache/credentialed fallback for Estimate. Tell the user to build + register the server (`/Volumes/workplace/AWSPricingMCP/dist/mcp/server.js` in `.mcp.json`), then re-run. Do NOT substitute cached pricing.                                                                                   |
 | User skips questions or says "use defaults for the rest"      | Apply documented defaults for all remaining questions (essential questions and any unconfirmed sheet rows in wizard mode; current and subsequent batches in full mode). Q2/Q3 defaults add a report caveat. Phase 2 completes either way. |
 | `aws-design.json` missing required clusters                   | Stop Phase 4. Output: "Re-run Phase 3 to generate missing cluster designs."                                                                                                                                                               |
 

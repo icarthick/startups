@@ -28,18 +28,11 @@ The fields **`aws_monthly_premium`**, **`aws_monthly_balanced`**, **`aws_monthly
   "design_source": "infrastructure",
   "timestamp": "2026-02-24T14:00:00Z",
   "pricing_source": {
-    "status": "live_free|cached|live|cached_fallback|unavailable",
-    "message": "Priced by awspricingfree MCP (credential-free, matches calculator.aws)|Using cached prices from 2026-03-04 (±5-10% accuracy)|Using live AWS pricing API|MCP unavailable, using cached rates (±5-25% accuracy)|Pricing unavailable for [service]",
-    "fallback_staleness": {
-      "last_updated": "2026-02-24",
-      "days_old": 3,
-      "is_stale": false,
-      "staleness_warning": null
-    },
+    "status": "live_free|unavailable",
+    "message": "Priced by awspricingfree MCP (credential-free, matches calculator.aws)|Pricing unavailable for [service] — not modeled by awspricingfree (no cache/credentialed fallback)",
     "services_by_source": {
-      "live": ["Fargate", "RDS Aurora", "S3", "ALB"],
-      "fallback": ["NAT Gateway"],
-      "estimated": []
+      "live_free": ["Fargate", "RDS Aurora", "S3", "ALB"],
+      "unavailable": ["SES", "OpenSearch"]
     },
     "services_with_missing_fallback": []
   },
@@ -267,7 +260,7 @@ When Part 2B of `estimate-infra.md` produces an observability cost, it is includ
   "mid": 5.21,
   "high": 8.00,
   "accuracy": "±30%",
-  "pricing_source": "cached",
+  "pricing_source": "live_free",
   "components": {
     "log_ingestion": 3.50,
     "log_storage": 0.21,
@@ -291,8 +284,8 @@ When Part 2B of `estimate-infra.md` produces an observability cost, it is includ
 ## Output Validation Checklist
 
 - `design_source` is `"infrastructure"`
-- `pricing_source.status` is `"live_free"`, `"cached"`, `"live"`, `"cached_fallback"`, or `"unavailable"`
-- `accuracy_confidence` matches the pricing mode (±5-10% for cached/live, ±15-25% for fallback)
+- `pricing_source.status` is `"live_free"` or `"unavailable"` (no cache/credentialed values under the awspricingfree-only rule)
+- `accuracy_confidence` reflects the awspricingfree source (matches calculator.aws to the cent for modeled services; unmodeled services are `unavailable`, not estimated)
 - `current_costs.source` is `"billing_data"` if `billing-profile.json` was used, `"inventory_estimate"`, `"preferences"`, `"user_provided"` (asked during estimate), or `"unavailable"` (user declined) otherwise
 - `current_costs.gcp_monthly` matches billing-profile.json total (if used) or is a reasonable estimate
 - `projected_costs` has all three tiers (premium, balanced, optimized)

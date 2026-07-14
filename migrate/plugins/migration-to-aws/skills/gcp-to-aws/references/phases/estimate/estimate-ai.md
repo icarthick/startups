@@ -8,20 +8,24 @@
 
 The parent `estimate.md` selects the pricing mode before loading this file.
 
-**AI models are the documented EXCEPTION to the MCP-first rule.** The credential-free
+**Under the awspricingfree-only rule, Bedrock/AI model pricing is `unavailable`.** The credential-free
 `awspricingfree` MCP models calculator.aws INFRASTRUCTURE services — it does NOT model Bedrock
-per-token model pricing. So AI/Bedrock pricing stays cache-first, with the credentialed `awspricing`
-MCP (`get_pricing("AmazonBedrock")`) as the live fallback. (Infrastructure services in
-`estimate-infra.md` DO follow the MCP-first hierarchy.)
+per-token model rates, and there is NO cache or credentialed-API fallback. So AI model costs cannot
+be priced by this phase: mark them `pricing_source: "unavailable"`, EXCLUDE them from tier totals,
+and surface the gap to the user (see below). Do **NOT** read `shared/pricing-cache.md` and do **NOT**
+call the credentialed `awspricing` MCP for token pricing.
 
-**Price lookup order (AI models):**
+**Price lookup (AI models):**
 
-1. **`shared/pricing-cache.md` (primary)** — Look up Bedrock model pricing and source provider pricing by table. Set `pricing_source: "cached"`.
-2. **Credentialed `awspricing` MCP (secondary)** — If a model is NOT in pricing-cache.md and MCP is available, query `get_pricing("AmazonBedrock", ...)` with model filter and the user's target region. Set `pricing_source: "live"`.
-3. **Cache after MCP failure** — If MCP was attempted but failed, and the model IS in the cache, use the cached price. Set `pricing_source: "cached_fallback"`.
-4. **Unavailable** — If a model is NOT in the cache AND MCP failed, set `pricing_source: "unavailable"` and warn the user.
+1. **`awspricingfree` MCP** — If the target AI service resolves to a calculator.aws-modeled
+   serviceKey (rare for token pricing), price it and set `pricing_source: "live_free"`.
+2. **Unavailable** — Otherwise (all per-token Bedrock model pricing): set `pricing_source:
+   "unavailable"`, add the model to `services_with_missing_fallback`, and exclude from totals.
 
-For typical migrations (Claude, Llama, Nova, Mistral, DeepSeek, Gemma, OpenAI gpt-oss, Gemini source pricing), ALL prices are in `pricing-cache.md`.
+Build the model comparison / recommendation on the QUALITATIVE model attributes (capability,
+context window, latency, lifecycle) that do not require a price, and clearly state that per-token
+cost figures are unavailable under the credential-free pricing constraint. Do NOT substitute cached
+or hardcoded token rates.
 
 **Model lifecycle:** When building the model comparison table, check `references/shared/ai-model-lifecycle.md` and apply the 90-day exclusion rule:
 
@@ -44,7 +48,7 @@ Read from `$MIGRATION_DIR/`:
 Determine current Vertex AI spending from the best available source:
 
 1. **Billing data (preferred)** — Use `current_costs.monthly_ai_spend` from `ai-workload-profile.json`
-2. **Estimated from token volume** — Use `ai_constraints.ai_token_volume.value` from `preferences.json` with Gemini pricing from `pricing-cache.md` (under "Source Provider Pricing"). Apply 60/40 input/output ratio if actual ratio unknown.
+2. **Estimated from token volume** — Use `ai_constraints.ai_token_volume.value` from `preferences.json`. Note that per-token source-provider (Gemini) rates are NOT available under the awspricingfree-only pricing rule (no cache lookup), so treat this as an unverified estimate: present the model comparison at multiple volume tiers (as in case 3) rather than a single cached-rate figure. Apply a 60/40 input/output ratio if actual ratio unknown.
 3. **Neither available** — Note in output and present model comparison at multiple volume tiers so user can find their range.
 
 **IaC-only profile:** If `metadata.profile_source` is `iac_vertex` or `summary.inferred_from_iac` is true and billing/token data is missing, state explicitly that **current GCP AI spend is unverified** and widen uncertainty bands (use the same multi-tier comparison approach as in case 3).
@@ -190,7 +194,7 @@ Write `estimation-ai.json` to `$MIGRATION_DIR/`.
 | ------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------- |
 | `phase`                         | string | `"estimate"`                                                                                                                    |
 | `timestamp`                     | string | ISO 8601                                                                                                                        |
-| `pricing_source`                | string | `"cached"` or `"live"`                                                                                                          |
+| `pricing_source`                | string | `"live_free"` or `"unavailable"` (AI/Bedrock token pricing is unavailable under the credential-free rule) |
 | `accuracy_confidence`           | string | `"±5-10%"` or `"±15-25%"`                                                                                                       |
 | `current_costs`                 | object | `source`, `gcp_monthly_ai_spend`, `services[]`                                                                                  |
 | `token_volume`                  | object | `source`, `monthly_input_tokens`, `monthly_output_tokens`, ratio                                                                |
@@ -234,7 +238,7 @@ If this gate fails: STOP and output: "estimate-ai did not produce a valid `estim
 
 After writing `estimation-ai.json`, present under 25 lines:
 
-1. **Pricing source and accuracy**: State whether prices came from cache or live API, and the accuracy range (±15-25% for AI models from cache, ±5-10% from live API). Example: "AI model estimates based on cached pricing (2026-03-07), accuracy ±15-25%."
+1. **Pricing source and accuracy**: State that Bedrock/AI per-token pricing is UNAVAILABLE under the credential-free (awspricingfree-only) rule — the MCP models infrastructure, not token rates, and there is no cache fallback. Present the model comparison qualitatively (capability/context/latency/lifecycle) and, where volume is known, at multiple illustrative tiers; do NOT present cached per-token dollar figures. Example: "AI model per-token costs are unavailable under the credential-free pricing constraint — showing a capability comparison and illustrative volume tiers instead of exact dollar estimates."
 2. Current GCP AI spend vs estimated monthly Bedrock cost (recommended model)
 3. Model comparison table: model name, estimated monthly cost, vs source provider %, capabilities match
 4. Recommended model with estimated monthly cost breakdown

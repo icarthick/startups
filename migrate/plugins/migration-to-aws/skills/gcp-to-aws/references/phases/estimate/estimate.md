@@ -6,16 +6,17 @@
 
 Before running any sub-estimate file, establish the pricing source.
 
-The pricing hierarchy is **MCP-first, cache-fallback**. For each AWS service in the design, price it
-via the credential-free `awspricingfree` MCP FIRST; only fall back to the cache when the MCP
-withholds a price (returns `unsupported`/`unpriceable`) or is unreachable. Do **NOT** open the cache
-first.
+The **sole** pricing source is the credential-free `awspricingfree` MCP server. There is **NO cache
+fallback and NO credentialed-API fallback** — every price comes from `awspricingfree`, or the
+service is marked `unavailable` and excluded from totals. This is a deliberate constraint: the
+estimate reflects exactly what the credential-free server can price, so it can be verified against
+calculator.aws to the cent. Do **NOT** read `shared/pricing-cache.md` for infrastructure pricing,
+and do **NOT** call the credentialed `awspricing` (`get_pricing`) MCP.
 
 ### Step 0a: Establish the `awspricingfree` pricing loop (do this BEFORE any calculation)
 
-`awspricingfree` is the primary source — it reproduces calculator.aws to the cent, credential-free
-(no AWS account needed, which matters for pre-migration customers). Each sub-estimate file drives its
-four tools per service:
+`awspricingfree` reproduces calculator.aws to the cent, credential-free (no AWS account needed, which
+matters for pre-migration customers). Each sub-estimate file drives its four tools per service:
 
 1. **Resolve** the AWS service name to a `serviceKey` — `resolve_service({query})` (or
    `list_services({})` to browse when the ranked guess is ambiguous).
@@ -34,63 +35,55 @@ Handle each `price` response:
 | `{status:"ok", monthlyCost}`                        | Use `monthlyCost`. Record the `trace`/`breakdown` if useful.                            | `"live_free"`    |
 | `{status:"needs_input", missing}`                   | Supply the named ids from `aws_config` (or documented defaults) and RE-CALL `price`.    | — (retry)        |
 | `{status:"pointer", subServices}`                   | Pick the correct sub-service key (e.g. DynamoDB on-demand) and re-call `price` with it. | — (retry)        |
-| `{status:"unsupported"}` / `{status:"unpriceable"}` | The MCP does not model this service — fall back to the cache (Step 0b).                 | (see 0b)         |
+| `{status:"unsupported"}` / `{status:"unpriceable"}` | `awspricingfree` does not model this service. Mark it `unavailable` (Step 0b).          | `"unavailable"`  |
 
 Do NOT accept an `ok $0` as a real price unless you actually supplied usage inputs (the MCP's
 vacuous-$0 guard returns `needs_input` for unconfigured services, but stay alert).
 
-### Step 0b: Cache fallback (only for services the MCP does not model, or when MCP is unreachable)
+### Step 0b: Unmodeled or unreachable → `unavailable` (NO fallback)
 
-When `awspricingfree` returns `unsupported`/`unpriceable` for a service, look it up in
-`shared/pricing-cache.md` and use the cached rate. Set `pricing_source: "cached"`. If the MCP was
-unreachable entirely (connection failure, not a fail-closed status), price ALL cache-covered
-services from the file and set `pricing_source: "cached_fallback"`.
+There is no fallback. Handle the two gaps explicitly:
 
-### Step 0c: Credentialed fallback (last resort)
+- **Service not modeled** — when `awspricingfree` returns `unsupported`/`unpriceable` for a service
+  (e.g. SES, Amazon MQ, OpenSearch, EKS control-plane/node rates, MSK, X-Ray, RDS Proxy, and all
+  Bedrock/AI token pricing), set `pricing_source: "unavailable"`, add the service to
+  `services_with_missing_fallback`, and EXCLUDE it from the tier totals. Surface it to the user as a
+  known gap — do NOT substitute a cached or hardcoded rate.
+- **MCP unreachable** — if `awspricingfree` cannot be reached at all (connection failure), the
+  estimate cannot proceed. STOP and tell the user to build + register the server (see Step 0c). Do
+  NOT silently fall back to cached pricing.
 
-Only if a service is in NEITHER `awspricingfree` NOR `pricing-cache.md`: attempt the credentialed
-`awspricing` MCP (see the Pricing Recipes table in `estimate-infra.md`). This requires AWS
-credentials and is rarely reached. Set `pricing_source: "live"`. If it too fails, set
-`pricing_source: "unavailable"`, add the service to `services_with_missing_fallback`, and warn the
-user.
+### Step 0c: MCP Preflight — Surface Status to User (ALWAYS run)
 
-### Step 0d: MCP Preflight — Surface Status to User (ALWAYS run)
+**Before any sub-estimate file runs**, confirm `awspricingfree` is reachable (a trivial
+`resolve_service({query:"lambda"})` succeeds) and display the pricing mode:
 
-**Before any sub-estimate file runs**, display the pricing mode to the user so they know what to
-expect:
-
-- **If `awspricingfree` reachable**: "Pricing source: awspricingfree (credential-free, matches calculator.aws to the cent for modeled services). Cache used only for services it doesn't model."
-- **If `awspricingfree` unreachable**: "⚠️ Pricing source: cached (`pricing-cache.md`, updated [date], ±5-25% accuracy). The awspricingfree MCP is unreachable — ensure the server is built (`/Volumes/workplace/AWSPricingMCP/dist/mcp/server.js`) and registered in `.mcp.json`. Proceeding with cached pricing."
-- **If a required service is in NEITHER the MCP nor the cache**: "⚠️ Some services are modeled by neither the MCP nor the cache and will show `pricing_source: unavailable` in the estimate."
+- **If `awspricingfree` reachable**: "Pricing source: awspricingfree ONLY (credential-free, matches calculator.aws to the cent). Services it does not model are shown as `unavailable`, not substituted."
+- **If `awspricingfree` unreachable**: "⚠️ STOP: the awspricingfree MCP is unreachable and there is no fallback. Build the server (`/Volumes/workplace/AWSPricingMCP/dist/mcp/server.js`) and register it in `.mcp.json` before running Estimate." Do NOT proceed with cached pricing.
+- **On any unmodeled service**: "⚠️ [service] is not modeled by awspricingfree — it will show `pricing_source: unavailable` and is excluded from the totals."
 
 This prevents silent failures — the user sees the pricing constraint upfront, not after 5 minutes of estimation work.
 
 ### Pricing Hierarchy
 
-Each sub-estimate file uses this lookup order per service:
+There is exactly one source. No cache, no credentialed API.
 
-| Priority | Source                                         | Condition                                                | `pricing_source` value |
-| -------- | ---------------------------------------------- | -------------------------------------------------------- | ---------------------- |
-| 1        | `awspricingfree` MCP (`price` → `status:"ok"`) | Service is modeled by the MCP                            | `"live_free"`          |
-| 2        | `shared/pricing-cache.md`                      | MCP returns `unsupported`/`unpriceable`; service in cache | `"cached"`             |
-| 3        | `pricing-cache.md` after MCP unreachable       | MCP connection failed entirely; service IS in cache      | `"cached_fallback"`    |
-| 4        | Credentialed `awspricing` MCP (`get_pricing`)  | Service in NEITHER awspricingfree NOR cache              | `"live"`               |
-| 5        | Unavailable                                    | In none of the above                                     | `"unavailable"`        |
+| Priority | Source                                         | Condition                            | `pricing_source` value |
+| -------- | ---------------------------------------------- | ------------------------------------ | ---------------------- |
+| 1        | `awspricingfree` MCP (`price` → `status:"ok"`) | Service is modeled by the MCP        | `"live_free"`          |
+| 2        | Unavailable                                    | `awspricingfree` does not model it   | `"unavailable"`        |
 
 **`pricing_source` values summary:**
 
-| Value               | Meaning                                                        |
-| ------------------- | -------------------------------------------------------------- |
-| `"live_free"`       | Priced by the credential-free awspricingfree MCP (primary path) |
-| `"cached"`          | awspricingfree does not model it; found in pricing-cache.md    |
-| `"cached_fallback"` | awspricingfree was unreachable; fell back to cache             |
-| `"live"`            | Retrieved from the credentialed awspricing MCP API (last resort) |
-| `"unavailable"`     | In none of the above; service excluded from totals             |
+| Value           | Meaning                                                                    |
+| --------------- | -------------------------------------------------------------------------- |
+| `"live_free"`   | Priced by the credential-free awspricingfree MCP (the only pricing path)   |
+| `"unavailable"` | awspricingfree does not model it; excluded from totals, surfaced as a gap  |
 
 **AI model note:** Bedrock per-token model pricing is NOT modeled by `awspricingfree` (which covers
-calculator.aws infrastructure services, not token rates). `estimate-ai.md` therefore prices Bedrock
-models from `pricing-cache.md` (primary) with the credentialed `awspricing` MCP as fallback — the
-MCP-first rule above applies to infrastructure services (`estimate-infra.md`).
+calculator.aws infrastructure services, not token rates). Under the awspricingfree-only rule,
+Bedrock/AI model costs are therefore `unavailable` and excluded from the totals — `estimate-ai.md`
+surfaces them as a known gap rather than substituting cached rates.
 
 ## Step 1: Prerequisites
 
@@ -176,7 +169,7 @@ Output to user: "Cost estimation complete. Proceeding to Phase 5: Generate Migra
 
 ## Reference Files
 
-- `shared/pricing-cache.md` — Cached AWS + source provider pricing (±5-25%, FALLBACK for services `awspricingfree` does not model + all Bedrock/AI model rates)
+- `shared/pricing-cache.md` — NOT used for pricing under the awspricingfree-only rule. (Retained in the skill for other phases; the Estimate phase does not read it.)
 
 ## Scope Boundary
 
