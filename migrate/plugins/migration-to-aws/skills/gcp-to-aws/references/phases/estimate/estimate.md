@@ -40,6 +40,25 @@ Handle each `price` response:
 Do NOT accept an `ok $0` as a real price unless you actually supplied usage inputs (the MCP's
 vacuous-$0 guard returns `needs_input` for unconfigured services, but stay alert).
 
+#### Unit discipline (avoid orders-of-magnitude errors)
+
+Request/count/rate inputs are the #1 source of wrong prices. Follow these rules:
+
+1. **Always send the `__unit` companion for count/rate fields — never rely on the default.** Many
+   request-count fields (SNS/SQS/EventBridge/Route 53/Lambda/DynamoDB/CodeArtifact) default to a
+   SCALED unit (`millionPerMonth`, `thousandPerMonth`). A bare value is then silently multiplied:
+   `numberOfRequests: 50000000` with no unit = 50,000,000 × 1,000,000 = **50 trillion/month**. Decide
+   explicitly: send `{"numberOfRequests": 50, "numberOfRequests__unit": "millionPerMonth"}` for 50M,
+   OR `{"numberOfRequests": 50000000, "numberOfRequests__unit": "perMonth"}` — both mean 50M.
+2. **Read the field's `note` from `describe_service` before supplying it.** Scaled-unit fields carry
+   an explicit "unit is REQUIRED / values are in MILLIONS" note naming the trap and the fix.
+3. **`price` fails closed if you omit the unit on a scaled-default field** — a `needs_input` naming
+   a `*__unit` id is the guard doing its job. Supply the unit; do NOT work around it by guessing.
+4. **Sanity-check every returned magnitude.** A single commodity service (SNS/SQS/EventBridge/Lambda
+   requests, NAT, ALB) priced in the thousands/millions of dollars/month is almost always a units
+   mistake — re-read the field note and re-price before recording it. Likewise a suspiciously round
+   or huge line in the `breakdown` (e.g. a silently-on add-on) deserves a second look.
+
 ### Step 0b: Unmodeled or unreachable → `unavailable` (NO fallback)
 
 There is no fallback. Handle the two gaps explicitly:

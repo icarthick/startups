@@ -44,6 +44,10 @@ Handle each `price` response:
 Do NOT accept an `ok $0` as a real price unless you actually supplied usage inputs (the MCP's
 vacuous-$0 guard returns `needs_input` for unconfigured services, but stay alert).
 
+**Unit discipline applies here** — always send the `__unit` companion for count/rate fields (never
+rely on a scaled default), read each field's `describe_service` note, and sanity-check magnitudes.
+See `estimate.md` Step 0a “Unit discipline” for the full rules and the 50-trillion trap.
+
 ### awspricingfree serviceKey map (common GCP-migration services)
 
 Use `resolve_service` to confirm, but these are the verified keys for the fast path (region =
