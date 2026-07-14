@@ -8,14 +8,20 @@
 
 The parent `estimate.md` selects the pricing mode before loading this file.
 
-**Price lookup order:**
+**AI models are the documented EXCEPTION to the MCP-first rule.** The credential-free
+`awspricingfree` MCP models calculator.aws INFRASTRUCTURE services — it does NOT model Bedrock
+per-token model pricing. So AI/Bedrock pricing stays cache-first, with the credentialed `awspricing`
+MCP (`get_pricing("AmazonBedrock")`) as the live fallback. (Infrastructure services in
+`estimate-infra.md` DO follow the MCP-first hierarchy.)
+
+**Price lookup order (AI models):**
 
 1. **`shared/pricing-cache.md` (primary)** — Look up Bedrock model pricing and source provider pricing by table. Set `pricing_source: "cached"`.
-2. **MCP (secondary)** — If a model is NOT in pricing-cache.md and MCP is available, query `get_pricing("AmazonBedrock", ...)` with model filter and the user's target region. Set `pricing_source: "live"`.
+2. **Credentialed `awspricing` MCP (secondary)** — If a model is NOT in pricing-cache.md and MCP is available, query `get_pricing("AmazonBedrock", ...)` with model filter and the user's target region. Set `pricing_source: "live"`.
 3. **Cache after MCP failure** — If MCP was attempted but failed, and the model IS in the cache, use the cached price. Set `pricing_source: "cached_fallback"`.
 4. **Unavailable** — If a model is NOT in the cache AND MCP failed, set `pricing_source: "unavailable"` and warn the user.
 
-For typical migrations (Claude, Llama, Nova, Mistral, DeepSeek, Gemma, OpenAI gpt-oss, Gemini source pricing), ALL prices are in `pricing-cache.md`. Zero MCP calls needed.
+For typical migrations (Claude, Llama, Nova, Mistral, DeepSeek, Gemma, OpenAI gpt-oss, Gemini source pricing), ALL prices are in `pricing-cache.md`.
 
 **Model lifecycle:** When building the model comparison table, check `references/shared/ai-model-lifecycle.md` and apply the 90-day exclusion rule:
 

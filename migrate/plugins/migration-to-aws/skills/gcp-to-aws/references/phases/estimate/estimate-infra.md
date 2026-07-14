@@ -6,16 +6,72 @@
 
 ## Pricing Mode
 
-The parent `estimate.md` determines pricing source before loading this file.
+The parent `estimate.md` establishes the pricing source before loading this file. The hierarchy is
+**MCP-first, cache-fallback** (see `estimate.md` Step 0).
 
 **Price lookup order for each AWS service in `aws-design.json`:**
 
-1. **`shared/pricing-cache.md` (primary)** — Read once. **Before using, check staleness:** compute `days_since_cache = today − cache "Last updated" date`. If `days_since_cache > 30`, set `pricing_source: "cached_stale"` for all AI model prices and prepend a warning to the estimate output: "Pricing cache is more than 30 days old — AI model prices may have changed. Verify via the AWS Pricing MCP server or aws.amazon.com/bedrock/pricing." Infrastructure prices (Fargate, RDS, S3, etc.) remain reliable; only AI model prices need the stale flag. If `days_since_cache ≤ 30`, use the price directly and set `pricing_source: "cached"`.
-2. **MCP with recipes (secondary)** — If a service is NOT in pricing-cache.md and MCP is available, use the Pricing Recipes table below. Set `pricing_source: "live"`.
-3. **Cache after MCP failure** — If MCP was attempted but failed, and the service IS in the cache, use the cached price. Set `pricing_source: "cached_fallback"`.
-4. **Unavailable** — If a service is NOT in the cache AND MCP failed, set `pricing_source: "unavailable"`. Add to `services_with_missing_fallback` and warn the user.
+1. **`awspricingfree` MCP (primary)** — Drive the resolve → describe → price loop (below). On
+   `{status:"ok"}`, use `monthlyCost` and set `pricing_source: "live_free"`. It reproduces
+   calculator.aws to the cent, credential-free.
+2. **`shared/pricing-cache.md` (fallback)** — If `awspricingfree` returns `unsupported`/`unpriceable`
+   for a service, look it up in the cache and apply the formula table below. Set `pricing_source:
+   "cached"`. If the MCP was unreachable entirely, price all cache-covered services from the cache
+   and set `pricing_source: "cached_fallback"`.
+3. **Credentialed `awspricing` MCP (last resort)** — Only if a service is in NEITHER `awspricingfree`
+   NOR the cache: use the Pricing Recipes table (bottom of this file). Set `pricing_source: "live"`.
+4. **Unavailable** — If a service is in none of the above, set `pricing_source: "unavailable"`. Add to
+   `services_with_missing_fallback` and warn the user.
 
-For typical migrations (Fargate, Aurora/RDS, Aurora Serverless v2, S3, ALB, NAT Gateway, Lambda, Secrets Manager, CloudWatch, ElastiCache, DynamoDB), ALL prices are in `pricing-cache.md`. Zero MCP calls needed.
+### Step 0a: The `awspricingfree` per-service loop
+
+For each service in `aws-design.json`, drive the four MCP tools:
+
+1. **Resolve** — `resolve_service({query})` to get a `serviceKey` (use the map below for the fast
+   path; `list_services({})` to browse if the ranked guess is ambiguous).
+2. **Describe** — `describe_service({serviceKey})` to learn the required/conditional input ids,
+   dropdown/unit options, `unitParam`/`sizeParam` companion keys, and any `templateIndex`.
+3. **Price** — `price({serviceKey, region, inputs, templateIndex?})`. `region` is the FULL name
+   (`"US East (N. Virginia)"`, not `us-east-1`). Map `aws_config` onto the describe input ids; **you**
+   supply usage volumes (task counts, storage GB, request counts) — the tool never fabricates them.
+
+Handle each `price` response:
+
+| Response                                            | Action                                                                                  | `pricing_source` |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------- | ---------------- |
+| `{status:"ok", monthlyCost}`                        | Use `monthlyCost`. Record `trace`/`breakdown` if useful.                                | `"live_free"`    |
+| `{status:"needs_input", missing}`                   | Supply the named ids from `aws_config` (or documented defaults) and RE-CALL `price`.    | — (retry)        |
+| `{status:"pointer", subServices}`                   | Pick the correct sub-service key (e.g. DynamoDB on-demand) and re-call `price` with it. | — (retry)        |
+| `{status:"unsupported"}` / `{status:"unpriceable"}` | The MCP does not model this service — fall back to the cache (order item 2).            | (see 2)          |
+
+Do NOT accept an `ok $0` as a real price unless you actually supplied usage inputs (the MCP's
+vacuous-$0 guard returns `needs_input` for unconfigured services, but stay alert).
+
+### awspricingfree serviceKey map (common GCP-migration services)
+
+Use `resolve_service` to confirm, but these are the verified keys for the fast path (region =
+`"US East (N. Virginia)"` unless the design says otherwise):
+
+| Design `aws_service` | awspricingfree `serviceKey`              | Key inputs to map (from `describe_service`)                                                                      |
+| -------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Fargate              | `awsFargate`                             | `numberOfTasks`(+`__unit`), `taskDuration`(+`__unit`), `vcpuPerTask`, `memoryStandardFargateOnDemand`(+`__size`) |
+| Aurora PostgreSQL    | `amazonRDSAuroraPostgreSQLCompatibleDB`  | `columnFormIPM__instanceType`, `storageAmount`                                                                   |
+| Aurora MySQL         | `amazonAuroraMySQLCompatible`            | `columnFormIPM__instanceType`, `storageAmount`                                                                   |
+| RDS PostgreSQL       | `amazonRDSPostgreSQLDB`                  | `columnFormIPM__instanceType`, `columnFormIPM__deploymentOption`, `storageAmount`                                |
+| RDS MySQL            | `amazonRDSMySQLDB`                       | `columnFormIPM__instanceType`, `columnFormIPM__deploymentOption`, `storageAmount`                                |
+| ElastiCache Redis    | `amazonElastiCache`                      | `columnFormIPM__instanceType`, Cache Engine selector (`columnFormIPM__cacheEngine`)                             |
+| ALB                  | `elasticLoadBalancing` (pointer → `applicationLoadBalancer`) | LCU dimensions (fixed + usage)                                                       |
+| S3 Standard          | `amazonS3Standard`                       | `storageAmount`(+`__size`), request counts                                                                      |
+| NAT Gateway          | `networkAddressTranslationNatGatewayVpc` | gateway count, GB processed                                                                                      |
+| Lambda               | `aWSLambda`                              | `numberOfRequests`(+`__unit`), `durationOfEachRequest`, `sizeOfMemoryAllocated`(+`__size`)                       |
+| CloudWatch           | `amazonCloudWatch`                       | dashboards, log GB, custom metrics, alarms (see Part 2B)                                                         |
+| Secrets Manager      | `awsSecretsManager`                      | secret count, API calls                                                                                          |
+| DynamoDB             | `amazonDynamoDb` (pointer → on-demand/provisioned) | storage GB, request/capacity units                                                    |
+| Route 53             | `amazonRoute53`                          | hosted zones, query volume                                                                                      |
+| EventBridge          | `amazonEventBridge`                      | custom event volume                                                                                             |
+
+Services the MCP does NOT model today (fall to the cache): SES, Amazon MQ, OpenSearch, EKS control
+plane + node rates, MSK, X-Ray, RDS Proxy. Price these from `pricing-cache.md`.
 
 ## Step 0: Validate Design Output
 
@@ -31,9 +87,10 @@ Before pricing queries, validate `aws-design.json`:
 
 If all validations pass, proceed to Part 1.
 
-## Pricing Recipes (MCP Fallback Only)
+## Pricing Recipes (Credentialed `awspricing` — LAST RESORT ONLY)
 
-Only use these recipes when a service is NOT in `pricing-cache.md` and MCP is available.
+Only use these recipes when a service is in NEITHER `awspricingfree` NOR `pricing-cache.md` — i.e.
+the credentialed `awspricing` MCP is the last resort (requires AWS credentials; rarely reached).
 Do NOT call get_pricing_service_codes, get_pricing_service_attributes, or get_pricing_attribute_values — go directly to get_pricing.
 
 | AWS Service          | service_code      | filters                                                                                                              | output_options                                                                                                                                     |
@@ -90,7 +147,10 @@ This ensures the comparison is GCP list price vs. AWS on-demand (both uncommitte
 
 **Security baseline coverage (always required):** Add a `security_baseline` entry to `projected_costs.breakdown` with `service: "AWS Security Baseline (Tier 1)"`, low/mid/high estimates of $3/$15/$30 per month, `accuracy: "±25%"`, and a `components` sub-object breaking down CloudTrail S3 storage (~$1.50/mo mid), GuardDuty (~~$13/mo mid after free trial), AWS Budgets ($0), and the free controls. If `preferences.json.compliance` contains any of `soc2`, `pci`, `hipaa`, `fedramp`, also add a sibling `security_baseline_compliance` entry with low/mid/high estimates of $3/$14/$25 per month, `accuracy: "±25%"`, `emission_reason` field citing the declared compliance values, and a `components` sub-object breaking down AWS Config (~$6/mo mid continuous), Config S3 storage (~~ $0.50/mo mid), Security Hub + FSBP (~$7/mo mid after free trial), and extra standards (free). Per-unit rates are grounded in the AWS Pricing API for us-east-1 as of 2026-05-04 (Config pricing effective 2025-09-01, Security Hub effective 2026-03-01). Cite source as `references/shared/pricing-cache.md § Security Baseline` or live `get_pricing` calls for `AmazonGuardDuty`, `AWSConfig`, and `AWSSecurityHub` service codes. Both line items are added as flat additives to each tier total (Premium/Balanced/Optimized) rather than being tier-dependent.
 
-For each service in `aws-design.json`, calculate monthly cost using rates from `pricing-cache.md`. Track `pricing_source` per service.
+For each service in `aws-design.json`, calculate monthly cost by driving the `awspricingfree` loop
+(Step 0a) — map `aws_config` onto the `describe_service` input ids and use the returned `monthlyCost`.
+Fall back to `pricing-cache.md` rates only for services `awspricingfree` does not model. Track
+`pricing_source` per service.
 
 **Secret Manager coverage (mandatory):** If any mapped resource has `gcp_type` of `google_secret_manager_secret` or `google_secret_manager_secret_version`, ensure an `aws_service` entry for **Secrets Manager** is present in the estimate breakdown. Do not collapse this into a generic "supporting" line item.
 
@@ -134,7 +194,12 @@ GCP Cloud Operations includes a larger free tier for logging (50 GB/month), metr
 
 ### Pricing source
 
-All rates from `pricing-cache.md § CloudWatch` and `§ X-Ray`. No MCP calls needed.
+`awspricingfree` models CloudWatch (`serviceKey: amazonCloudWatch`) and can price the dashboards/
+metrics/alarms/logs card directly. However, the free-tier decomposition below (subtracting the
+always-free allowances, per-component log ingestion/storage/tracing math) is a formula the MCP does
+not reproduce line-by-line, so this section computes components from per-unit rates: prefer the
+`awspricingfree` CloudWatch rates where available, else `pricing-cache.md § CloudWatch` and `§ X-Ray`.
+Either way, set `pricing_source` to `"live_free"` (MCP) or `"cached"` (cache) accordingly.
 
 ### Step 1: Determine log volume
 
@@ -571,7 +636,7 @@ Before returning control to `estimate.md`, require:
 
 After writing `estimation-infra.json`, present a concise summary to the user:
 
-1. **Pricing source and accuracy**: State whether prices came from cache or live API, and the accuracy range (±5-10% for infrastructure from cache/live, ±15-25% if cache is stale). Example: "Estimates based on cached AWS pricing (2026-03-07), accuracy ±5-10%."
+1. **Pricing source and accuracy**: State which source priced the services — `awspricingfree` MCP (credential-free, matches calculator.aws to the cent), `pricing-cache.md` fallback (±5-25%), or credentialed `awspricing` — and the accuracy range. Example: "Estimates from the awspricingfree MCP (matches calculator.aws to the cent for modeled services); cache used only where the MCP doesn't model a service."
 2. GCP baseline vs estimated AWS monthly cost (balanced tier) — one-line comparison
 3. Three-tier table: **Premium**, **Balanced**, **Optimized** with estimated monthly costs. Under or beside each label, use the **short subtitles**: Premium — _Highest resilience / highest monthly estimate in this model_; Balanced — _Default scenario; compare GCP to this first_; Optimized — _Lower monthly estimate; reservations / Spot / storage trade-offs assumed_. Add a one-line **How to read**: three figures are **estimated monthly costs** for the same architecture (high → mid → low); **not** three Terraform stacks. When Terraform is generated later, it aligns with **Balanced**.
 4. Per-service estimated monthly cost breakdown (balanced tier, 1 line per service)

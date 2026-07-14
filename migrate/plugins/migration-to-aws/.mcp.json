@@ -1,5 +1,23 @@
 {
   "mcpServers": {
+    "awspricingfree": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "/Volumes/workplace/AWSPricingMCP/dist/mcp/server.js"
+      ],
+      "env": {
+        "PRICING_MCP_LOG_FILE": "/Volumes/workplace/AWSPricingMCP/server.log",
+        "PRICING_MCP_LOG_LEVEL": "debug"
+      },
+      "timeout": 120000,
+      "autoApprove": [
+        "resolve_service",
+        "list_services",
+        "describe_service",
+        "price"
+      ]
+    },
     "awsknowledge": {
       "type": "http",
       "url": "https://knowledge-mcp.global.api.aws"
