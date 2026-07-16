@@ -207,7 +207,12 @@ Replace `MMDD-HHMM` with the actual migration ID, generate the `last_updated` IS
 
 **awspricingfree** (the ONLY cost-estimation pricing source):
 
-- Provides `resolve_service`, `list_services`, `describe_service`, `price` tools.
+- Provides `resolve_service`, `list_services`, `describe_service`, `prepare_price`, `price` tools.
+- **`prepare_price` is the preferred per-service entry point** — one call resolves + describes a
+  service and returns a compact, action-oriented plan (which choices you must make, which usage
+  values to supply, which add-ons default ON, a pre-filled request skeleton), instead of the fuller
+  `describe_service` schema. Use it to keep context small when pricing many services. Fall back to
+  `resolve_service`/`describe_service` only when you need the full option/unit lists.
 - Credential-free — reproduces calculator.aws to the cent, no AWS account needed (matters for
   pre-migration customers). Only needed during the Estimate phase.
 - **Sole pricing source for infrastructure services** (Fargate, RDS/Aurora, ElastiCache, ALB,

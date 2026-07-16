@@ -16,29 +16,47 @@ and do **NOT** call the credentialed `awspricing` (`get_pricing`) MCP.
 ### Step 0a: Establish the `awspricingfree` pricing loop (do this BEFORE any calculation)
 
 `awspricingfree` reproduces calculator.aws to the cent, credential-free (no AWS account needed, which
-matters for pre-migration customers). Each sub-estimate file drives its four tools per service:
+matters for pre-migration customers). Drive it per service with **`prepare_price` as the entry
+point** — one call replaces the old resolve + describe steps and returns a compact plan, which keeps
+context small when a repo has many services:
 
-1. **Resolve** the AWS service name to a `serviceKey` — `resolve_service({query})` (or
-   `list_services({})` to browse when the ranked guess is ambiguous).
-2. **Describe** it — `describe_service({serviceKey})` to learn the required/conditional input ids,
-   dropdown/unit options, `unitParam`/`sizeParam` companion keys, and (for multi-model services)
-   the `templateIndex`.
-3. **Price** it — `price({serviceKey, region, inputs, templateIndex?})` where `region` is the FULL
-   name (`"US East (N. Virginia)"`, not `us-east-1`) and `inputs` are keyed by the describe ids.
-   Map the `aws_config` from `aws-design.json` onto those inputs; **you** supply the usage volumes
-   (task counts, storage GB, request counts) — the tool never fabricates them.
+1. **Prepare** — `prepare_price({query OR serviceKey, region, templateIndex?})`. Pass the design's
+   AWS service name as `query` (or a known `serviceKey`) and the FULL region name
+   (`"US East (N. Virginia)"`, not `us-east-1`). It resolves + describes in one call and returns one of:
+   - `{status:"ready", ...}` — a plan with `decisions` (structural-blocking choices you MUST make,
+     e.g. DB instance type), `usageInputs` (quantities YOU supply from `aws_config` — never
+     fabricated), `addOnsDefaultOn` (add-ons that DEFAULT ON and silently add cost — confirm or
+     disable), `structuralDefaults` (safe defaults already chosen), and a `priceRequestSkeleton`
+     (serviceKey/region/templateIndex + structural defaults pre-filled). Merge your `decisions` +
+     `usageInputs` into `priceRequestSkeleton.inputs` and call `price` with it.
+   - `{status:"choose_subservice", subServices}` — a service GROUP. Pick the sub-service key that
+     fits the workload (e.g. DynamoDB on-demand vs provisioned) and call `prepare_price` again with
+     that `serviceKey`.
+   - `{status:"choose_template", templates}` — multiple pricing MODELS. Pick the `templateIndex`
+     that matches the intended model (e.g. CloudFront pay-as-you-go) and call `prepare_price` again
+     with it.
+   - `{status:"unsupported"}` — no priceable service resolved; retry with a different `query`/
+     `list_services`, or mark `unavailable` if truly unmodeled.
+2. **Price** — `price({serviceKey, region, inputs, templateIndex?})` with the skeleton inputs plus
+   the values you filled in. `region` is the FULL name; `inputs` are keyed by the plan's ids.
+
+`prepare_price` NEVER auto-selects a sub-service/template and NEVER fabricates a usage value — those
+are YOUR judgment. When you need the full option/unit lists behind the compact plan, call
+`describe_service({serviceKey})`; `resolve_service`/`list_services` remain available to browse.
 
 Handle each `price` response:
 
 | Response                                            | Action                                                                                  | `pricing_source` |
 | --------------------------------------------------- | --------------------------------------------------------------------------------------- | ---------------- |
 | `{status:"ok", monthlyCost}`                        | Use `monthlyCost`. Record the `trace`/`breakdown` if useful.                            | `"live_free"`    |
-| `{status:"needs_input", missing}`                   | Supply the named ids from `aws_config` (or documented defaults) and RE-CALL `price`.    | — (retry)        |
+| `{status:"needs_input", missing}`                   | Each `missing` entry now carries its full schema metadata (kind/units/unitParam/options/note). Supply the named ids from `aws_config` (or documented defaults) and RE-CALL `price` — no need to re-call `describe_service`. | — (retry)        |
 | `{status:"pointer", subServices}`                   | Pick the correct sub-service key (e.g. DynamoDB on-demand) and re-call `price` with it. | — (retry)        |
 | `{status:"unsupported"}` / `{status:"unpriceable"}` | `awspricingfree` does not model this service. Mark it `unavailable` (Step 0b).          | `"unavailable"`  |
 
 Do NOT accept an `ok $0` as a real price unless you actually supplied usage inputs (the MCP's
-vacuous-$0 guard returns `needs_input` for unconfigured services, but stay alert).
+vacuous-$0 guard returns `needs_input` for unconfigured services, but stay alert). In particular,
+review the `addOnsDefaultOn` the plan surfaced — a default-ON add-on you don't want must be disabled
+in `inputs` before pricing, or the estimate silently includes it.
 
 #### Unit discipline (avoid orders-of-magnitude errors)
 

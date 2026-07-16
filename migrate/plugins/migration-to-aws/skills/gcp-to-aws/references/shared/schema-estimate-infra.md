@@ -283,7 +283,7 @@ Do not render this file in the executive migration report by default.
           "source": "documented_low_traffic_assumption"
         }
       },
-      "mcp_statuses": ["resolve_service:ok", "describe_service:ok", "price:ok"],
+      "mcp_statuses": ["prepare_price:ready", "price:ok"],
       "terminal_status": "priced",
       "failure_class": null,
       "monthly_cost": 0.5,

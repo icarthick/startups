@@ -12,7 +12,7 @@ is the credential-free `awspricingfree` MCP — **NO cache, NO credentialed-API 
 
 **Price lookup order for each AWS service in `aws-design.json`:**
 
-1. **`awspricingfree` MCP (the only source)** — Drive the resolve → describe → price loop (below). On
+1. **`awspricingfree` MCP (the only source)** — Drive the `prepare_price` → `price` loop (below). On
    `{status:"ok"}`, use `monthlyCost` and set `pricing_source: "live_free"`. It reproduces
    calculator.aws to the cent, credential-free.
 2. **Unavailable** — If `awspricingfree` returns `unsupported`/`unpriceable`, set `pricing_source:
@@ -22,22 +22,36 @@ is the credential-free `awspricingfree` MCP — **NO cache, NO credentialed-API 
 
 ### Step 0a: The `awspricingfree` per-service loop
 
-For each service in `aws-design.json`, drive the four MCP tools:
+For each service in `aws-design.json`, drive the MCP with **`prepare_price` as the entry point** —
+one call replaces the old resolve + describe steps and returns a compact plan, so a repo with many
+services doesn't exhaust context:
 
-1. **Resolve** — `resolve_service({query})` to get a `serviceKey` (use the map below for the fast
-   path; `list_services({})` to browse if the ranked guess is ambiguous).
-2. **Describe** — `describe_service({serviceKey})` to learn the required/conditional input ids,
-   dropdown/unit options, `unitParam`/`sizeParam` companion keys, and any `templateIndex`.
-3. **Price** — `price({serviceKey, region, inputs, templateIndex?})`. `region` is the FULL name
-   (`"US East (N. Virginia)"`, not `us-east-1`). Map `aws_config` onto the describe input ids; **you**
-   supply usage volumes (task counts, storage GB, request counts) — the tool never fabricates them.
+1. **Prepare** — `prepare_price({query OR serviceKey, region, templateIndex?})`. Pass the design's
+   AWS service name as `query` (or a known `serviceKey`); `region` is the FULL name
+   (`"US East (N. Virginia)"`, not `us-east-1`). It returns one of:
+   - `ready` — a plan with `decisions` (structural-blocking choices you MUST make, e.g. DB instance
+     type), `usageInputs` (quantities YOU map from `aws_config` — the tool never fabricates them),
+     `addOnsDefaultOn` (add-ons that DEFAULT ON — confirm or disable, or the estimate silently
+     includes them), `structuralDefaults` (safe defaults already chosen), and a
+     `priceRequestSkeleton`. Merge your decisions + usage values into `priceRequestSkeleton.inputs`.
+   - `choose_subservice` — a service GROUP; pick the sub-service key that fits and call
+     `prepare_price` again with it.
+   - `choose_template` — multiple pricing MODELS; pick the `templateIndex` and call again.
+   - `unsupported` — no priceable service resolved; retry with a different query/`list_services`, or
+     mark `unavailable` if truly unmodeled.
+2. **Price** — `price({serviceKey, region, inputs, templateIndex?})` using the skeleton plus your
+   filled-in values. `inputs` are keyed by the plan's ids.
+
+`prepare_price` NEVER auto-selects a sub-service/template and NEVER fabricates usage. For the full
+option/unit lists behind the compact plan, call `describe_service({serviceKey})`;
+`list_services({})` browses the catalog when a `query` is ambiguous.
 
 Handle each `price` response:
 
 | Response                                            | Action                                                                                  | `pricing_source` |
 | --------------------------------------------------- | --------------------------------------------------------------------------------------- | ---------------- |
 | `{status:"ok", monthlyCost}`                        | Use `monthlyCost`. Record `trace`/`breakdown` if useful.                                | `"live_free"`    |
-| `{status:"needs_input", missing}`                   | Supply the named ids from `aws_config` (or documented defaults) and RE-CALL `price`.    | — (retry)        |
+| `{status:"needs_input", missing}`                   | Each `missing` entry carries its full schema metadata (kind/units/unitParam/sizeParam/options/note) — supply the named ids from `aws_config` (or documented defaults) and RE-CALL `price`; no need to re-call `describe_service`. | — (retry)        |
 | `{status:"pointer", subServices}`                   | Pick the correct sub-service key (e.g. DynamoDB on-demand) and re-call `price` with it. | — (retry)        |
 | `{status:"unsupported"}` / `{status:"unpriceable"}` | `awspricingfree` does not model this service. Mark it `unavailable` and exclude it.     | `"unavailable"`  |
 
@@ -45,8 +59,9 @@ Do NOT accept an `ok $0` as a real price unless you actually supplied usage inpu
 vacuous-$0 guard returns `needs_input` for unconfigured services, but stay alert).
 
 **Unit discipline applies here** — always send the `__unit` companion for count/rate fields (never
-rely on a scaled default), read each field's `describe_service` note, and sanity-check magnitudes.
-See `estimate.md` Step 0a “Unit discipline” for the full rules and the 50-trillion trap.
+rely on a scaled default), read each field's `note` (surfaced in the `prepare_price` plan and in
+`needs_input`), and sanity-check magnitudes. See `estimate.md` Step 0a “Unit discipline” for the full
+rules and the 50-trillion trap.
 
 ### Step 0b: Write a diagnostic `pricing-attempts.json` ledger
 
@@ -70,10 +85,10 @@ Use these diagnostic `failure_class` values when terminal status is not `priced`
 
 | `failure_class` | When to use |
 | --- | --- |
-| `resolve_failed` | `resolve_service` returned no plausible match and `list_services` did not recover a key; terminal status MUST be `workflow_error` unless a later `unsupported`/`unpriceable` call occurred |
-| `describe_unsupported` | `describe_service` returned `unsupported` for the selected key; retry with `resolve_service`/`list_services` before marking final |
-| `pointer_unhandled` | `price` returned `pointer` and no sub-service was selected/retried; terminal status MUST be `workflow_error` |
-| `template_unselected` | `describe_service` returned `multiTemplate: true` but no `templateIndex` was chosen; terminal status MUST be `workflow_error` |
+| `resolve_failed` | `prepare_price` (or `resolve_service`/`list_services`) returned no plausible match; terminal status MUST be `workflow_error` unless a later `unsupported`/`unpriceable` call occurred |
+| `describe_unsupported` | `prepare_price` / `describe_service` returned `unsupported` for the selected key; retry with a different query or `list_services` before marking final |
+| `pointer_unhandled` | `prepare_price` returned `choose_subservice` (or `price` returned `pointer`) and no sub-service was selected/retried; terminal status MUST be `workflow_error` |
+| `template_unselected` | `prepare_price` returned `choose_template` (or `describe_service` returned `multiTemplate: true`) but no `templateIndex` was chosen; terminal status MUST be `workflow_error` |
 | `needs_input_unresolved` | `price` returned `needs_input` and the missing usage cannot be inferred or documented; terminal status MUST be `needs_usage` |
 | `unsupported` | `price` returned `unsupported` after valid retries; terminal status MUST be `unavailable` |
 | `unpriceable` | `price` returned `unpriceable` after valid retries; terminal status MUST be `unavailable` |
@@ -100,7 +115,7 @@ Minimum record shape:
       "source": "documented_low_traffic_assumption"
     }
   },
-  "mcp_statuses": ["resolve_service:ok", "describe_service:ok", "price:ok"],
+  "mcp_statuses": ["prepare_price:ready", "price:ok"],
   "terminal_status": "priced",
   "failure_class": null,
   "monthly_cost": 0.5,
@@ -112,14 +127,20 @@ Minimum record shape:
 
 Retry requirements before writing a non-priced status:
 
-- If `price` returns `pointer`, select the appropriate sub-service and retry. If you cannot select
-  one, record `terminal_status: "workflow_error"` and `failure_class: "pointer_unhandled"`.
-- If `describe_service` returns `multiTemplate: true`, choose and record `templateIndex` before
-  pricing. If you cannot choose one, record `workflow_error` / `template_unselected`.
-- If `price` returns `needs_input`, use `describe_service` to map missing ids. Supply structural
-  defaults from `default` / `defaultResolved` when present and disclose them in `assumptions`.
-  For usage inputs, use source data or a documented low/mid/high assumption. If neither is
-  acceptable, record `needs_usage` / `needs_input_unresolved` rather than `unavailable`.
+- If `prepare_price` returns `choose_subservice` (or `price` returns `pointer`), select the
+  appropriate sub-service and retry. If you cannot select one, record
+  `terminal_status: "workflow_error"` and `failure_class: "pointer_unhandled"`.
+- If `prepare_price` returns `choose_template` (or `describe_service` reports `multiTemplate: true`),
+  choose and record `templateIndex` before pricing. If you cannot choose one, record
+  `workflow_error` / `template_unselected`.
+- If `price` returns `needs_input`, each missing entry already carries its schema metadata
+  (kind/units/unitParam/sizeParam/options/note) — supply the named ids and RE-CALL `price` without a
+  separate `describe_service`. Supply structural defaults from the `prepare_price` plan's
+  `structuralDefaults` (or the missing entry's `defaultResolved`) when present and disclose them in
+  `assumptions`. For usage inputs, use source data or a documented low/mid/high assumption. If
+  neither is acceptable, record `needs_usage` / `needs_input_unresolved` rather than `unavailable`.
+- Review the `addOnsDefaultOn` from the `prepare_price` plan: an add-on that defaults ON and does not
+  belong in the estimate MUST be disabled in `inputs` before pricing, or it is silently included.
 - Only `unsupported` and `unpriceable` after a valid retry path become `unavailable`.
 - If the agent runs out of context before attempting a modeled service, record
   `terminal_status: "workflow_error"` with `failure_class: "resolve_failed"` and STOP. Do not mark
@@ -132,41 +153,31 @@ Retry requirements before writing a non-priced status:
   `pricing_source: "manual"`. If a service is not priced by awspricingfree, classify it as
   `needs_usage`, `not_priceable`, `workflow_error`, or `unavailable` as defined above.
 
-### awspricingfree serviceKey map (common GCP-migration services)
+### Resolving services (use `prepare_price`, not a static map)
 
-Use `resolve_service` to confirm, but these are the verified keys for the fast path (region =
-`"US East (N. Virginia)"` unless the design says otherwise):
+Do NOT consult a static `aws_service` → `serviceKey` table. `prepare_price({query, region})` resolves
+the service from the design's AWS service name and returns the exact input ids to supply — this is
+the generic path, and it stays correct as the calculator catalog changes. Pass the design's
+`aws_service` (and any qualifier, e.g. "RDS PostgreSQL", "SNS standard topic") as `query`. If the
+resolved service looks wrong, inspect `matches[]` in the response or call `list_services({})` to
+browse, then re-call `prepare_price` with the chosen `serviceKey`.
 
-| Design `aws_service` | awspricingfree `serviceKey`              | Key inputs to map (from `describe_service`)                                                                      |
-| -------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Fargate              | `awsFargate`                             | `numberOfTasks`(+`__unit`), `taskDuration`(+`__unit`), `vcpuPerTask`, `memoryStandardFargateOnDemand`(+`__size`) |
-| Aurora PostgreSQL    | `amazonRDSAuroraPostgreSQLCompatibleDB`  | `columnFormIPM__instanceType`, `storageAmount`                                                                   |
-| Aurora MySQL         | `amazonAuroraMySQLCompatible`            | `columnFormIPM__instanceType`, `storageAmount`                                                                   |
-| RDS PostgreSQL       | `amazonRDSPostgreSQLDB`                  | `columnFormIPM__instanceType`, `columnFormIPM__deploymentOption`, `storageAmount`                                |
-| RDS MySQL            | `amazonRDSMySQLDB`                       | `columnFormIPM__instanceType`, `columnFormIPM__deploymentOption`, `storageAmount`                                |
-| ElastiCache Redis    | `amazonElastiCache`                      | `columnFormIPM__instanceType`, Cache Engine selector (`columnFormIPM__cacheEngine`)                             |
-| EC2 / ASG / EKS workers | `ec2Enhancement`                      | `instanceType`, `hours` (default 730), `operatingSystem`, optional EBS `storageType` + `storageAmount`           |
-| EKS control plane    | `awsEks`                                 | `numberOfEKSClusters`                                                                                           |
-| ALB                  | `elasticLoadBalancing` (pointer → `applicationLoadBalancer`) | LCU dimensions (fixed + usage)                                                       |
-| NLB                  | `networkLoadBalancer`                    | `numberOfNetworkLoadBalancers`; LCU dimensions if known                                                           |
-| S3 Standard          | `amazonS3Standard`                       | `storageAmount`(+`__size`), request counts                                                                      |
-| NAT Gateway          | `networkAddressTranslationNatGatewayVpc` | `numberOfGateways`, `dataProcessedPerNATGateway`(+`__size`); set Regional NAT fields to 0 unless explicitly using Regional NAT Gateway |
-| Site-to-Site VPN     | `vpnConnectionVpc`                       | `numberOfSiteToSiteVPNConnections`, `averageDurationForEachConnection`, `averageDurationForEachConnection__unit` |
-| Lambda               | `aWSLambda`                              | `numberOfRequests`(+`__unit`), `durationOfEachRequest`, `sizeOfMemoryAllocated`(+`__size`)                       |
-| CloudWatch           | `amazonCloudWatch`                       | dashboards, log GB, custom metrics, alarms (see Part 2B)                                                         |
-| Secrets Manager      | `awsSecretsManager`                      | secret count, API calls                                                                                          |
-| KMS                  | `awsKeyManagementService`                | key count, request count                                                                                         |
-| SNS Standard         | `standardTopics`                         | request/publish count (+ exact `__unit` from `describe_service`)                                                 |
-| SQS                  | `amazonSimpleQueueService`               | Standard/FIFO request counts (+ exact `__unit` from `describe_service`)                                          |
-| WAF                  | `awsWebApplicationFirewall`              | web ACL count, rules per ACL, request volume if known                                                            |
-| CloudFront           | `amazonCloudFront`                       | choose pay-as-you-go template; data transfer out, request counts                                                 |
-| DynamoDB             | `amazonDynamoDb` (pointer → on-demand/provisioned) | storage GB, request/capacity units                                                    |
-| Route 53             | `amazonRoute53`                          | hosted zones, query volume                                                                                      |
-| EventBridge          | `amazonEventBridge`                      | custom event volume                                                                                             |
+A few mappings are ARCHITECTURE judgments the tool cannot infer from a service name — apply these
+before calling `prepare_price`:
 
-Do NOT keep a static unsupported-service list. Always attempt the `resolve_service` →
-`describe_service` → `price` loop first. Only mark a service `pricing_source: "unavailable"` when
-`awspricingfree` returns `unsupported` or `unpriceable` for that specific service call.
+- **EKS** maps to TWO billable components: the **control plane** (query "EKS", one plan) AND the
+  **worker nodes**, which price as **EC2** (query "EC2"; supply instance type + hours). Emit a
+  separate `pricing-attempts.json` record for each (see Step 0b on multi-component resources).
+- **ASG / GKE-style worker pools** likewise price as **EC2**.
+- **Managed load balancers** and other GROUP entry points return `choose_subservice` from
+  `prepare_price` — pick the member that matches the design (e.g. ALB vs NLB).
+- **DynamoDB / CloudFront** and other multi-model services return `choose_subservice` /
+  `choose_template` — the on-demand-vs-provisioned or flat-rate-vs-pay-as-you-go choice is YOUR
+  cost/architecture decision, made from the workload, not a table lookup.
+
+Do NOT keep a static unsupported-service list. Always attempt `prepare_price` → `price` first. Only
+mark a service `pricing_source: "unavailable"` when `awspricingfree` returns `unsupported` or
+`unpriceable` for that specific service call.
 
 ## Step 0: Validate Design Output
 
