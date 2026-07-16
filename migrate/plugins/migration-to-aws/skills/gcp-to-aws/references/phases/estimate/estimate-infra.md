@@ -48,6 +48,90 @@ vacuous-$0 guard returns `needs_input` for unconfigured services, but stay alert
 rely on a scaled default), read each field's `describe_service` note, and sanity-check magnitudes.
 See `estimate.md` Step 0a “Unit discipline” for the full rules and the 50-trillion trap.
 
+### Step 0b: Write a diagnostic `pricing-attempts.json` ledger
+
+For every priceable AWS service/component considered from `aws-design.json`, append one attempt
+record to `$MIGRATION_DIR/pricing-attempts.json`. A single source resource may produce multiple
+attempts when it maps to multiple billable AWS components, such as EKS control plane plus EC2 worker
+nodes. This file is for developer diagnostics and coverage analysis only; do NOT surface it in the
+executive summary or migration report unless the user asks for pricing debug details.
+
+Each attempt MUST end in exactly one terminal status:
+
+| Terminal status | Meaning | User-facing treatment |
+| --- | --- | --- |
+| `priced` | `price` returned `{status:"ok"}` and the cost was included in totals | Normal priced service |
+| `needs_usage` | MCP can model the service, but required usage volume is absent and no documented assumption was acceptable | Modeled but not estimated; ask for usage or list as excluded due to missing usage |
+| `unavailable` | MCP returned `unsupported` or `unpriceable` after a valid service key and retries | Not modeled by awspricingfree; exclude from totals |
+| `not_priceable` | No billable AWS pricing dimension exists or no AWS target was selected by design (for example VPC shell resources, ECS Cluster shell, AWS Chatbot free service, BigQuery specialist gate) | Excluded from totals with explanatory note; not an MCP gap |
+| `workflow_error` | The agent did not complete a required resolve/describe/pointer/template/needs_input retry step | Do not complete Estimate; fix the workflow and retry |
+
+Use these diagnostic `failure_class` values when terminal status is not `priced`:
+
+| `failure_class` | When to use |
+| --- | --- |
+| `resolve_failed` | `resolve_service` returned no plausible match and `list_services` did not recover a key; terminal status MUST be `workflow_error` unless a later `unsupported`/`unpriceable` call occurred |
+| `describe_unsupported` | `describe_service` returned `unsupported` for the selected key; retry with `resolve_service`/`list_services` before marking final |
+| `pointer_unhandled` | `price` returned `pointer` and no sub-service was selected/retried; terminal status MUST be `workflow_error` |
+| `template_unselected` | `describe_service` returned `multiTemplate: true` but no `templateIndex` was chosen; terminal status MUST be `workflow_error` |
+| `needs_input_unresolved` | `price` returned `needs_input` and the missing usage cannot be inferred or documented; terminal status MUST be `needs_usage` |
+| `unsupported` | `price` returned `unsupported` after valid retries; terminal status MUST be `unavailable` |
+| `unpriceable` | `price` returned `unpriceable` after valid retries; terminal status MUST be `unavailable` |
+| `deferred_target` | Design intentionally selected no AWS target (for example BigQuery specialist gate); terminal status MUST be `not_priceable` |
+| `not_billable` | AWS service/resource has no billable dimensions (for example AWS Chatbot, VPC shell, ECS Cluster shell); terminal status MUST be `not_priceable` |
+
+Minimum record shape:
+
+```json
+{
+  "resource": "google_pubsub_topic.orders",
+  "aws_service": "SNS",
+  "component": "standard topic requests",
+  "query": "SNS standard topic",
+  "selected_service_key": "standardTopics",
+  "selected_service_name": "Amazon SNS Standard Topics",
+  "template_index": null,
+  "pointer_from": null,
+  "inputs_supplied": {
+    "numberOfRequests": {
+      "value": 1,
+      "unit_param": "numberOfRequests__unit",
+      "unit": "millionPerMonth",
+      "source": "documented_low_traffic_assumption"
+    }
+  },
+  "mcp_statuses": ["resolve_service:ok", "describe_service:ok", "price:ok"],
+  "terminal_status": "priced",
+  "failure_class": null,
+  "monthly_cost": 0.5,
+  "included_in_totals": true,
+  "assumptions": ["No request volume in Terraform; priced 1M requests/month as a low-traffic baseline"],
+  "notes": []
+}
+```
+
+Retry requirements before writing a non-priced status:
+
+- If `price` returns `pointer`, select the appropriate sub-service and retry. If you cannot select
+  one, record `terminal_status: "workflow_error"` and `failure_class: "pointer_unhandled"`.
+- If `describe_service` returns `multiTemplate: true`, choose and record `templateIndex` before
+  pricing. If you cannot choose one, record `workflow_error` / `template_unselected`.
+- If `price` returns `needs_input`, use `describe_service` to map missing ids. Supply structural
+  defaults from `default` / `defaultResolved` when present and disclose them in `assumptions`.
+  For usage inputs, use source data or a documented low/mid/high assumption. If neither is
+  acceptable, record `needs_usage` / `needs_input_unresolved` rather than `unavailable`.
+- Only `unsupported` and `unpriceable` after a valid retry path become `unavailable`.
+- If the agent runs out of context before attempting a modeled service, record
+  `terminal_status: "workflow_error"` with `failure_class: "resolve_failed"` and STOP. Do not mark
+  context exhaustion as `unavailable`.
+- Normalize the JSON exactly: use `terminal_status: "priced"` for successful MCP prices. Do NOT use
+  alternate statuses such as `ok` or `ok_but_suspect`, and do NOT use alternate key names such as
+  `serviceKey`, `service_key`, `aws_service_key`, `monthlyCost`, or `result.monthly`.
+- Do NOT write credentialed-pricing or manual-estimate fields into `pricing-attempts.json`, including
+  `mcp_tool: "get_pricing"`, `mcp_service_code`, `filters_used`, `price_monthly`, or
+  `pricing_source: "manual"`. If a service is not priced by awspricingfree, classify it as
+  `needs_usage`, `not_priceable`, `workflow_error`, or `unavailable` as defined above.
+
 ### awspricingfree serviceKey map (common GCP-migration services)
 
 Use `resolve_service` to confirm, but these are the verified keys for the fast path (region =
@@ -61,19 +145,28 @@ Use `resolve_service` to confirm, but these are the verified keys for the fast p
 | RDS PostgreSQL       | `amazonRDSPostgreSQLDB`                  | `columnFormIPM__instanceType`, `columnFormIPM__deploymentOption`, `storageAmount`                                |
 | RDS MySQL            | `amazonRDSMySQLDB`                       | `columnFormIPM__instanceType`, `columnFormIPM__deploymentOption`, `storageAmount`                                |
 | ElastiCache Redis    | `amazonElastiCache`                      | `columnFormIPM__instanceType`, Cache Engine selector (`columnFormIPM__cacheEngine`)                             |
+| EC2 / ASG / EKS workers | `ec2Enhancement`                      | `instanceType`, `hours` (default 730), `operatingSystem`, optional EBS `storageType` + `storageAmount`           |
+| EKS control plane    | `awsEks`                                 | `numberOfEKSClusters`                                                                                           |
 | ALB                  | `elasticLoadBalancing` (pointer → `applicationLoadBalancer`) | LCU dimensions (fixed + usage)                                                       |
+| NLB                  | `networkLoadBalancer`                    | `numberOfNetworkLoadBalancers`; LCU dimensions if known                                                           |
 | S3 Standard          | `amazonS3Standard`                       | `storageAmount`(+`__size`), request counts                                                                      |
-| NAT Gateway          | `networkAddressTranslationNatGatewayVpc` | gateway count, GB processed                                                                                      |
+| NAT Gateway          | `networkAddressTranslationNatGatewayVpc` | `numberOfGateways`, `dataProcessedPerNATGateway`(+`__size`); set Regional NAT fields to 0 unless explicitly using Regional NAT Gateway |
+| Site-to-Site VPN     | `vpnConnectionVpc`                       | `numberOfSiteToSiteVPNConnections`, `averageDurationForEachConnection`, `averageDurationForEachConnection__unit` |
 | Lambda               | `aWSLambda`                              | `numberOfRequests`(+`__unit`), `durationOfEachRequest`, `sizeOfMemoryAllocated`(+`__size`)                       |
 | CloudWatch           | `amazonCloudWatch`                       | dashboards, log GB, custom metrics, alarms (see Part 2B)                                                         |
 | Secrets Manager      | `awsSecretsManager`                      | secret count, API calls                                                                                          |
+| KMS                  | `awsKeyManagementService`                | key count, request count                                                                                         |
+| SNS Standard         | `standardTopics`                         | request/publish count (+ exact `__unit` from `describe_service`)                                                 |
+| SQS                  | `amazonSimpleQueueService`               | Standard/FIFO request counts (+ exact `__unit` from `describe_service`)                                          |
+| WAF                  | `awsWebApplicationFirewall`              | web ACL count, rules per ACL, request volume if known                                                            |
+| CloudFront           | `amazonCloudFront`                       | choose pay-as-you-go template; data transfer out, request counts                                                 |
 | DynamoDB             | `amazonDynamoDb` (pointer → on-demand/provisioned) | storage GB, request/capacity units                                                    |
 | Route 53             | `amazonRoute53`                          | hosted zones, query volume                                                                                      |
 | EventBridge          | `amazonEventBridge`                      | custom event volume                                                                                             |
 
-Services `awspricingfree` does NOT model today (→ `pricing_source: "unavailable"`, excluded from
-totals, surfaced as a gap): SES, Amazon MQ, OpenSearch, EKS control-plane + node rates, MSK, X-Ray,
-RDS Proxy. Do NOT substitute cached or hardcoded rates for these — report them as unpriced.
+Do NOT keep a static unsupported-service list. Always attempt the `resolve_service` →
+`describe_service` → `price` loop first. Only mark a service `pricing_source: "unavailable"` when
+`awspricingfree` returns `unsupported` or `unpriceable` for that specific service call.
 
 ## Step 0: Validate Design Output
 
@@ -92,8 +185,7 @@ If all validations pass, proceed to Part 1.
 ## Unpriced Services (no fallback)
 
 Under the awspricingfree-only rule there are **no cache recipes and no credentialed `awspricing`
-calls**. If `awspricingfree` returns `unsupported`/`unpriceable` for a service (e.g. SES, Amazon MQ,
-OpenSearch, EKS control-plane/node rates, MSK, X-Ray, RDS Proxy), record it with
+calls**. If `awspricingfree` returns `unsupported`/`unpriceable` for a specific service call, record it with
 `pricing_source: "unavailable"`, add it to `services_with_missing_fallback`, exclude it from the
 tier totals, and surface it to the user as a known gap. Do NOT substitute a cached, credentialed, or
 hardcoded rate.
@@ -595,7 +687,13 @@ Tailor `migrate_if` and `stay_if` to THIS stack (deferred services, AI cost delt
 
 ## Output
 
-Read `shared/schema-estimate-infra.md` for the `estimation-infra.json` schema and validation checklist, then write `estimation-infra.json` to `$MIGRATION_DIR/`.
+Read `shared/schema-estimate-infra.md` for the `estimation-infra.json` schema, the
+`pricing-attempts.json` diagnostic schema, and the validation checklist. Then write BOTH files to
+`$MIGRATION_DIR/`:
+
+- `estimation-infra.json` — user-facing estimate artifact consumed by later phases.
+- `pricing-attempts.json` — developer diagnostic ledger for resolve/describe/price attempts; not
+  rendered in the executive report by default.
 
 ## Completion Handoff Gate (Fail Closed)
 
@@ -604,13 +702,20 @@ Load `shared/handoff-gates.md`. **Re-read from disk** before checking.
 Before returning control to `estimate.md`, require:
 
 - `estimation-infra.json` exists and passes `shared/schema-estimate-infra.md` validation.
+- `pricing-attempts.json` exists and passes the diagnostic schema in `shared/schema-estimate-infra.md`.
+- `pricing-attempts.json` root is an object, not a bare array.
+- Every priceable AWS service/component included in the estimate breakdown or exclusion list has a
+  pricing attempt record.
+- No pricing attempt contains credentialed-pricing/manual-estimate fields (`mcp_tool:
+  "get_pricing"`, `mcp_service_code`, `filters_used`, `price_monthly`, `pricing_source: "manual"`).
+- No pricing attempt has `terminal_status: "workflow_error"`; retry/fix the MCP workflow instead.
 - `recommendation.path` is one of `migrate_optimized`, `migrate_phased`, or `stay`
 - `recommendation.path_label` is non-empty
 - `recommendation.migrate_if` and `recommendation.stay_if` are non-empty arrays (Part 7 MUST persist `recommendation`)
 
 **On FAIL:** Emit `GATE_FAIL | phase=estimate | field=<path> | reason=missing`. **Do NOT patch `estimation-infra.json` to pass the gate.** STOP — do not return control to `estimate.md` for phase completion.
 
-**On PASS:** Emit `HANDOFF_OK | phase=estimate | artifacts=estimation-infra.json` (parent `estimate.md` emits the combined handoff after all routes pass).
+**On PASS:** Emit `HANDOFF_OK | phase=estimate | artifacts=estimation-infra.json,pricing-attempts.json` (parent `estimate.md` emits the combined handoff after all routes pass).
 
 ## Present Summary
 

@@ -2,6 +2,10 @@
 
 Schema for `estimation-infra.json`, produced by `estimate-infra.md`.
 
+The infra estimate route also produces `pricing-attempts.json`, a diagnostic sidecar that records
+how each AWS service/resource was driven through `awspricingfree`. It is for coverage/debug
+analysis, not end-user reporting.
+
 ---
 
 ## Cost tiers (`projected_costs` / `cost_comparison`)
@@ -32,7 +36,7 @@ The fields **`aws_monthly_premium`**, **`aws_monthly_balanced`**, **`aws_monthly
     "message": "Priced by awspricingfree MCP (credential-free, matches calculator.aws)|Pricing unavailable for [service] — not modeled by awspricingfree (no cache/credentialed fallback)",
     "services_by_source": {
       "live_free": ["Fargate", "RDS Aurora", "S3", "ALB"],
-      "unavailable": ["SES", "OpenSearch"]
+      "unavailable": []
     },
     "services_with_missing_fallback": []
   },
@@ -249,6 +253,97 @@ Validation:
 - `next_steps` is a non-empty array of strings
 - Block is **REQUIRED** in `estimation-infra.json` output (Part 7 must write it)
 
+## pricing-attempts.json diagnostic schema
+
+`pricing-attempts.json` MUST be written next to `estimation-infra.json` whenever the infra estimate
+route runs. It lets developers distinguish true MCP coverage gaps from agent workflow/input issues.
+Do not render this file in the executive migration report by default.
+
+```json
+{
+  "phase": "estimate",
+  "artifact": "pricing-attempts",
+  "timestamp": "2026-02-24T14:00:00Z",
+  "pricing_tool": "awspricingfree",
+  "attempts": [
+    {
+      "resource": "google_pubsub_topic.orders",
+      "aws_service": "SNS",
+      "component": "standard topic requests",
+      "query": "SNS standard topic",
+      "selected_service_key": "standardTopics",
+      "selected_service_name": "Amazon SNS Standard Topics",
+      "template_index": null,
+      "pointer_from": null,
+      "inputs_supplied": {
+        "numberOfRequests": {
+          "value": 1,
+          "unit_param": "numberOfRequests__unit",
+          "unit": "millionPerMonth",
+          "source": "documented_low_traffic_assumption"
+        }
+      },
+      "mcp_statuses": ["resolve_service:ok", "describe_service:ok", "price:ok"],
+      "terminal_status": "priced",
+      "failure_class": null,
+      "monthly_cost": 0.5,
+      "included_in_totals": true,
+      "assumptions": ["No request volume in Terraform; priced 1M requests/month as a low-traffic baseline"],
+      "notes": []
+    }
+  ],
+  "summary": {
+    "priced": 1,
+    "needs_usage": 0,
+    "unavailable": 0,
+    "not_priceable": 0,
+    "workflow_error": 0
+  }
+}
+```
+
+Allowed `terminal_status` values:
+
+| Value | Meaning |
+| --- | --- |
+| `priced` | `price` returned `{status:"ok"}` and the service was included in totals |
+| `needs_usage` | MCP can model the service, but workload usage/config input was absent and no documented assumption was acceptable |
+| `unavailable` | MCP returned `unsupported` or `unpriceable` after a valid service key and required retries |
+| `not_priceable` | No billable AWS pricing dimension exists or no AWS target was selected by design, such as VPC/ECS shell resources, AWS Chatbot free service, or BigQuery specialist gate |
+| `workflow_error` | The agent failed to complete a required resolve/describe/pointer/template/needs_input step |
+
+Allowed `failure_class` values when `terminal_status` is not `priced`: `resolve_failed`,
+`describe_unsupported`, `pointer_unhandled`, `template_unselected`, `needs_input_unresolved`,
+`unsupported`, `unpriceable`, `deferred_target`, `not_billable`.
+
+Validation:
+
+- Root value is an object with `phase`, `artifact`, `timestamp`, `pricing_tool`, `attempts[]`, and
+  `summary`. Do not write a bare array.
+- `attempts[]` is non-empty when `aws-design.json` has priceable resources.
+- Every priceable AWS service/component included in the estimate breakdown or exclusion list appears
+  in at least one attempt record.
+- Every attempt includes `resource`, `aws_service`, `mcp_statuses[]`, `terminal_status`,
+  `included_in_totals`, `assumptions[]`, and `notes[]`.
+- Every attempt uses normalized field names exactly as shown above. Do not use aliases such as
+  `serviceKey`, `service_key`, `aws_service_key`, `monthlyCost`, `result.monthly`, or `attempts` for
+  retry count.
+- Every `terminal_status` is one of `priced`, `needs_usage`, `unavailable`, `not_priceable`,
+  `workflow_error`. Do not emit `ok`, `ok_but_suspect`, `skipped`, or other status strings.
+- `priced` attempts include `selected_service_key`, `price:ok` in `mcp_statuses`, numeric
+  `monthly_cost`, and `included_in_totals: true`.
+- `needs_usage` attempts use `failure_class: "needs_input_unresolved"` and
+  `included_in_totals: false`. They are modeled-but-unestimated, not MCP coverage gaps.
+- `unavailable` attempts use `failure_class: "unsupported"` or `"unpriceable"` and
+  `included_in_totals: false`.
+- `not_priceable` attempts use `failure_class: "deferred_target"` or `"not_billable"` and
+  `included_in_totals: false`.
+- `resolve_failed`, `pointer_unhandled`, and `template_unselected` are workflow errors, not
+  unavailable services.
+- `workflow_error` attempts are not allowed at phase completion. Retry/fix the MCP workflow before
+  emitting `HANDOFF_OK`.
+- `summary` counts match the terminal statuses in `attempts[]`.
+
 ## Observability Entry in `projected_costs.breakdown`
 
 When Part 2B of `estimate-infra.md` produces an observability cost, it is included as an entry in `projected_costs.breakdown[]` with this shape:
@@ -309,6 +404,10 @@ When Part 2B of `estimate-infra.md` produces an observability cost, it is includ
 - `recommendation` block exists with `path`, `path_label`, `migrate_if`, `stay_if`, and `next_steps` all populated
 - `recommendation.path` is one of: `"migrate_optimized"`, `"migrate_phased"`, `"stay"`
 - `recommendation.next_steps` includes actionable items
+- `pricing-attempts.json` exists for infra estimates and passes the diagnostic schema above
+- `pricing-attempts.json.summary.workflow_error` is `0`; workflow errors must be retried before phase completion
+- `needs_usage` entries in `pricing-attempts.json` are not treated as MCP coverage gaps; they are modeled-but-missing-usage and should not be listed as `services_with_missing_fallback`
+- `not_priceable` entries in `pricing-attempts.json` are not MCP coverage gaps; they represent design-deferred targets or non-billable shell/free services
 - No references to AI-specific costs (those belong in `estimate-ai.md`)
 - No references to billing-only estimates (those belong in `estimate-billing.md`)
 - All cost values are numbers, not strings

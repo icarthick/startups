@@ -214,11 +214,11 @@ Replace `MMDD-HHMM` with the actual migration ID, generate the `last_updated` IS
   NAT, S3, Lambda, CloudWatch, DynamoDB, Route 53, etc.). See `phases/estimate/estimate.md` Step 0.
 
 **Pricing rule:** `awspricingfree` MCP is the ONLY source. There is **no `pricing-cache.md`
-fallback and no credentialed `awspricing` fallback** for the Estimate phase. A service the MCP does
-not model (SES, Amazon MQ, OpenSearch, EKS node rates, MSK, X-Ray, RDS Proxy) — and all Bedrock/AI
-per-token pricing — is recorded as `pricing_source: "unavailable"` and excluded from totals, surfaced
-to the user as a known gap rather than substituted from a cache. If `awspricingfree` is unreachable,
-the Estimate phase STOPS (build + register the server); it does NOT fall back to cached pricing.
+fallback and no credentialed `awspricing` fallback** for the Estimate phase. If the MCP returns
+`unsupported` or `unpriceable` for a specific service call, record that service as
+`pricing_source: "unavailable"` and exclude it from totals, surfaced to the user as a known gap rather
+than substituted from a cache. If `awspricingfree` is unreachable, the Estimate phase STOPS (build +
+register the server); it does NOT fall back to cached pricing.
 
 ---
 
@@ -300,7 +300,7 @@ gcp-to-aws/
 | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | No GCP sources found (no `.tf`, no app code, no billing data) | Stop. Output: "No GCP sources detected. Provide at least one source type (Terraform files, application code, or billing exports) and try again."                                                                                          |
 | `.phase-status.json` missing phase gate                       | Stop. Output: "Cannot enter Phase X: Phase Y-1 not completed. Start from Phase Y or resume Phase Y-1."                                                                                                                                    |
-| awspricingfree unreachable (Estimate phase)                   | STOP — there is no cache/credentialed fallback for Estimate. Tell the user to build + register the server (`/Volumes/workplace/AWSPricingMCP/dist/mcp/server.js` in `.mcp.json`), then re-run. Do NOT substitute cached pricing.                                                                                   |
+| awspricingfree unreachable (Estimate phase)                   | STOP — there is no cache/credentialed fallback for Estimate. Tell the user to build + register the server (`/workplace/carthick/AWSPricingMCP/dist/mcp/server.js` in `.mcp.json`), then re-run. Do NOT substitute cached pricing.                                                                                   |
 | User skips questions or says "use defaults for the rest"      | Apply documented defaults for all remaining questions (essential questions and any unconfirmed sheet rows in wizard mode; current and subsequent batches in full mode). Q2/Q3 defaults add a report caveat. Phase 2 completes either way. |
 | `aws-design.json` missing required clusters                   | Stop Phase 4. Output: "Re-run Phase 3 to generate missing cluster designs."                                                                                                                                                               |
 

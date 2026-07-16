@@ -74,7 +74,7 @@ Detailed checklists live in each phase file. Minimum gates:
 | **discover** | At least one discovery artifact; `migration-preview.json` when any artifact exists; route output gates (existing) |
 | **clarify**  | `preferences.json` valid; Cloud SQL in inventory → `design_constraints.availability.value` set                    |
 | **design**   | Active route artifacts present (existing gates)                                                                   |
-| **estimate** | Active route artifacts present; infra route → `recommendation.path` + non-empty `migrate_if` / `stay_if`          |
+| **estimate** | Active route artifacts present; infra route → `estimation-infra.json`, normalized `pricing-attempts.json`, `recommendation.path` + non-empty `migrate_if` / `stay_if`; no pricing attempt `workflow_error` |
 | **generate** | Load `shared/validate-artifacts.md` before report; report pre-write sanity (see `generate-artifacts-report.md`)   |
 
 ---

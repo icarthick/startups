@@ -63,9 +63,8 @@ Request/count/rate inputs are the #1 source of wrong prices. Follow these rules:
 
 There is no fallback. Handle the two gaps explicitly:
 
-- **Service not modeled** — when `awspricingfree` returns `unsupported`/`unpriceable` for a service
-  (e.g. SES, Amazon MQ, OpenSearch, EKS control-plane/node rates, MSK, X-Ray, RDS Proxy, and all
-  Bedrock/AI token pricing), set `pricing_source: "unavailable"`, add the service to
+- **Service not modeled** — when `awspricingfree` returns `unsupported`/`unpriceable` for a specific
+  service call, set `pricing_source: "unavailable"`, add the service to
   `services_with_missing_fallback`, and EXCLUDE it from the tier totals. Surface it to the user as a
   known gap — do NOT substitute a cached or hardcoded rate.
 - **MCP unreachable** — if `awspricingfree` cannot be reached at all (connection failure), the
@@ -78,7 +77,7 @@ There is no fallback. Handle the two gaps explicitly:
 `resolve_service({query:"lambda"})` succeeds) and display the pricing mode:
 
 - **If `awspricingfree` reachable**: "Pricing source: awspricingfree ONLY (credential-free, matches calculator.aws to the cent). Services it does not model are shown as `unavailable`, not substituted."
-- **If `awspricingfree` unreachable**: "⚠️ STOP: the awspricingfree MCP is unreachable and there is no fallback. Build the server (`/Volumes/workplace/AWSPricingMCP/dist/mcp/server.js`) and register it in `.mcp.json` before running Estimate." Do NOT proceed with cached pricing.
+- **If `awspricingfree` unreachable**: "⚠️ STOP: the awspricingfree MCP is unreachable and there is no fallback. Build the server (`/workplace/carthick/AWSPricingMCP/dist/mcp/server.js`) and register it in `.mcp.json` before running Estimate." Do NOT proceed with cached pricing.
 - **On any unmodeled service**: "⚠️ [service] is not modeled by awspricingfree — it will show `pricing_source: unavailable` and is excluded from the totals."
 
 This prevents silent failures — the user sees the pricing constraint upfront, not after 5 minutes of estimation work.
@@ -125,7 +124,7 @@ IF `aws-design.json` exists:
 
 > Load `estimate-infra.md`
 
-Produces: `estimation-infra.json`
+Produces: `estimation-infra.json` and diagnostic `pricing-attempts.json`
 
 ### Billing-Only Estimate
 
@@ -158,7 +157,7 @@ Before marking Estimate complete, enforce route output gates (fail closed):
    - AI route: `aws-design-ai.json` exists
 2. Require at least one route to be active. If none active: STOP.
 3. For each active route, require its expected artifact:
-   - Infra route -> `estimation-infra.json`
+   - Infra route -> `estimation-infra.json` and `pricing-attempts.json`
    - Billing-only route -> `estimation-billing.json`
    - AI route -> `estimation-ai.json`
 4. If any active route is missing its expected output: STOP and output: "Estimate route [name] did not produce required artifact(s). Re-run the failed sub-estimate before completing Phase 4."
@@ -166,6 +165,8 @@ Before marking Estimate complete, enforce route output gates (fail closed):
 ## Completion Handoff Gate (Fail Closed)
 
 Load `shared/handoff-gates.md`. **Re-read from disk** each active estimate artifact before checking.
+For the infra route, also re-read `pricing-attempts.json`; it is a diagnostic sidecar, not a
+user-facing report artifact.
 
 **Re-entry guard:** If `generation-infra.json` (or sibling generation artifacts) exists and `phases.generate` is not `"pending"`: STOP unless the user explicitly confirms re-running Estimate. Emit `GATE_FAIL | phase=estimate | field=generation-infra.json | reason=stale_downstream`.
 
@@ -174,6 +175,12 @@ Load `shared/handoff-gates.md`. **Re-read from disk** each active estimate artif
 - `recommendation.path` ∈ `{migrate_optimized, migrate_phased, stay}`
 - `recommendation.path_label` is non-empty
 - `recommendation.migrate_if` and `recommendation.stay_if` are non-empty arrays
+- `pricing-attempts.json` exists
+- `pricing-attempts.json` root is an object with `phase`, `artifact`, `timestamp`, `pricing_tool`, `attempts`, and `summary`; a bare array is invalid
+- Every priceable AWS service/component included in the estimate breakdown or exclusion list has a pricing attempt record
+- Every attempt uses normalized terminal status: `priced`, `needs_usage`, `unavailable`, `not_priceable`, or `workflow_error`
+- No attempt contains credentialed-pricing fields such as `mcp_tool: "get_pricing"`, `mcp_service_code`, `filters_used`, `price_monthly`, or `pricing_source: "manual"`; these violate the awspricingfree-only rule
+- No attempt record has `terminal_status: "workflow_error"`; fix the retry workflow before completing Estimate
 
 **On any FAIL:** Emit `GATE_FAIL | phase=estimate | field=<path> | reason=missing`. **Do NOT modify artifacts to pass the gate.** **Do NOT update `.phase-status.json`.** Tell the user to re-run `estimate-infra.md` Part 7 (recommendation block).
 
