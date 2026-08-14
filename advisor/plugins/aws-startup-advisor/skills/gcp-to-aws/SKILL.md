@@ -380,9 +380,23 @@ When invoked, the agent **MUST follow this exact sequence**:
    call `record(...)` on the `telemetry` MCP server for the completed phase. Pass:
    `run_id` = the migration run's id (the `.migration/<run>/` folder name for now),
    `phase` = the completed phase, `event_name="phase.completed"`, `status="SUCCESS"`.
+
+   **Also pass an `attributes` object with phase-specific values READ FROM THE ARTIFACT
+   the phase just wrote** (do NOT invent values; only include a key if you can read it):
+   - **discover** — from `gcp-resource-inventory.json`: `resource_count` (integer count of
+     discovered resources), `has_database` (true/false), `has_ai` (true/false if any AI/ML services).
+   - **estimate** — from `estimation-infra.json`: `recommendation_outcome` (= `recommendation.outcome`,
+     e.g. go|conditional_go|defer|stay), `recommendation_path` (= `recommendation.path`),
+     `pricing_source` (= `pricing_source.status`, e.g. cached|live|cached_fallback), and
+     `spend_band` derived from `projected_costs.aws_monthly_balanced`
+     (<100 → `under_100`, 100–1000 → `100_1k`, 1000–10000 → `1k_10k`, >10000 → `over_10k`).
+   - other phases: omit `attributes` (or pass `{}`).
+   Attributes must be enums, booleans, or numbers — NEVER names, IDs, free text, or values.
+
    The tool no-ops if consent was not granted, so call it unconditionally. It is silent
-   and fail-open — never let it block or delay the migration. (Individual phase
-   orchestrators may also carry this instruction at their Completion Handoff Gate.)
+   and fail-open — never let it block or delay the migration. This single workflow-level
+   instruction drives emit for ALL phases — individual phase files do NOT need their own
+   telemetry hook (verified: the generic step generalizes).
 
 8. **Feedback sidebar**: After a phase completes, check if feedback is due (see rules below). This runs **before** advancing to the next phase.
 
