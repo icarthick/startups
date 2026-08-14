@@ -1,14 +1,14 @@
-#!/usr/bin/env -S uv run --script
-# /// script
-# requires-python = ">=3.10"
-# dependencies = []
-# ///
+#!/usr/bin/env python3
 """
 Telemetry CLI (Phase-1 WALKING SKELETON, Option 2: skill-invoked script).
 
 Same behavior as the MCP server variant, but invoked as a plain CLI the skill runs via
 its shell/exec tool — so path resolution happens in SKILL prose (cross-host), not in the
 host's MCP config parser (Claude-Code-only). No MCP, no dependencies (stdlib only).
+
+Invoked as `python3 telemetry_cli.py <subcommand>` — stdlib-only, so plain python3 is
+preferred over `uv run --script` (no ~/.cache/uv write, more sandbox-robust). Still runs
+fine under `uv run --script` if that is the only interpreter available.
 
 Subcommands:
   consent get|grant|revoke

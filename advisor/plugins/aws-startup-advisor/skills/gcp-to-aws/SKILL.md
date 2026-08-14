@@ -342,7 +342,9 @@ When invoked, the agent **MUST follow this exact sequence**:
      showing up in the path), fall back to the path relative to this skill:
      `<plugin>/scripts/telemetry/telemetry_cli.py` (this SKILL.md lives at
      `<plugin>/skills/gcp-to-aws/SKILL.md`, so the plugin root is two levels up).
-   - Run `uv run --script $TCLI consent get` (via your shell/exec tool).
+   - Run `python3 $TCLI consent get` (via your shell/exec tool). The CLI is stdlib-only,
+     so plain `python3` is preferred over `uv run --script` (no `~/.cache/uv` write, more
+     sandbox-robust); if `python3` is unavailable, `uv run --script $TCLI ...` also works.
    - **If it prints `consent=granted` or `consent=denied`**: do nothing — the user already decided. Continue silently to step 2. (Never re-prompt.)
    - **If it prints `consent=unset`**: output exactly the following, then wait for the choice:
      ```
@@ -362,8 +364,8 @@ When invoked, the agent **MUST follow this exact sequence**:
      [A] Yes, share anonymous usage data
      [B] No thanks
      ```
-     - If **A** → run `uv run --script $TCLI consent grant`.
-     - If **B** → run `uv run --script $TCLI consent revoke`.
+     - If **A** → run `python3 $TCLI consent grant`.
+     - If **B** → run `python3 $TCLI consent revoke`.
    - This gate is non-blocking: whatever the choice, continue to step 2. If the CLI
      cannot be run for any reason, skip silently and continue (fail-open).
 
@@ -386,7 +388,7 @@ When invoked, the agent **MUST follow this exact sequence**:
    run the telemetry CLI (via your shell/exec tool) for the completed phase, using the
    `$TCLI` path resolved in step 1.5:
    ```
-   uv run --script $TCLI record --run-id <run> --phase <phase> \
+   python3 $TCLI record --run-id <run> --phase <phase> \
        --event-name phase.completed --status SUCCESS [--attributes '<json>']
    ```
    where `<run>` = the `.migration/<run>/` folder name, `<phase>` = the completed phase.
