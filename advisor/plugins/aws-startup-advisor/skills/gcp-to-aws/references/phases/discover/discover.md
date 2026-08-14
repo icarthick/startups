@@ -182,6 +182,8 @@ GATE_FAIL | phase=discover | field=preferences.json | reason=stale_downstream
 
 **On PASS:** Emit `HANDOFF_OK | phase=discover | artifacts=<comma-separated list of files verified>`.
 
+**Telemetry (skeleton):** right after emitting `HANDOFF_OK`, call `record(run_id=<the .migration/<run>/ folder name>, phase="discover", event_name="phase.completed", status="SUCCESS")` on the `telemetry` MCP server. It no-ops if the user did not opt in, is silent, and is fail-open — never let it block or delay the phase.
+
 ## Step 4: Update Phase Status
 
 Only after `HANDOFF_OK`. In the **same turn** as the output message below, use the Phase Status Update Protocol (read-merge-write) to update `.phase-status.json`:

@@ -335,6 +335,32 @@ When invoked, the agent **MUST follow this exact sequence**:
    - If missing: Initialize for Phase 1 (Discover)
    - If exists: Determine current phase using deterministic rules in **State Machine**
 
+1.5. **Telemetry consent gate (front-loaded, opt-in)** — runs once, before any phase work:
+   - Call `consent(action="get")` on the `telemetry` MCP server.
+   - **If it returns `consent=granted` or `consent=denied`**: do nothing — the user already decided. Continue silently to step 2. (Never re-prompt.)
+   - **If it returns `consent=unset`**: output exactly the following, then wait for the choice:
+     ```
+     ─── Help improve this tool? (optional) ───
+
+     May we collect anonymous usage signals as this migration runs — which
+     phases you run, the choices you make, and cost bands — to understand how
+     the tool is used and make it better?
+
+       ✓ Collected: phase progress, option/outcome enums, cost bands, plugin version.
+       ✗ Never collected: your code, secrets, config/env values, resource or
+         account names, file paths, or any personal information.
+
+     Anonymous only. Nothing is sent unless you opt in. This never affects your
+     migration, and you can change it anytime ("telemetry off").
+
+     [A] Yes, share anonymous usage data
+     [B] No thanks
+     ```
+     - If **A** → call `consent(action="grant")`.
+     - If **B** → call `consent(action="revoke")`.
+   - This gate is non-blocking: whatever the choice, continue to step 2. If the `telemetry`
+     server is unavailable, skip silently and continue (fail-open).
+
 2. **Determine phase to execute**:
    - If `current_phase` exists: execute that phase.
    - Otherwise execute the first non-completed phase in ordered list: discover → clarify → design → estimate → generate.
@@ -349,6 +375,14 @@ When invoked, the agent **MUST follow this exact sequence**:
 6. **Handoff gate**: Emit `HANDOFF_OK` or `GATE_FAIL` per `shared/handoff-gates.md`. On `GATE_FAIL`, stop — do not update phase status or load the next phase.
 
 7. **Update phase status**: Only after `HANDOFF_OK`. Use the Phase Status Update Protocol (read-merge-write) in the same turn as the phase's final output message.
+
+7.5. **Emit telemetry (skeleton)** — immediately after a phase's `HANDOFF_OK` (and only then):
+   call `record(...)` on the `telemetry` MCP server for the completed phase. Pass:
+   `run_id` = the migration run's id (the `.migration/<run>/` folder name for now),
+   `phase` = the completed phase, `event_name="phase.completed"`, `status="SUCCESS"`.
+   The tool no-ops if consent was not granted, so call it unconditionally. It is silent
+   and fail-open — never let it block or delay the migration. (Individual phase
+   orchestrators may also carry this instruction at their Completion Handoff Gate.)
 
 8. **Feedback sidebar**: After a phase completes, check if feedback is due (see rules below). This runs **before** advancing to the next phase.
 

@@ -44,6 +44,21 @@
         "build_estimate",
         "export_estimate"
       ]
+    },
+    "telemetry": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--script",
+        "${CLAUDE_PLUGIN_ROOT}/scripts/telemetry/server.py"
+      ],
+      "timeout": 120000,
+      "type": "stdio",
+      "autoApprove": [
+        "consent",
+        "record",
+        "status"
+      ]
     }
   }
 }

@@ -131,6 +131,8 @@ Load `shared/handoff-gates.md`. **Re-read from disk** each active estimate artif
 
 **On PASS:** Emit `HANDOFF_OK | phase=estimate | artifacts=<comma-separated active estimate files>`.
 
+**Telemetry (skeleton):** right after emitting `HANDOFF_OK` for the OUTER estimate run (not inner workshop reprices), call `record(run_id=<the .migration/<run>/ folder name>, phase="estimate", event_name="phase.completed", status="SUCCESS")` on the `telemetry` MCP server. It no-ops if the user did not opt in, is silent, and is fail-open — never let it block or delay the phase.
+
 ### Inner workshop reprice — skip state transition
 
 When Estimate is invoked from `workshop-refresh.md` (inner reprice): write the
