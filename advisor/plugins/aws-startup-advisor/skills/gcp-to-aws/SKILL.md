@@ -336,9 +336,15 @@ When invoked, the agent **MUST follow this exact sequence**:
    - If exists: Determine current phase using deterministic rules in **State Machine**
 
 1.5. **Telemetry consent gate (front-loaded, opt-in)** — runs once, before any phase work:
-   - Call `consent(action="get")` on the `telemetry` MCP server.
-   - **If it returns `consent=granted` or `consent=denied`**: do nothing — the user already decided. Continue silently to step 2. (Never re-prompt.)
-   - **If it returns `consent=unset`**: output exactly the following, then wait for the choice:
+   - **Resolve the telemetry CLI path** `$TCLI`: prefer
+     `${CLAUDE_PLUGIN_ROOT}/scripts/telemetry/telemetry_cli.py`; **if `${CLAUDE_PLUGIN_ROOT}`
+     does not resolve** (some Cursor/Codex builds, or a literal `${CLAUDE_PLUGIN_ROOT}`
+     showing up in the path), fall back to the path relative to this skill:
+     `<plugin>/scripts/telemetry/telemetry_cli.py` (this SKILL.md lives at
+     `<plugin>/skills/gcp-to-aws/SKILL.md`, so the plugin root is two levels up).
+   - Run `uv run --script $TCLI consent get` (via your shell/exec tool).
+   - **If it prints `consent=granted` or `consent=denied`**: do nothing — the user already decided. Continue silently to step 2. (Never re-prompt.)
+   - **If it prints `consent=unset`**: output exactly the following, then wait for the choice:
      ```
      ─── Help improve this tool? (optional) ───
 
@@ -356,10 +362,10 @@ When invoked, the agent **MUST follow this exact sequence**:
      [A] Yes, share anonymous usage data
      [B] No thanks
      ```
-     - If **A** → call `consent(action="grant")`.
-     - If **B** → call `consent(action="revoke")`.
-   - This gate is non-blocking: whatever the choice, continue to step 2. If the `telemetry`
-     server is unavailable, skip silently and continue (fail-open).
+     - If **A** → run `uv run --script $TCLI consent grant`.
+     - If **B** → run `uv run --script $TCLI consent revoke`.
+   - This gate is non-blocking: whatever the choice, continue to step 2. If the CLI
+     cannot be run for any reason, skip silently and continue (fail-open).
 
 2. **Determine phase to execute**:
    - If `current_phase` exists: execute that phase.
@@ -377,11 +383,15 @@ When invoked, the agent **MUST follow this exact sequence**:
 7. **Update phase status**: Only after `HANDOFF_OK`. Use the Phase Status Update Protocol (read-merge-write) in the same turn as the phase's final output message.
 
 7.5. **Emit telemetry (skeleton)** — immediately after a phase's `HANDOFF_OK` (and only then):
-   call `record(...)` on the `telemetry` MCP server for the completed phase. Pass:
-   `run_id` = the migration run's id (the `.migration/<run>/` folder name for now),
-   `phase` = the completed phase, `event_name="phase.completed"`, `status="SUCCESS"`.
+   run the telemetry CLI (via your shell/exec tool) for the completed phase, using the
+   `$TCLI` path resolved in step 1.5:
+   ```
+   uv run --script $TCLI record --run-id <run> --phase <phase> \
+       --event-name phase.completed --status SUCCESS [--attributes '<json>']
+   ```
+   where `<run>` = the `.migration/<run>/` folder name, `<phase>` = the completed phase.
 
-   **Also pass an `attributes` object with phase-specific values READ FROM THE ARTIFACT
+   **Pass `--attributes` with a JSON object of phase-specific values READ FROM THE ARTIFACT
    the phase just wrote** (do NOT invent values; only include a key if you can read it):
    - **discover** — from `gcp-resource-inventory.json`: `resource_count` (integer count of
      discovered resources), `has_database` (true/false), `has_ai` (true/false if any AI/ML services).
@@ -390,13 +400,14 @@ When invoked, the agent **MUST follow this exact sequence**:
      `pricing_source` (= `pricing_source.status`, e.g. cached|live|cached_fallback), and
      `spend_band` derived from `projected_costs.aws_monthly_balanced`
      (<100 → `under_100`, 100–1000 → `100_1k`, 1000–10000 → `1k_10k`, >10000 → `over_10k`).
-   - other phases: omit `attributes` (or pass `{}`).
+     Example: `--attributes '{"recommendation_outcome":"conditional_go","spend_band":"100_1k"}'`
+   - other phases: omit `--attributes`.
    Attributes must be enums, booleans, or numbers — NEVER names, IDs, free text, or values.
 
-   The tool no-ops if consent was not granted, so call it unconditionally. It is silent
-   and fail-open — never let it block or delay the migration. This single workflow-level
-   instruction drives emit for ALL phases — individual phase files do NOT need their own
-   telemetry hook (verified: the generic step generalizes).
+   The CLI no-ops if consent was not granted, so run it unconditionally. It prints one terse
+   line and is fail-open — never let it block or delay the migration. This single
+   workflow-level instruction drives emit for ALL phases — individual phase files do NOT need
+   their own telemetry hook.
 
 8. **Feedback sidebar**: After a phase completes, check if feedback is due (see rules below). This runs **before** advancing to the next phase.
 
