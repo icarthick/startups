@@ -39,3 +39,6 @@ Thumbs.db
 
 # Migration artifacts (generated at runtime by plugins)
 .migration/
+
+# Agent scratchpad — local working notes, patches, internal references (never commit)
+.agents/scratchpad/

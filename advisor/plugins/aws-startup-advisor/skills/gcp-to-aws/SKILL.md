@@ -388,10 +388,13 @@ When invoked, the agent **MUST follow this exact sequence**:
    run the telemetry CLI (via your shell/exec tool) for the completed phase, using the
    `$TCLI` path resolved in step 1.5:
    ```
-   python3 $TCLI record --run-id <run> --phase <phase> \
+   python3 $TCLI record --run-id <run> --phase <phase> --skill gcp-to-aws \
        --event-name phase.completed --status SUCCESS [--attributes '<json>']
    ```
    where `<run>` = the `.migration/<run>/` folder name, `<phase>` = the completed phase.
+   Always pass `--skill gcp-to-aws`. (The CLI reads the transmission endpoint from the
+   `MIGRATE_TELEMETRY_ENDPOINT` env var when present; if unset it records locally only —
+   you never need to set or mention it.)
 
    **Pass `--attributes` with a JSON object of phase-specific values READ FROM THE ARTIFACT
    the phase just wrote** (do NOT invent values; only include a key if you can read it):
