@@ -88,14 +88,28 @@ def _stringify_attrs(attrs: dict[str, Any]) -> dict[str, str]:
     return out
 
 
+# Deterministic per-run UUID: the plugin's run marker is the `.migration/<run>/` folder name
+# (e.g. "0817-1444"), which is NOT a UUID and fails the API's strict runId pattern. Derive a
+# stable UUIDv5 from it so every phase emit in the same run (and across resume) maps to the
+# SAME runId — preserving the "stitch all events of one migration" join key — with no persisted
+# mapping. (A durable minted-at-init UUID can replace this later; see HLD §4.)
+_RUN_ID_NAMESPACE = uuid.UUID("6ba7b811-9dad-11d1-80b4-00c04fd430c8")  # RFC-4122 URL namespace
+
+
+def _run_uuid(run_marker: str) -> str:
+    return str(uuid.uuid5(_RUN_ID_NAMESPACE, run_marker))
+
+
 def _post_event(run_id: str, event: dict[str, Any], skill: str | None, plugin_version: str) -> str | None:
     """POST the API-shaped payload. Returns None on success, else a short error tag.
     Fail-open: the caller ignores failures beyond recording them in the return line."""
     base = os.environ.get(ENDPOINT_ENV, "").strip().rstrip("/")
     if not base:
         return None  # no endpoint configured → local-file only
+    # The API requires runId to be a UUID; derive a stable one from the run marker.
+    api_run_id = _run_uuid(run_id)
     payload: dict[str, Any] = {
-        "runId": run_id,
+        "runId": api_run_id,
         "installId": event["installId"],
         "timestamp": event["timestamp"],
         "source": _api_source(event.get("source", "")),
@@ -108,7 +122,7 @@ def _post_event(run_id: str, event: dict[str, Any], skill: str | None, plugin_ve
         payload["status"] = event["status"]
     if isinstance(event.get("attributes"), dict) and event["attributes"]:
         payload["attributes"] = _stringify_attrs(event["attributes"])
-    url = f"{base}/{run_id}/event"
+    url = f"{base}/{api_run_id}/event"
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         url,
