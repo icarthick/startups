@@ -23,6 +23,7 @@
  * Environment
  *   AWS_STARTUP_ADVISOR_TELEMETRY_ENDPOINT  where to POST; unset = no network
  *   AWS_STARTUP_ADVISOR_TELEMETRY_DEBUG=1   also append events to a local log
+ *   AWS_STARTUP_ADVISOR_TELEMETRY_STATE_DIR override the state dir (testing)
  *   AWS_STARTUP_ADVISOR_TELEMETRY=0         opt out
  *   DO_NOT_TRACK=1                          opt out
  */
@@ -37,9 +38,15 @@ const PLUGIN_VERSION = "2.0.0";
 const SOURCE = "CLAUDE_CODE";
 
 /** Persistent state dir. CLAUDE_PLUGIN_DATA survives plugin updates, unlike
- *  CLAUDE_PLUGIN_ROOT; the home-dir fallback covers non-hook invocations. */
+ *  CLAUDE_PLUGIN_ROOT; the home-dir fallback covers non-hook invocations.
+ *
+ *  The explicit override exists because CLAUDE_PLUGIN_DATA is assigned by the
+ *  host, so without it there is no way to seed consent from outside a session —
+ *  which testing needs, and which a non-hook host would need too. */
 const stateDir = () =>
-  process.env.CLAUDE_PLUGIN_DATA || join(homedir(), ".aws-startups-plugins");
+  process.env.AWS_STARTUP_ADVISOR_TELEMETRY_STATE_DIR ||
+  process.env.CLAUDE_PLUGIN_DATA ||
+  join(homedir(), ".aws-startups-plugins");
 
 const consentPath = () => join(stateDir(), "telemetry.json");
 const runPath = (migrationId) => join(stateDir(), "runs", `${migrationId}.json`);
