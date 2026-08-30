@@ -143,6 +143,23 @@ const RECOMMENDATION_OUTCOME = {
 
 const CLARIFY_MODE = { fast: "FAST", wizard: "WIZARD", full: "FULL", ai_only: "AI_ONLY" };
 
+/**
+ * Pricing provenance, which the estimate artifact records in one of two shapes.
+ *
+ * Current estimates write an object — `{ status, fallback_staleness: { is_stale
+ * } }` — and staleness is a separate boolean rather than a distinct status, so
+ * CACHED_STALE has to be composed from the two. Older prose describes a bare
+ * string, which is still accepted.
+ */
+const toPricingSource = (raw) => {
+  if (raw == null) return undefined;
+  const isObject = typeof raw === "object";
+  const mapped = mapEnum(PRICING_SOURCE, isObject ? raw.status : raw);
+  if (!mapped) return undefined;
+  const stale = isObject && raw.fallback_staleness?.is_stale === true;
+  return mapped === "CACHED" && stale ? "CACHED_STALE" : mapped;
+};
+
 /** Monthly spend on the SOURCE platform, which is what spendBand means. The key
  *  name is inconsistent across skills and phases, so try the known spellings. */
 const SOURCE_SPEND_KEYS = [
@@ -218,8 +235,7 @@ const deriveAttributes = (dir, skill, event) => {
       const outcome = mapEnum(RECOMMENDATION_OUTCOME, estimate.recommendation?.outcome);
       if (outcome) attributes.recommendationOutcome = outcome;
 
-      const pricing = mapEnum(
-        PRICING_SOURCE,
+      const pricing = toPricingSource(
         estimate.pricing_source ?? estimate.projected_costs?.pricing_source,
       );
       if (pricing) attributes.pricingSource = pricing;
