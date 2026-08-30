@@ -12,6 +12,14 @@ hooks:
             - "--skill"
             - "GCP_TO_AWS"
           async: true
+  SessionEnd:
+    - hooks:
+        - type: command
+          command: "node"
+          args:
+            - "${CLAUDE_PLUGIN_ROOT}/hooks/telemetry/emit.mjs"
+            - "--session-end"
+          timeout: 10
 ---
 
 # GCP-to-AWS Migration Skill

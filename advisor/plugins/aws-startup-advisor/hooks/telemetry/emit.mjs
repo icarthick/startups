@@ -28,13 +28,20 @@
  *   DO_NOT_TRACK=1                          opt out
  */
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync, appendFileSync } from "node:fs";
+import {
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  existsSync,
+  appendFileSync,
+  readdirSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { join, dirname, basename } from "node:path";
+import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 
 const POST_TIMEOUT_MS = 3000;
-const PLUGIN_VERSION = "2.0.0";
 const SOURCE = "CLAUDE_CODE";
 
 /** Persistent state dir. CLAUDE_PLUGIN_DATA survives plugin updates, unlike
@@ -49,7 +56,19 @@ const stateDir = () =>
   join(homedir(), ".aws-startups-plugins");
 
 const consentPath = () => join(stateDir(), "telemetry.json");
-const runPath = (migrationId) => join(stateDir(), "runs", `${migrationId}.json`);
+const runsDir = () => join(stateDir(), "runs");
+const runPath = (migrationId) => join(runsDir(), `${migrationId}.json`);
+
+/** Read the shipped plugin version rather than carrying a copy: a hardcoded
+ *  version silently misattributes every event after the next release bump, which
+ *  is invisible in the data and breaks any per-release comparison. */
+const pluginRoot = () =>
+  process.env.CLAUDE_PLUGIN_ROOT || join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+
+const pluginVersion = () =>
+  // Fallback is a valid semver so a missing manifest cannot fail model
+  // validation and cost the event.
+  readJson(join(pluginRoot(), ".claude-plugin", "plugin.json"), {}).version ?? "0.0.0";
 
 const readJson = (p, fallback = null) => {
   try {
@@ -170,6 +189,19 @@ const SOURCE_SPEND_KEYS = [
   "heroku_monthly_estimated",
 ];
 
+/** How the source-spend figure was arrived at. Without this, spendBand is not
+ *  safely comparable: an inventory estimate prices only resources with a
+ *  standing charge, so a workload that is mostly usage-based reads far cheaper
+ *  than its actual bill. Analysis needs to be able to keep the measured ones. */
+const SPEND_BASIS = {
+  billing_data: "BILLING_DATA",
+  inventory_estimate: "INVENTORY_ESTIMATE",
+  live_prices_plus_cache: "LIVE_PRICES_PLUS_CACHE",
+  pricing_cache: "PRICING_CACHE",
+  user_provided: "USER_PROVIDED",
+  unavailable: "UNAVAILABLE",
+};
+
 const toSpendBand = (amount) => {
   if (typeof amount !== "number" || !Number.isFinite(amount) || amount < 0) return undefined;
   if (amount < 100) return "UNDER_100";
@@ -248,6 +280,9 @@ const deriveAttributes = (dir, skill, event) => {
           break;
         }
       }
+
+      const basis = mapEnum(SPEND_BASIS, current.source);
+      if (basis) attributes.spendBasis = basis;
     }
   }
 
@@ -323,6 +358,68 @@ const debugLog = (line) => {
 
 // ------------------------------------------------------------- hook mode
 
+/** Build and send one event. Shared by both hook modes so the envelope and the
+ *  fail-open contract exist in exactly one place. */
+const send = async (installId, skill, runId, event, dir) => {
+  const { runMode, ...rest } = event;
+  const attributes = deriveAttributes(dir, skill, event) ?? {};
+  if (runMode) attributes.runMode = runMode;
+
+  const body = {
+    installId,
+    source: SOURCE,
+    pluginVersion: pluginVersion(),
+    occurredAt: Date.now(),
+    // Fresh per emission: a genuine phase re-run is a real second occurrence
+    // and must not dedup away.
+    eventId: randomUUID(),
+    pluginTelemetryEvent: {
+      migrationActivity: {
+        ...rest,
+        skill,
+        runId,
+        ...(Object.keys(attributes).length ? { attributes } : {}),
+      },
+    },
+  };
+
+  const endpoint = process.env.AWS_STARTUP_ADVISOR_TELEMETRY_ENDPOINT;
+  const status = endpoint ? await post(endpoint, body) : null;
+  debugLog({ at: new Date().toISOString(), status, body });
+};
+
+/**
+ * SessionEnd: report runs this session left unfinished.
+ *
+ * Without this, a run that stops partway is indistinguishable from one still in
+ * progress — the funnel sees only the absence of later events, which conflates
+ * abandonment with a customer who intends to resume tomorrow. Reported as
+ * RUN_COMPLETED with status ABORTED and the phase it stopped on, so no new event
+ * name is needed and the terminal event stays one thing to count.
+ */
+const runSessionEnd = async () => {
+  const consent = readConsent();
+  if (consent.consent !== "granted" || optedOutByEnv()) return;
+
+  const hook = JSON.parse(readFileSync(0, "utf8"));
+  const sessionId = hook?.session_id;
+  if (!sessionId || !existsSync(runsDir())) return;
+
+  for (const file of readdirSync(runsDir())) {
+    const path = join(runsDir(), file);
+    const snapshot = readJson(path);
+    if (!snapshot || snapshot.sessionId !== sessionId || snapshot.completed) continue;
+
+    await send(consent.installId, snapshot.skill, snapshot.runId, {
+      eventName: "RUN_COMPLETED",
+      status: "ABORTED",
+      phase: toPhaseEnum(snapshot.current_phase),
+    }, snapshot.dir);
+
+    writeJson(path, { ...snapshot, completed: true });
+  }
+};
+
 const runHook = async (skill) => {
   const raw = readFileSync(0, "utf8");
   const hook = JSON.parse(raw);
@@ -356,32 +453,9 @@ const runHook = async (skill) => {
   // MMDD-HHMM, so two customers starting in the same minute would otherwise
   // share a runId on a shared backend.
   const runId = snapshot?.runId ?? randomUUID();
-  const endpoint = process.env.AWS_STARTUP_ADVISOR_TELEMETRY_ENDPOINT;
 
   for (const event of events) {
-    const { runMode, ...rest } = event;
-    const attributes = deriveAttributes(ownDir, skill, event) ?? {};
-    if (runMode) attributes.runMode = runMode;
-
-    const body = {
-      installId: consent.installId,
-      source: SOURCE,
-      pluginVersion: PLUGIN_VERSION,
-      occurredAt: Date.now(),
-      eventId: randomUUID(), // fresh per emission: a genuine phase re-run is a
-      // real second occurrence and must not dedup away
-      pluginTelemetryEvent: {
-        migrationActivity: {
-          ...rest,
-          skill,
-          runId,
-          ...(Object.keys(attributes).length ? { attributes } : {}),
-        },
-      },
-    };
-
-    const status = endpoint ? await post(endpoint, body) : null;
-    debugLog({ at: new Date().toISOString(), status, body });
+    await send(consent.installId, skill, runId, event, ownDir);
   }
 
   writeJson(snapshotPath, {
@@ -390,6 +464,12 @@ const runHook = async (skill) => {
     current_phase: current.current_phase,
     run_mode: current.run_mode,
     phases: current.phases ?? {},
+    // Recorded so SessionEnd can find runs this session left unfinished, and
+    // report each under the right skill with its artifacts still readable.
+    skill,
+    dir: ownDir,
+    sessionId: hook.session_id,
+    completed: events.some((e) => e.eventName === "RUN_COMPLETED") || snapshot?.completed === true,
   });
 };
 
@@ -419,6 +499,8 @@ const main = async () => {
       ),
     );
   }
+
+  if (args.includes("--session-end")) return runSessionEnd();
 
   const skillIndex = args.indexOf("--skill");
   const skill = skillIndex === -1 ? undefined : args[skillIndex + 1];
