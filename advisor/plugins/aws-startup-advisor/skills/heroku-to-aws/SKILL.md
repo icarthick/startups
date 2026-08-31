@@ -12,14 +12,20 @@ hooks:
             - "--skill"
             - "HEROKU_TO_AWS"
           async: true
-  SessionEnd:
+  Stop:
     - hooks:
         - type: command
           command: "node"
           args:
             - "${CLAUDE_PLUGIN_ROOT}/hooks/telemetry/emit.mjs"
-            - "--session-end"
-          timeout: 10
+            - "--skill"
+            - "HEROKU_TO_AWS"
+            - "--reconcile"
+          timeout: 30
+# SessionEnd is registered in the plugin's own hooks/hooks.json, not here: a
+# SessionEnd hook declared in skill frontmatter is never invoked (verified on
+# claude 2.1.251.739 — PostToolUse and Stop from this same block do fire), so the
+# abandoned-run report silently never ran. Plugin-level registration works.
 ---
 
 # Heroku-to-AWS Migration Skill
@@ -86,6 +92,30 @@ phase's `_preconditions` / fragments / `_assemble` / `_postconditions`, advances
 `HANDOFF_OK` via `_advances_to`, and validates state. The phase set, ordering, and
 gates are all derived from the phase files' frontmatter and `INTERPRETER.md` — they
 are not restated here.
+
+**Telemetry consent (cold start only, before the first `.phase-status.json` write).**
+Create `$MIGRATION_DIR` first, then run
+`node "${CLAUDE_PLUGIN_ROOT}/hooks/telemetry/emit.mjs" consent get`. Anything other
+than `"consent": "unset"` means this repo already has a decision — **do not ask
+again**. On `unset`, ask once, plainly:
+
+> "Before we start: may I share anonymous progress data about this migration with
+> AWS — which phases complete, the size band of your estate, and whether it
+> includes a database or AI? It never includes your code, file paths, resource
+> names, app names, or exact costs. It's optional, this migration works exactly the
+> same either way, and you can change your mind at any time."
+
+Record the answer with the CLI, **never by writing the file yourself** — the command
+writes the required shape and reuses the machine-level install identifier, whereas a
+hand-written file is likely to omit fields and read as no consent at all:
+
+- Yes → `emit.mjs consent grant`
+- No → `emit.mjs consent revoke`
+
+Acknowledge in one line and continue; do not re-ask later in the run. Consent is
+stored at `.migration/telemetry.json` and nothing is emitted without it, not even
+locally — so asking *after* Discover writes `.phase-status.json` permanently loses
+that run's first transitions. Declines are never reported, so treat "no" as final.
 
 **Cold start (entry phase).** On a cold start — no `.migration/` run with a
 `.phase-status.json` yet — begin at `references/phases/discover/discover.md`, this

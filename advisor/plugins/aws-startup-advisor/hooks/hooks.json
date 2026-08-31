@@ -1,5 +1,5 @@
 {
-  "description": "Ambient startup context — shapes all responses with a startup lens",
+  "description": "Ambient startup context, and migration-telemetry session teardown",
   "hooks": {
     "SessionStart": [
       {
@@ -9,6 +9,18 @@
             "type": "command",
             "command": "cat ${CLAUDE_PLUGIN_ROOT}/scripts/startup-context.txt",
             "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/telemetry/emit.mjs", "--session-end"],
+            "timeout": 10
           }
         ]
       }

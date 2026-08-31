@@ -12,14 +12,20 @@ hooks:
             - "--skill"
             - "GCP_TO_AWS"
           async: true
-  SessionEnd:
+  Stop:
     - hooks:
         - type: command
           command: "node"
           args:
             - "${CLAUDE_PLUGIN_ROOT}/hooks/telemetry/emit.mjs"
-            - "--session-end"
-          timeout: 10
+            - "--skill"
+            - "GCP_TO_AWS"
+            - "--reconcile"
+          timeout: 30
+# SessionEnd is registered in the plugin's own hooks/hooks.json, not here: a
+# SessionEnd hook declared in skill frontmatter is never invoked (verified on
+# claude 2.1.251.739 — PostToolUse and Stop from this same block do fire), so the
+# abandoned-run report silently never ran. Plugin-level registration works.
 ---
 
 # GCP-to-AWS Migration Skill
@@ -368,6 +374,26 @@ gcp-to-aws/
 ## Workflow Execution
 
 When invoked, the agent **MUST follow this exact sequence**:
+
+0. **Telemetry consent** — on a new migration only, and **before** the first write to `.phase-status.json`.
+
+   1. Create `$MIGRATION_DIR` first, so consent is recorded with this project.
+   2. Run `node "${CLAUDE_PLUGIN_ROOT}/hooks/telemetry/emit.mjs" consent get`.
+      - Anything other than `"consent": "unset"` → a decision already exists for this repo. **Do not ask again.** Continue to step 1.
+   3. On `unset`, ask once, plainly:
+
+      > "Before we start: may I share anonymous progress data about this migration with AWS — which phases complete, the size band of your estate, and whether it includes a database or AI? It never includes your code, file paths, resource names, project IDs, or exact costs. It's optional, this migration works exactly the same either way, and you can change your mind at any time."
+
+   4. Record the answer with the CLI — **never by writing the file yourself**:
+      - Yes → `node "${CLAUDE_PLUGIN_ROOT}/hooks/telemetry/emit.mjs" consent grant`
+      - No → `node "${CLAUDE_PLUGIN_ROOT}/hooks/telemetry/emit.mjs" consent revoke`
+   5. Acknowledge the answer in one short line and move on. Do not re-ask, do not argue, do not repeat the offer later in the run.
+
+   **Why the ordering is mandatory.** Consent is stored at `.migration/telemetry.json` and nothing is emitted without it — not even locally. Asking after Discover has written `.phase-status.json` permanently loses that run's first transitions, so a run that stops during Discover would be invisible and the funnel would have no denominator.
+
+   **Why the CLI and not a hand-written file.** The command writes the record in the required shape and reuses the machine-level install identifier. A hand-written file is likely to omit fields and read as no consent at all.
+
+   A declining customer is recorded as `revoked` locally and nothing is ever sent. Declines are deliberately not reported, so treat "no" as a complete and final answer.
 
 1. **Load phase status**: Read `.phase-status.json` from `.migration/*/`.
    - If missing: Initialize for Phase 1 (Discover)

@@ -11,18 +11,43 @@
  *
  * Opt-in: emits nothing at all, not even locally, unless consent is granted.
  *
+ * State lives where the customer can see it. The consent record sits at
+ * `.migration/telemetry.json` and each run's snapshot at
+ * `.migration/<id>/.telemetry-snapshot.json`, so the decision and the reported
+ * state are both inspectable in the directory the customer already works in.
+ * Only `installId` is kept outside, in the plugin state dir: scoping identity to
+ * a repo would count one customer with three projects as three installs.
+ *
  * Fail-open: every path exits 0. A telemetry problem must never surface to the
  * customer or interrupt a migration. The hook is declared `async` so it cannot
  * add latency either.
  *
  * Usage
- *   emit.mjs --skill GCP_TO_AWS        hook mode; hook JSON arrives on stdin
+ *   emit.mjs --skill GCP_TO_AWS        PostToolUse mode; hook JSON on stdin
+ *   emit.mjs --skill X --reconcile     Stop mode; reconcile disk against snapshot
+ *   emit.mjs --session-end             SessionEnd mode; final reconcile
  *   emit.mjs consent get|grant|revoke  consent state (called from skill prose)
  *   emit.mjs status                    print state for debugging
  *
+ * Why two hook modes rather than one
+ *   PostToolUse only fires for tools named in its matcher, and the skills update
+ *   `.phase-status.json` from Bash/python as readily as from Write — a read-merge
+ *   -write is natural to express as a python one-liner. Those writes are
+ *   invisible to the matcher, so the snapshot silently stops advancing and every
+ *   later transition is lost. Measured against the GCP sample corpus, that cost
+ *   37% of all expected events, including whole runs that emitted nothing at all.
+ *
+ *   Reconcile mode closes it by working from state instead of from tool calls: on
+ *   Stop it re-reads `.phase-status.json` and diffs it against the snapshot, so
+ *   the writer does not matter. It is idempotent — if PostToolUse already
+ *   advanced the snapshot there is no delta and nothing is sent — so both hooks
+ *   are registered and cover each other: PostToolUse delivers incrementally in
+ *   case the session is killed, Stop catches whatever the matcher missed.
+ *
  * Environment
  *   AWS_STARTUP_ADVISOR_TELEMETRY_ENDPOINT  where to POST; unset = no network
- *   AWS_STARTUP_ADVISOR_TELEMETRY_DEBUG=1   also append events to a local log
+ *   AWS_STARTUP_ADVISOR_TELEMETRY_DEBUG=1   append events AND a per-invocation
+ *                                           trigger trace to the state dir
  *   AWS_STARTUP_ADVISOR_TELEMETRY_STATE_DIR override the state dir (testing)
  *   AWS_STARTUP_ADVISOR_TELEMETRY=0         opt out
  *   DO_NOT_TRACK=1                          opt out
@@ -55,9 +80,38 @@ const stateDir = () =>
   process.env.CLAUDE_PLUGIN_DATA ||
   join(homedir(), ".aws-startups-plugins");
 
-const consentPath = () => join(stateDir(), "telemetry.json");
-const runsDir = () => join(stateDir(), "runs");
-const runPath = (migrationId) => join(runsDir(), `${migrationId}.json`);
+/**
+ * Where a run's snapshot lives: inside the run directory it describes.
+ *
+ * Two reasons. It is inspectable — the customer can open the same directory they
+ * already look at and see exactly what was reported about it, which is hard to
+ * argue with as a transparency property for opt-in telemetry. And the path is
+ * inherently unique, which fixes a real collision: the snapshot used to be keyed
+ * by `migration_id` alone in a shared directory, and `migration_id` is MMDD-HHMM
+ * at minute resolution. Two repos whose migrations began in the same minute
+ * shared one snapshot file; the second run diffed against the first run's state,
+ * found no change, and emitted NOTHING while corrupting the snapshot's runId.
+ *
+ * Dot-prefixed and inside the already-gitignored `.migration/` tree, so it does
+ * not appear in the customer's diffs.
+ */
+const runPath = (runDir) => join(runDir, ".telemetry-snapshot.json");
+
+/**
+ * Consent lives at the root of `.migration/`, beside the runs it governs.
+ *
+ * Same transparency argument: the decision is visible where the work is, rather
+ * than in a hidden directory elsewhere on the machine.
+ *
+ * `installId` is deliberately NOT scoped here — see `installId()`. A per-repo
+ * identifier would make one customer with three repos look like three customers
+ * and silently inflate every adoption number.
+ */
+const consentPathFor = (migrationRoot) => join(migrationRoot, "telemetry.json");
+
+/** Global fallback, for invocations with no migration directory in scope. */
+const globalConsentPath = () => join(stateDir(), "telemetry.json");
+const installIdPath = () => join(stateDir(), "install.json");
 
 /** Read the shipped plugin version rather than carrying a copy: a hardcoded
  *  version silently misattributes every event after the next release bump, which
@@ -88,19 +142,73 @@ const writeJson = (p, value) => {
 const optedOutByEnv = () =>
   process.env.DO_NOT_TRACK === "1" || process.env.AWS_STARTUP_ADVISOR_TELEMETRY === "0";
 
-const readConsent = () => readJson(consentPath(), { consent: "unset" });
+/**
+ * Locate the `.migration/` root, walking up from a starting directory.
+ *
+ * The skills `cd` into `.migration/<id>/` to work on artifacts with relative
+ * paths, so the starting point may be the run dir, the repo root, or somewhere
+ * between. Bounded depth; returns null when there is no migration tree, which is
+ * the normal case for a plain `emit.mjs status` outside a project.
+ */
+const findMigrationRoot = (start) => {
+  let dir = start;
+  for (let depth = 0; depth < 6; depth++) {
+    if (basename(dir) === ".migration") return dir;
+    const candidate = join(dir, ".migration");
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return null;
+};
 
-const setConsent = (granted) => {
-  const existing = readConsent();
+/**
+ * The install identifier, minted once per machine and never per repo.
+ *
+ * Kept outside `.migration/` on purpose. Consent is a per-project decision and is
+ * stored with the project, but identity is not: if `installId` were scoped to a
+ * repo, one customer migrating three repos would appear as three installs, and
+ * every adoption and funnel figure would be inflated by however many projects
+ * people happen to have. It is also stable across revoke/re-grant so the same
+ * install is never counted twice.
+ */
+const installId = () => {
+  const existing = readJson(installIdPath());
+  if (existing?.installId) return existing.installId;
+  const minted = { installId: randomUUID(), createdAt: new Date().toISOString() };
+  try {
+    writeJson(installIdPath(), minted);
+  } catch {
+    /* ignore — a read-only state dir must not break emission */
+  }
+  return minted.installId;
+};
+
+/**
+ * Read the consent decision for a given migration tree.
+ *
+ * Falls back to the global record so a consent granted before this change, or
+ * seeded outside any project, still applies.
+ */
+const readConsentAt = (migrationRoot) => {
+  const scoped = migrationRoot && readJson(consentPathFor(migrationRoot));
+  if (scoped?.consent) return scoped;
+  return readJson(globalConsentPath(), { consent: "unset" });
+};
+
+const readConsent = () => readConsentAt(findMigrationRoot(process.cwd()));
+
+const setConsent = (granted, migrationRoot) => {
   const record = {
     consent: granted ? "granted" : "revoked",
-    // installId is minted once and kept across revoke/re-grant so the same
-    // install is not counted as two.
-    installId: existing.installId ?? randomUUID(),
+    installId: installId(),
     consentedAt: new Date().toISOString(),
     version: 1,
   };
-  writeJson(consentPath(), record);
+  // Written where the runs are when there is a migration tree, so the customer
+  // can see the decision beside the work it governs; globally otherwise.
+  writeJson(migrationRoot ? consentPathFor(migrationRoot) : globalConsentPath(), record);
   return record;
 };
 
@@ -179,12 +287,50 @@ const toPricingSource = (raw) => {
   return mapped === "CACHED" && stale ? "CACHED_STALE" : mapped;
 };
 
+/**
+ * Workload-shape detection, matched against resource TYPES only.
+ *
+ * Not against the serialised inventory. The inventory carries the discover
+ * phase's own metadata alongside the customer's resources, including
+ * `classification_source: "llm_inference"` — meaning "an LLM inferred this
+ * classification", not "the customer runs AI". Matching /llm/ over the whole blob
+ * therefore reported hasAi:true on three separate AI-free samples (a pure-compute
+ * estate, a fintech platform, and a media pipeline). Types are the provider's
+ * product identity and carry no such provenance.
+ */
+const AI_TYPE =
+  /vertex|aiplatform|notebooks|discovery_engine|automl|ml_engine|dialogflow|document_ai|bedrock|sagemaker|comprehend/;
+
+/**
+ * Managed-database detection.
+ *
+ * The GCP product names matter and were absent: the original vocabulary listed
+ * AWS names and engine names only, so a dedicated Firestore estate reported
+ * hasDatabase:false. Kept in one place so both providers' names stay together.
+ */
+const DB_TYPE =
+  /sql|postgres|mysql|mongo|redis|firestore|spanner|bigtable|datastore|memorystore|alloydb|rds|aurora|dynamo|elasticache|documentdb/;
+
+const resourceTypes = (resources) =>
+  resources
+    .map((r) => String(r?.type ?? r?.resource_type ?? ""))
+    .join(" ")
+    .toLowerCase();
+
 /** Monthly spend on the SOURCE platform, which is what spendBand means. The key
- *  name is inconsistent across skills and phases, so try the known spellings. */
+ *  name is inconsistent across skills, phases and routes, so try the known
+ *  spellings. `total_monthly_spend` is the billing-only route's name for a
+ *  MEASURED figure — omitting it dropped spend telemetry for exactly the segment
+ *  whose spend is a bill rather than an estimate. */
 const SOURCE_SPEND_KEYS = [
   "gcp_monthly_spend",
   "gcp_monthly",
   "gcp_monthly_usd",
+  "total_monthly_spend",
+  "gcp_total_monthly",
+  "total_monthly",
+  "gcp_monthly_ai_spend",
+  "total_current_ai_monthly",
   "heroku_monthly",
   "heroku_monthly_estimated",
 ];
@@ -200,6 +346,14 @@ const SPEND_BASIS = {
   pricing_cache: "PRICING_CACHE",
   user_provided: "USER_PROVIDED",
   unavailable: "UNAVAILABLE",
+  // The AI estimate route prices token volume, not infrastructure. Unmapped, this
+  // cost every AI-primary run its entire spend signal: the band is suppressed when
+  // its basis is unknown, so both fields vanished together.
+  estimated_from_token_volume: "TOKEN_VOLUME_ESTIMATE",
+  // A band the skill fell back to with nothing to measure. Kept separate from
+  // USER_PROVIDED because the artifact itself calls it "not a user statement and
+  // not a measurement" — conflating them would dress a placeholder as an answer.
+  preferences: "DEFAULTED",
 };
 
 const toSpendBand = (amount) => {
@@ -215,15 +369,30 @@ const SKILL_INVENTORY = {
   HEROKU_TO_AWS: { inventory: "heroku-resource-inventory.json", provider: "HEROKU" },
 };
 
-/** Read the first estimation artifact that exists — the route taken (infra, AI
- *  or billing-only) decides which one the skill wrote. */
-const readEstimate = (dir) => {
-  for (const name of ["estimation-infra.json", "estimation-ai.json", "estimation-billing.json"]) {
-    const found = readJson(join(dir, name));
-    if (found) return found;
-  }
-  return null;
-};
+/**
+ * Read EVERY estimation artifact present, in preference order.
+ *
+ * Returning only the first match was wrong whenever a run wrote more than one.
+ * An AI-primary migration writes both `estimation-ai.json` and
+ * `estimation-infra.json`; taking infra first costed one such workload from a
+ * defaulted $300 placeholder that the artifact itself labelled "NOT
+ * DECISION-GRADE", while the computed $11.80 sat unread in the AI file — two
+ * spend bands wrong. Each attribute is now taken from the first artifact that
+ * actually supplies it.
+ */
+const readEstimates = (dir) =>
+  ["estimation-infra.json", "estimation-ai.json", "estimation-billing.json"]
+    .map((name) => readJson(join(dir, name)))
+    .filter(Boolean);
+
+/**
+ * Where a route records the source-platform cost.
+ *
+ * The infra and AI routes use `current_costs`; the billing-only route uses
+ * `gcp_baseline` and has no `current_costs` at all, which silently dropped every
+ * spend attribute on a run whose measured spend was $685M.
+ */
+const costContainer = (estimate) => estimate.current_costs ?? estimate.gcp_baseline ?? {};
 
 /**
  * Derive attributes from the artifacts already on disk.
@@ -243,46 +412,82 @@ const deriveAttributes = (dir, skill, event) => {
   // A property of the run itself, so it belongs on every event.
   if (spec) attributes.sourceProvider = spec.provider;
 
-  if (event.phase === "DISCOVER") {
+  // Phase facts belong only on the phase event that produced them. Without this
+  // guard a terminal RUN_COMPLETED re-derives the estimate attributes, because
+  // the session-end path sets `phase` from the snapshot's current_phase — which
+  // restated every cost attribute a second time and double-counted it in any
+  // aggregation grouped by attribute.
+  const phaseEvent = event.eventName === "PHASE_COMPLETED";
+
+  if (phaseEvent && event.phase === "DISCOVER") {
     const inventory = spec ? readJson(join(dir, spec.inventory)) : null;
     const resources = Array.isArray(inventory) ? inventory : inventory?.resources;
+
+    // App-code AI detection lands here and nowhere else. Reading it is what lets
+    // an AI workload with no AI *resource* — the SDK called from application code
+    // — report hasAi at all; without it a Gemini-only service read as hasAi:false.
+    const aiProfile = readJson(join(dir, "ai-workload-profile.json"));
+    const aiFromProfile = Array.isArray(aiProfile?.models)
+      ? aiProfile.models.length > 0
+      : (aiProfile?.summary?.total_models_detected ?? 0) > 0;
+
     if (Array.isArray(resources)) {
       // Range-bounded in the model; clamp rather than emit an invalid value.
       attributes.resourceCount = Math.min(resources.length, 10000);
-      const types = JSON.stringify(resources).toLowerCase();
-      attributes.hasDatabase = /sql|postgres|rds|aurora|dynamo|redis|mysql|mongo/.test(types);
-      attributes.hasAi = /vertex|openai|bedrock|anthropic|gemini|llm|sagemaker/.test(types);
+      const types = resourceTypes(resources);
+      attributes.hasDatabase = DB_TYPE.test(types);
+      attributes.hasAi = AI_TYPE.test(types) || aiFromProfile;
+    } else if (aiProfile) {
+      // No Terraform, so no inventory and no resourceCount — but the AI signal is
+      // still knowable, and it is the whole point of an app-code-only migration.
+      attributes.hasAi = aiFromProfile;
     }
   }
 
-  if (event.phase === "CLARIFY") {
+  if (phaseEvent && event.phase === "CLARIFY") {
     const preferences = readJson(join(dir, "preferences.json"));
     const clarifyMode = mapEnum(CLARIFY_MODE, preferences?.metadata?.migration_type);
     if (clarifyMode) attributes.clarifyMode = clarifyMode;
   }
 
-  if (event.phase === "ESTIMATE") {
-    const estimate = readEstimate(dir);
-    if (estimate) {
-      const outcome = mapEnum(RECOMMENDATION_OUTCOME, estimate.recommendation?.outcome);
-      if (outcome) attributes.recommendationOutcome = outcome;
+  if (phaseEvent && event.phase === "ESTIMATE") {
+    const estimates = readEstimates(dir);
 
-      const pricing = toPricingSource(
-        estimate.pricing_source ?? estimate.projected_costs?.pricing_source,
-      );
-      if (pricing) attributes.pricingSource = pricing;
-
-      const current = estimate.current_costs ?? {};
-      for (const key of SOURCE_SPEND_KEYS) {
-        const band = toSpendBand(current[key]);
-        if (band) {
-          attributes.spendBand = band;
-          break;
-        }
+    for (const estimate of estimates) {
+      if (!attributes.recommendationOutcome) {
+        const outcome = mapEnum(RECOMMENDATION_OUTCOME, estimate.recommendation?.outcome);
+        if (outcome) attributes.recommendationOutcome = outcome;
       }
+      if (!attributes.pricingSource) {
+        const pricing = toPricingSource(
+          estimate.pricing_source ?? estimate.projected_costs?.pricing_source,
+        );
+        if (pricing) attributes.pricingSource = pricing;
+      }
+    }
 
-      const basis = mapEnum(SPEND_BASIS, current.source);
-      if (basis) attributes.spendBasis = basis;
+    // spendBand and spendBasis are emitted as a PAIR, from the same container.
+    //
+    // A band without a basis is the one combination that actively misleads: a
+    // defaulted placeholder the artifact itself called "±100%+, not a
+    // measurement" was published as FROM_100_TO_1K, indistinguishable from a
+    // measured figure. So an unrecognised `source` now suppresses the number too,
+    // rather than shipping it unqualified. A basis with no band is harmless —
+    // there is no figure to misread — so it is still reported on its own.
+    for (const estimate of estimates) {
+      const container = costContainer(estimate);
+      const basis = mapEnum(SPEND_BASIS, container.source);
+      let band;
+      for (const key of SOURCE_SPEND_KEYS) {
+        band = toSpendBand(container[key]);
+        if (band) break;
+      }
+      if (basis && band) {
+        attributes.spendBand = band;
+        attributes.spendBasis = basis;
+        break;
+      }
+      if (basis && !attributes.spendBasis) attributes.spendBasis = basis;
     }
   }
 
@@ -356,11 +561,44 @@ const debugLog = (line) => {
   }
 };
 
+/**
+ * Per-invocation trigger trace.
+ *
+ * Counting emitted events cannot distinguish "the hook ran and correctly had
+ * nothing to say" from "the hook never ran at all" — and those call for opposite
+ * fixes. This records one line per process launch with the point it exited, so
+ * triggers and endpoint calls can be reconciled separately. Debug-gated and
+ * wrapped in try/catch, so it cannot affect the fail-open contract.
+ */
+const trace = { mode: "unknown", outcome: "unset", posted: 0, detail: undefined };
+
+const writeTrace = () => {
+  if (process.env.AWS_STARTUP_ADVISOR_TELEMETRY_DEBUG !== "1") return;
+  try {
+    const p = join(stateDir(), "trace.jsonl");
+    mkdirSync(dirname(p), { recursive: true });
+    appendFileSync(p, `${JSON.stringify({ at: new Date().toISOString(), ...trace })}\n`);
+  } catch {
+    /* ignore */
+  }
+};
+
 // ------------------------------------------------------------- hook mode
 
 /** Build and send one event. Shared by both hook modes so the envelope and the
  *  fail-open contract exist in exactly one place. */
-const send = async (installId, skill, runId, event, dir) => {
+/**
+ * The model types sessionId as a UUID with a strict pattern, and a malformed
+ * optional field is rejected at the request level — costing the whole event, not
+ * just the field. sessionId is the only identifier we do not mint ourselves
+ * (runId and installId come from randomUUID), so it is the only one that can
+ * arrive in an unexpected shape from a host we do not control. Same
+ * unknown-means-omit rule the enums use: drop the field, keep the event.
+ */
+const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+const asUuid = (value) => (typeof value === "string" && UUID_RE.test(value) ? value : undefined);
+
+const send = async (installId, skill, runId, event, dir, sessionId) => {
   const { runMode, ...rest } = event;
   const attributes = deriveAttributes(dir, skill, event) ?? {};
   if (runMode) attributes.runMode = runMode;
@@ -378,6 +616,13 @@ const send = async (installId, skill, runId, event, dir) => {
         ...rest,
         skill,
         runId,
+        // runId is stable for the life of the migration and sessionId changes
+        // every sitting, so "how many sittings did this run take" is
+        // COUNT(DISTINCT sessionId) GROUP BY runId — and the phase on each
+        // session's last event is where that sitting stopped. Neither is
+        // recoverable from timestamps: real gaps *within* one sitting run to 21
+        // minutes, which overlaps how soon a user can return in a new one.
+        ...(asUuid(sessionId) ? { sessionId } : {}),
         ...(Object.keys(attributes).length ? { attributes } : {}),
       },
     },
@@ -389,63 +634,88 @@ const send = async (installId, skill, runId, event, dir) => {
 };
 
 /**
- * SessionEnd: report runs this session left unfinished.
+ * SessionEnd: a final reconcile for the runs this session touched.
  *
- * Without this, a run that stops partway is indistinguishable from one still in
- * progress — the funnel sees only the absence of later events, which conflates
- * abandonment with a customer who intends to resume tomorrow. Reported as
- * RUN_COMPLETED with status ABORTED and the phase it stopped on, so no new event
- * name is needed and the terminal event stays one thing to count.
+ * It deliberately does NOT report unfinished runs as abandoned.
+ *
+ * It used to. That was wrong, because abandonment is a claim about the future —
+ * "they never came back" — and session end cannot observe the future. It only
+ * observes that this session stopped, which is a different fact. A customer who
+ * reaches Estimate, quits, and finishes the same run dir three days later is the
+ * normal case, not an edge case: the skill is built to resume, keeping one
+ * `.migration/<id>/` dir across sessions.
+ *
+ * Emitting ABORTED at session end produced two terminal events for one runId in
+ * exactly that case — ABORTED on day one, SUCCESS on day four — with phase events
+ * arriving after the terminal. The rubric requires exactly one terminal per run,
+ * and any consumer treating RUN_COMPLETED as end-of-stream mishandled it.
+ *
+ * Abandonment is knowable only where time is observable, which is the backend:
+ * a runId with RUN_STARTED, no RUN_COMPLETED, and no activity for N days. runId
+ * is carried across sessions (taken from the snapshot, never re-minted), so that
+ * correlation is available downstream. This hook therefore emits only what it can
+ * actually see — any transition written after the last Stop — which makes it a
+ * cheap safety net rather than a guess.
  */
 const runSessionEnd = async () => {
-  const consent = readConsent();
-  if (consent.consent !== "granted" || optedOutByEnv()) return;
-
+  trace.mode = "session_end";
   const hook = JSON.parse(readFileSync(0, "utf8"));
   const sessionId = hook?.session_id;
-  if (!sessionId || !existsSync(runsDir())) return;
-
-  for (const file of readdirSync(runsDir())) {
-    const path = join(runsDir(), file);
-    const snapshot = readJson(path);
-    if (!snapshot || snapshot.sessionId !== sessionId || snapshot.completed) continue;
-
-    await send(consent.installId, snapshot.skill, snapshot.runId, {
-      eventName: "RUN_COMPLETED",
-      status: "ABORTED",
-      phase: toPhaseEnum(snapshot.current_phase),
-    }, snapshot.dir);
-
-    writeJson(path, { ...snapshot, completed: true });
+  if (!sessionId) {
+    trace.outcome = "no_session_id";
+    return;
   }
+
+  // Consent is resolved against the migration tree in the session's cwd, so the
+  // payload has to be parsed before the check rather than after.
+  const consent = readConsentAt(findMigrationRoot(hook.cwd ?? process.cwd()));
+  if (consent.consent !== "granted" || optedOutByEnv()) {
+    trace.outcome = "no_consent";
+    return;
+  }
+
+  // Run dirs are discovered from cwd, then each one's co-located snapshot says
+  // whether this session touched it and which skill owns it — which is why this
+  // mode still needs no --skill argument and can stay registered at plugin level.
+  let posted = 0;
+  let seen = 0;
+  for (const statusFile of findStatusFiles(hook.cwd ?? process.cwd())) {
+    const runDir = dirname(statusFile);
+    const snapshot = readJson(runPath(runDir));
+    if (!snapshot || snapshot.sessionId !== sessionId) continue;
+    seen++;
+    const result = await processStatusFile(
+      snapshot.skill, statusFile, sessionId, consent.installId ?? installId(),
+    );
+    posted += result.posted;
+  }
+
+  trace.posted = posted;
+  trace.outcome = !seen ? "no_run_this_session" : posted ? "reconciled" : "no_delta";
 };
 
-const runHook = async (skill) => {
-  const raw = readFileSync(0, "utf8");
-  const hook = JSON.parse(raw);
-
-  const filePath = hook?.tool_input?.file_path;
-  if (!filePath || basename(filePath) !== ".phase-status.json") return;
-
-  const consent = readConsent();
-  if (consent.consent !== "granted" || optedOutByEnv()) return;
-
-  const dir = dirname(filePath);
-  const absolute = filePath.startsWith("/") ? filePath : join(hook.cwd ?? process.cwd(), filePath);
+/**
+ * Diff one `.phase-status.json` against its snapshot and send what changed.
+ *
+ * Shared by both hook modes so the diff, the runId rule and the snapshot format
+ * exist once. Whoever wrote the file — Write, Edit, or a shell heredoc — is
+ * irrelevant here: the state on disk is the input.
+ */
+const processStatusFile = async (skill, absolute, sessionId, installId) => {
   const current = readJson(absolute);
-  if (!current?.migration_id) return;
+  if (!current?.migration_id) return { outcome: "no_migration_id", posted: 0 };
 
   // A second migration skill invoked in the same session leaves both skills'
   // hooks registered, so confirm this run belongs to the skill that registered
   // this hook before reporting anything under its name.
   const spec = SKILL_INVENTORY[skill];
-  const ownDir = filePath.startsWith("/") ? dirname(absolute) : dir;
+  const ownDir = dirname(absolute);
   const other = Object.entries(SKILL_INVENTORY).find(([name]) => name !== skill)?.[1];
   if (spec && other && !existsSync(join(ownDir, spec.inventory)) && existsSync(join(ownDir, other.inventory))) {
-    return;
+    return { outcome: "not_our_skill", posted: 0 };
   }
 
-  const snapshotPath = runPath(current.migration_id);
+  const snapshotPath = runPath(ownDir);
   const snapshot = readJson(snapshotPath);
   const events = diffToEvents(snapshot, current);
 
@@ -455,7 +725,7 @@ const runHook = async (skill) => {
   const runId = snapshot?.runId ?? randomUUID();
 
   for (const event of events) {
-    await send(consent.installId, skill, runId, event, ownDir);
+    await send(installId, skill, runId, event, ownDir, sessionId);
   }
 
   writeJson(snapshotPath, {
@@ -468,9 +738,125 @@ const runHook = async (skill) => {
     // report each under the right skill with its artifacts still readable.
     skill,
     dir: ownDir,
-    sessionId: hook.session_id,
+    sessionId,
     completed: events.some((e) => e.eventName === "RUN_COMPLETED") || snapshot?.completed === true,
   });
+
+  return { outcome: events.length ? "emitted" : "no_delta", posted: events.length };
+};
+
+const runHook = async (skill) => {
+  trace.mode = "post_tool_use";
+  const raw = readFileSync(0, "utf8");
+  const hook = JSON.parse(raw);
+
+  const filePath = hook?.tool_input?.file_path;
+  if (!filePath || basename(filePath) !== ".phase-status.json") {
+    trace.outcome = "not_phase_status";
+    return;
+  }
+
+  const absolute = filePath.startsWith("/") ? filePath : join(hook.cwd ?? process.cwd(), filePath);
+
+  const consent = readConsentAt(findMigrationRoot(dirname(absolute)));
+  if (consent.consent !== "granted" || optedOutByEnv()) {
+    trace.outcome = "no_consent";
+    return;
+  }
+
+  const result = await processStatusFile(
+    skill, absolute, hook.session_id, consent.installId ?? installId(),
+  );
+  trace.outcome = result.outcome;
+  trace.posted = result.posted;
+};
+
+/**
+ * Find every `.phase-status.json` this reconcile should consider.
+ *
+ * Two independent sources, because neither alone is sufficient:
+ *
+ *  - **Snapshots.** Each records the run dir it came from, so any run already
+ *    seen is found regardless of where the session has since wandered.
+ *  - **The filesystem, walking up from cwd.** Needed for the case that matters
+ *    most — a run whose every write went through Bash, so no snapshot exists at
+ *    all and the run is otherwise completely invisible.
+ *
+ * Walking up rather than just checking `cwd/.migration` is not defensive
+ * padding: the skills routinely `cd` into `.migration/<id>/` to work on
+ * artifacts with relative paths, and the Stop payload reports that as the
+ * session cwd. Resolving only against cwd therefore finds nothing on exactly
+ * the runs that need reconciling. Observed directly: an agent `cd`-ed to
+ * `.migration/0830-1601` and the first version of this function reported
+ * `no_migration_dir` while the file sat one level up.
+ */
+const findStatusFiles = (base) => {
+  const found = new Set();
+
+  // Filesystem walk is now the only discovery mechanism needed: the snapshot
+  // lives beside the phase file, so finding one finds both. It used to also scan
+  // a central snapshot index, which no longer exists.
+  //
+  let dir = base;
+  for (let depth = 0; depth < 5; depth++) {
+    // cwd may itself BE the run dir, which is the common case after a cd.
+    const here = join(dir, ".phase-status.json");
+    if (existsSync(here)) found.add(here);
+
+    const migrationRoot = join(dir, ".migration");
+    if (existsSync(migrationRoot)) {
+      for (const entry of readdirSync(migrationRoot)) {
+        const candidate = join(migrationRoot, entry, ".phase-status.json");
+        if (existsSync(candidate)) found.add(candidate);
+      }
+    }
+    const parent = dirname(dir);
+    if (parent === dir) break; // reached /
+    dir = parent;
+  }
+
+  return [...found];
+};
+
+/**
+ * Stop: reconcile on-disk state against the snapshot.
+ *
+ * The Stop payload carries no `tool_input`, so the run directory is discovered
+ * rather than handed over. Every candidate is processed: the skills are told to
+ * keep one run dir but also told to cope with several, and snapshots are keyed
+ * by `migration_id`, so handling all of them is correct and idempotent.
+ */
+const runReconcile = async (skill) => {
+  trace.mode = "stop_reconcile";
+  const hook = JSON.parse(readFileSync(0, "utf8"));
+
+  const consent = readConsentAt(findMigrationRoot(hook.cwd ?? process.cwd()));
+  if (consent.consent !== "granted" || optedOutByEnv()) {
+    trace.outcome = "no_consent";
+    return;
+  }
+
+  const base = hook.cwd ?? process.cwd();
+  const candidates = findStatusFiles(base);
+  if (!candidates.length) {
+    trace.outcome = "no_status_file";
+    trace.detail = `cwd=${base}`;
+    return;
+  }
+
+  const outcomes = [];
+  let posted = 0;
+  for (const candidate of candidates) {
+    const result = await processStatusFile(
+      skill, candidate, hook.session_id, consent.installId ?? installId(),
+    );
+    outcomes.push(result.outcome);
+    posted += result.posted;
+  }
+
+  trace.posted = posted;
+  trace.outcome = posted ? "recovered" : "no_delta";
+  trace.detail = `${candidates.length} status file(s)`;
 };
 
 // ------------------------------------------------------------------- main
@@ -480,8 +866,9 @@ const main = async () => {
 
   if (args[0] === "consent") {
     const action = args[1] ?? "get";
-    if (action === "grant") return console.log(JSON.stringify(setConsent(true)));
-    if (action === "revoke") return console.log(JSON.stringify(setConsent(false)));
+    const root = findMigrationRoot(process.cwd());
+    if (action === "grant") return console.log(JSON.stringify(setConsent(true, root)));
+    if (action === "revoke") return console.log(JSON.stringify(setConsent(false, root)));
     return console.log(JSON.stringify(readConsent()));
   }
 
@@ -504,9 +891,23 @@ const main = async () => {
 
   const skillIndex = args.indexOf("--skill");
   const skill = skillIndex === -1 ? undefined : args[skillIndex + 1];
-  if (!skill) return; // no skill, nothing we could attribute an event to
+  if (!skill) {
+    trace.outcome = "no_skill_arg"; // nothing we could attribute an event to
+    return;
+  }
+  if (args.includes("--reconcile")) return runReconcile(skill);
   await runHook(skill);
 };
 
-// Fail-open is the whole contract: swallow everything and exit 0.
-main().catch(() => {}).finally(() => process.exit(0));
+// Fail-open is the whole contract: swallow everything and exit 0. The trace is
+// written in `finally` so an invocation is recorded on every path, including the
+// ones that threw — otherwise the accounting would quietly under-count failures.
+main()
+  .catch((err) => {
+    trace.outcome = "threw";
+    trace.detail = String(err?.message ?? err).slice(0, 200);
+  })
+  .finally(() => {
+    writeTrace();
+    process.exit(0);
+  });
