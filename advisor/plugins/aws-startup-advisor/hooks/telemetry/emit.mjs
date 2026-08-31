@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Migration telemetry emitter (Claude Code hook).
+ * Migration telemetry emitter (Claude Code and Cursor hook).
  *
- * Registered by each migration skill's frontmatter as a PostToolUse hook on
- * writes to `.phase-status.json`. That file is the skills' own phase tracker, so
+ * Registered as a post-write hook on `.phase-status.json` — by skill frontmatter
+ * on Claude Code, by `hooks.json` on Cursor. That file is the skills' own phase tracker, so
  * a write to it IS a phase transition — the emitter diffs the new contents
  * against the previous snapshot and reports the transitions it finds. Nothing is
  * inferred from the conversation and no instruction has to be followed, so
@@ -51,6 +51,7 @@
  *   AWS_STARTUP_ADVISOR_TELEMETRY_STATE_DIR override the state dir (testing)
  *   AWS_STARTUP_ADVISOR_TELEMETRY=0         opt out
  *   DO_NOT_TRACK=1                          opt out
+ *   AWS_STARTUP_ADVISOR_TELEMETRY_SOURCE    force the reported host (testing)
  */
 
 import {
@@ -67,7 +68,32 @@ import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 
 const POST_TIMEOUT_MS = 3000;
-const SOURCE = "CLAUDE_CODE";
+
+/**
+ * Which host is running us, as a modelled `PluginSource` member.
+ *
+ * Derived from the environment rather than hardcoded, because the same script is
+ * registered by two hosts with different registration mechanisms. Cursor always
+ * exports CURSOR_VERSION and CURSOR_PROJECT_DIR; it also exports
+ * CLAUDE_PROJECT_DIR as a compatibility alias, so keying on CLAUDE_* would
+ * misattribute every Cursor event as Claude Code.
+ *
+ * The default stays CLAUDE_CODE so an unrecognised host is never reported as a
+ * host it is not, and `source` is @required so it cannot simply be omitted.
+ */
+const PLUGIN_SOURCES = new Set(["CLAUDE_CODE", "CODEX", "CURSOR", "KIRO", "OTHER"]);
+
+const detectSource = () => {
+  const override = process.env.AWS_STARTUP_ADVISOR_TELEMETRY_SOURCE;
+  // Validated against the modelled members: `source` is @required, so an
+  // unrecognised override would fail request validation and cost the whole event
+  // rather than one field.
+  if (override && PLUGIN_SOURCES.has(override)) return override;
+  if (process.env.CURSOR_VERSION || process.env.CURSOR_PROJECT_DIR) return "CURSOR";
+  return "CLAUDE_CODE";
+};
+
+const SOURCE = detectSource();
 
 /** Persistent state dir. CLAUDE_PLUGIN_DATA survives plugin updates, unlike
  *  CLAUDE_PLUGIN_ROOT; the home-dir fallback covers non-hook invocations.
@@ -598,6 +624,32 @@ const writeTrace = () => {
 const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 const asUuid = (value) => (typeof value === "string" && UUID_RE.test(value) ? value : undefined);
 
+/**
+ * The three payload fields whose names differ by host, read with fallbacks so one
+ * script serves both without branching on which host it is.
+ *
+ * Claude Code sends `session_id` on every hook. Cursor sends it only on
+ * sessionStart/sessionEnd; its tool, file and stop hooks carry `conversation_id`
+ * instead, so without this fallback sessionId would be silently absent from every
+ * Cursor event — the UUID gate would drop it and sittings-per-run would be
+ * uncomputable for that host.
+ */
+const sessionOf = (hook) => hook?.session_id ?? hook?.conversation_id;
+
+/** Cursor's file hooks carry no `cwd`; `workspace_roots` is the documented
+ *  equivalent. process.cwd() remains the last resort for both hosts. */
+const cwdOf = (hook) =>
+  hook?.cwd ?? (Array.isArray(hook?.workspace_roots) ? hook.workspace_roots[0] : undefined) ?? process.cwd();
+
+/** Claude Code puts the edited path under `tool_input.file_path`. Cursor's
+ *  afterFileEdit puts it at the top level; its Write tool_input shape is not
+ *  documented, so the known spellings are all accepted rather than guessed at. */
+const filePathOf = (hook) =>
+  hook?.tool_input?.file_path ??
+  hook?.file_path ??
+  hook?.tool_input?.target_file ??
+  hook?.tool_input?.path;
+
 const send = async (installId, skill, runId, event, dir, sessionId) => {
   const { runMode, ...rest } = event;
   const attributes = deriveAttributes(dir, skill, event) ?? {};
@@ -660,7 +712,7 @@ const send = async (installId, skill, runId, event, dir, sessionId) => {
 const runSessionEnd = async () => {
   trace.mode = "session_end";
   const hook = JSON.parse(readFileSync(0, "utf8"));
-  const sessionId = hook?.session_id;
+  const sessionId = sessionOf(hook);
   if (!sessionId) {
     trace.outcome = "no_session_id";
     return;
@@ -668,7 +720,7 @@ const runSessionEnd = async () => {
 
   // Consent is resolved against the migration tree in the session's cwd, so the
   // payload has to be parsed before the check rather than after.
-  const consent = readConsentAt(findMigrationRoot(hook.cwd ?? process.cwd()));
+  const consent = readConsentAt(findMigrationRoot(cwdOf(hook)));
   if (consent.consent !== "granted" || optedOutByEnv()) {
     trace.outcome = "no_consent";
     return;
@@ -679,7 +731,7 @@ const runSessionEnd = async () => {
   // mode still needs no --skill argument and can stay registered at plugin level.
   let posted = 0;
   let seen = 0;
-  for (const statusFile of findStatusFiles(hook.cwd ?? process.cwd())) {
+  for (const statusFile of findStatusFiles(cwdOf(hook))) {
     const runDir = dirname(statusFile);
     const snapshot = readJson(runPath(runDir));
     if (!snapshot || snapshot.sessionId !== sessionId) continue;
@@ -750,13 +802,23 @@ const runHook = async (skill) => {
   const raw = readFileSync(0, "utf8");
   const hook = JSON.parse(raw);
 
-  const filePath = hook?.tool_input?.file_path;
+  const filePath = filePathOf(hook);
   if (!filePath || basename(filePath) !== ".phase-status.json") {
     trace.outcome = "not_phase_status";
+    // Record the payload's key names (never their values) when no path could be
+    // found at all. Cursor's Write tool_input shape is undocumented, so if this
+    // host spells the path differently the trace is the only place that would
+    // show it — otherwise it would look identical to a hook that correctly fired
+    // on some other file.
+    if (!filePath) {
+      const keys = Object.keys(hook ?? {});
+      const toolKeys = Object.keys(hook?.tool_input ?? {});
+      trace.detail = `no_path keys=${keys.join(",")} tool_input=${toolKeys.join(",")}`;
+    }
     return;
   }
 
-  const absolute = filePath.startsWith("/") ? filePath : join(hook.cwd ?? process.cwd(), filePath);
+  const absolute = filePath.startsWith("/") ? filePath : join(cwdOf(hook), filePath);
 
   const consent = readConsentAt(findMigrationRoot(dirname(absolute)));
   if (consent.consent !== "granted" || optedOutByEnv()) {
@@ -765,7 +827,7 @@ const runHook = async (skill) => {
   }
 
   const result = await processStatusFile(
-    skill, absolute, hook.session_id, consent.installId ?? installId(),
+    skill, absolute, sessionOf(hook), consent.installId ?? installId(),
   );
   trace.outcome = result.outcome;
   trace.posted = result.posted;
@@ -830,13 +892,13 @@ const runReconcile = async (skill) => {
   trace.mode = "stop_reconcile";
   const hook = JSON.parse(readFileSync(0, "utf8"));
 
-  const consent = readConsentAt(findMigrationRoot(hook.cwd ?? process.cwd()));
+  const consent = readConsentAt(findMigrationRoot(cwdOf(hook)));
   if (consent.consent !== "granted" || optedOutByEnv()) {
     trace.outcome = "no_consent";
     return;
   }
 
-  const base = hook.cwd ?? process.cwd();
+  const base = cwdOf(hook);
   const candidates = findStatusFiles(base);
   if (!candidates.length) {
     trace.outcome = "no_status_file";
@@ -848,7 +910,7 @@ const runReconcile = async (skill) => {
   let posted = 0;
   for (const candidate of candidates) {
     const result = await processStatusFile(
-      skill, candidate, hook.session_id, consent.installId ?? installId(),
+      skill, candidate, sessionOf(hook), consent.installId ?? installId(),
     );
     outcomes.push(result.outcome);
     posted += result.posted;

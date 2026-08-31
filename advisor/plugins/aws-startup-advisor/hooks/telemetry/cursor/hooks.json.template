@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": "node __PLUGIN__/hooks/telemetry/emit.mjs --skill GCP_TO_AWS --reconcile",
+        "timeout": 30
+      }
+    ],
+    "stop": [
+      {
+        "command": "node __PLUGIN__/hooks/telemetry/emit.mjs --skill GCP_TO_AWS --reconcile",
+        "timeout": 30
+      }
+    ],
+    "sessionEnd": [
+      {
+        "command": "node __PLUGIN__/hooks/telemetry/emit.mjs --session-end",
+        "timeout": 10
+      }
+    ]
+  }
+}
