@@ -1,0 +1,16 @@
+{
+  "name": "aws-startups",
+  "owner": {
+    "name": "Amazon Web Services"
+  },
+  "metadata": {
+    "description": "AWS plugins for startups: architecture, cost, security, and migration to AWS.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "aws-startup-advisor",
+      "source": "advisor/plugins/aws-startup-advisor"
+    }
+  ]
+}
