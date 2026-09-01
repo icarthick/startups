@@ -328,9 +328,18 @@ for (const sf of statusFiles) {
       const phase = toPhaseEnum(name);
       if (mapped && phase) truth.push({ eventName: "PHASE_COMPLETED", phase, status: mapped });
     }
-    truth.push(finalState.current_phase === "complete"
-      ? { eventName: "RUN_COMPLETED", status: "SUCCESS" }
-      : { eventName: "RUN_COMPLETED", status: "ABORTED" });
+    // A terminal is required only from a run that actually finished.
+    //
+    // This used to require RUN_COMPLETED/ABORTED from an unfinished one, which
+    // asserts behaviour the design deliberately removed: abandonment is a claim
+    // about the future, session end cannot observe the future, and emitting
+    // ABORTED there produced two terminals for one run whenever a customer
+    // resumed. An unfinished run is IN FLIGHT, which is a legitimate third state
+    // and not a missing event. Every sample in the previous baseline happened to
+    // finish, so the stale expectation cost nothing and stayed invisible.
+    if (finalState.current_phase === "complete") {
+      truth.push({ eventName: "RUN_COMPLETED", status: "SUCCESS" });
+    }
   }
 
   // VISIBLE: replay over Write/Edit writes only.
@@ -360,15 +369,10 @@ for (const sf of statusFiles) {
   console.log(`  ${"event".padEnd(42)} ${"truth".padStart(5)} ${"visible".padStart(7)} ${"emitted".padStart(7)}   verdict`);
   for (const k of allKeys) {
     const t = tTruth.get(k) ?? 0, v = tVis.get(k) ?? 0, e = tEmit.get(k) ?? 0;
-    const isAborted = k.startsWith("RUN_COMPLETED") && k.endsWith("/ABORTED");
     let verdict;
     if (t > 0 && e === 0) {
       // Required signal absent — the defect this validation exists to find.
-      // An ABORTED terminal can only come from the session-end path, which
-      // diffToEvents never produces, so `visible` is structurally 0 for it and
-      // must not be read as matcher loss.
-      if (isAborted) verdict = "MISSING — SessionEnd hook never runs (D1b)";
-      else if (v === 0) verdict = "MISSING — transition written by Bash, invisible to matcher (D1a)";
+      if (v === 0) verdict = "MISSING — transition written by Bash, invisible to matcher (D1a)";
       else verdict = "MISSING — hook saw the write but no event arrived (async teardown / snapshot race)";
       missing.push({ k, n: 1 });
     } else if (t > 0) {
