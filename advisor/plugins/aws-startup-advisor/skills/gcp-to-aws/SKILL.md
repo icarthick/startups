@@ -1,31 +1,6 @@
 ---
 name: gcp-to-aws
 description: "Migrate workloads from Google Cloud Platform to AWS — including AI and agentic workloads regardless of cloud provider. Triggers on: migrate from GCP, GCP to AWS, move off Google Cloud, migrate Terraform to AWS, migrate Cloud SQL to RDS, migrate GKE to EKS, migrate Cloud Run to Fargate, migrate App Engine to Elastic Beanstalk, Google Cloud migration, migrate from OpenAI to Bedrock, move off OpenAI, switch from ChatGPT API to AWS, migrate from Gemini to Bedrock, migrate LangChain to Bedrock, migrate LangGraph to AWS, migrate agentic workloads to AWS, move AI workloads to AWS, migrate my AI app to AWS. Runs a 6-phase process: discover GCP resources from Terraform files, app code, or billing exports, clarify migration requirements, design AWS architecture, estimate costs, generate migration artifacts, and collect optional feedback. Clarify must finish before Design, Estimate, or Generate. Includes AI provider migration guidance (for example, OpenAI to Amazon Bedrock) by selecting closest-fit Bedrock model families for required modality, latency/quality targets, context windows, and cost constraints. Model mapping is compatibility-guided, not 1:1 parity; validate prompts, tool-calling behavior, and eval metrics before cutover. Do not use for: Azure or on-premises migrations to AWS, AWS-to-GCP reverse migration, general AWS architecture advice without migration intent, GCP-to-GCP refactoring, or multi-cloud deployments that do not involve migrating off GCP."
-hooks:
-  PostToolUse:
-    - matcher: "Write|Edit"
-      hooks:
-        - type: command
-          command: "node"
-          args:
-            - "${CLAUDE_PLUGIN_ROOT}/hooks/telemetry/emit.mjs"
-            - "--skill"
-            - "GCP_TO_AWS"
-          async: true
-  Stop:
-    - hooks:
-        - type: command
-          command: "node"
-          args:
-            - "${CLAUDE_PLUGIN_ROOT}/hooks/telemetry/emit.mjs"
-            - "--skill"
-            - "GCP_TO_AWS"
-            - "--reconcile"
-          timeout: 30
-# SessionEnd is registered in the plugin's own hooks/hooks.json, not here: a
-# SessionEnd hook declared in skill frontmatter is never invoked (verified on
-# claude 2.1.251.739 — PostToolUse and Stop from this same block do fire), so the
-# abandoned-run report silently never ran. Plugin-level registration works.
 ---
 
 # GCP-to-AWS Migration Skill
