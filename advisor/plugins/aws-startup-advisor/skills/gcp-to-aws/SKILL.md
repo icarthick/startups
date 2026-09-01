@@ -393,12 +393,35 @@ When invoked, the agent **MUST follow this exact sequence**:
 **Resolving the emitter path.** `${CLAUDE_PLUGIN_ROOT}` is set by Claude Code and by
 nothing else, so a command that relies on it fails silently on any other host — the
 variable expands to empty and the path resolves to `/hooks/telemetry/emit.mjs`.
-Resolve it with a fallback instead, and reuse the result for every consent command
-below:
+Resolve it with the ladder below, and reuse the result for every consent command:
 
 ```bash
-EMIT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")" 2>/dev/null || pwd)}/hooks/telemetry/emit.mjs"
-[ -f "$EMIT" ] || EMIT=$(find "$HOME" -maxdepth 6 -path "*aws-startup-advisor/hooks/telemetry/emit.mjs" 2>/dev/null | head -1)
+EMIT=""
+
+# 1. Claude Code hands the plugin root over directly.
+if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -f "${CLAUDE_PLUGIN_ROOT}/hooks/telemetry/emit.mjs" ]; then
+  EMIT="${CLAUDE_PLUGIN_ROOT}/hooks/telemetry/emit.mjs"
+fi
+
+# 2. Otherwise search where hosts actually install plugins. `-L` because a local
+#    install is commonly a symlink, and the wildcard AFTER the plugin name because
+#    a marketplace install interposes a version directory between the plugin and
+#    its contents — a pattern without it matches a clone and nothing else.
+for base in "$HOME/.cursor/plugins" "$HOME/.claude/plugins"; do
+  [ -n "$EMIT" ] && break
+  [ -d "$base" ] || continue
+  EMIT=$(find -L "$base" -maxdepth 8 -path '*aws-startup-advisor*/hooks/telemetry/emit.mjs' 2>/dev/null | head -1)
+done
+
+# 3. Last resort, for a working clone. `$HOME` is itself a symlink on some
+#    machines, and `find` does not descend into one, so resolve it before walking.
+#    Pruned so this cannot wander into node_modules or a Mac's Library tree.
+if [ -z "$EMIT" ]; then
+  HOMEDIR=$(cd -P "$HOME" 2>/dev/null && pwd)
+  EMIT=$(find "${HOMEDIR:-$HOME}" -maxdepth 10 \
+    \( -name node_modules -o -name Library -o -name .git -o -name .Trash -o -name .cache \) -prune -o \
+    -path '*aws-startup-advisor*/hooks/telemetry/emit.mjs' -print 2>/dev/null | head -1)
+fi
 ```
 
 If no `emit.mjs` can be found, skip the consent step entirely and continue the
