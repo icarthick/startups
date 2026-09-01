@@ -61,6 +61,9 @@ import {
   existsSync,
   appendFileSync,
   readdirSync,
+  renameSync,
+  rmSync,
+  statSync,
 } from "node:fs";
 import { homedir } from "node:os";
 import { join, dirname, basename } from "node:path";
@@ -158,9 +161,39 @@ const readJson = (p, fallback = null) => {
   }
 };
 
+/**
+ * Distinguish "no snapshot" from "snapshot unreadable".
+ *
+ * The diff treats a missing snapshot as the first write of a run, which mints a
+ * runId and emits RUN_STARTED. A truncated or corrupt file must NOT take that
+ * path: it would report one migration as two runs, the second carrying a full
+ * and plausible phase history, and inflate the only number this system exists to
+ * produce. Absent means new; unreadable means stop and try again next trigger.
+ */
+const SNAPSHOT_UNREADABLE = Symbol("snapshot-unreadable");
+
+const readSnapshot = (p) => {
+  if (!existsSync(p)) return null;
+  try {
+    return JSON.parse(readFileSync(p, "utf8"));
+  } catch {
+    return SNAPSHOT_UNREADABLE;
+  }
+};
+
+/**
+ * Write via a temporary file and rename, because rename is atomic within a
+ * filesystem while a plain write is not.
+ *
+ * Hooks are killed at the host's timeout and this process exits from a `finally`,
+ * so a partially written snapshot is reachable — and a partially written snapshot
+ * is exactly the input `readSnapshot` must never mistake for a new run.
+ */
 const writeJson = (p, value) => {
   mkdirSync(dirname(p), { recursive: true });
-  writeFileSync(p, JSON.stringify(value, null, 2));
+  const tmp = `${p}.${process.pid}.tmp`;
+  writeFileSync(tmp, JSON.stringify(value, null, 2));
+  renameSync(tmp, p);
 };
 
 // ---------------------------------------------------------------- consent
@@ -224,6 +257,11 @@ const readConsentAt = (migrationRoot) => {
 };
 
 const readConsent = () => readConsentAt(findMigrationRoot(process.cwd()));
+
+/** Consent governing one run, resolved from that run's own migration tree rather
+ *  than from wherever the session happens to be. */
+const consentForRun = (statusFileOrDir) =>
+  readConsentAt(findMigrationRoot(dirname(statusFileOrDir)));
 
 const setConsent = (granted, migrationRoot) => {
   const record = {
@@ -625,6 +663,22 @@ const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0
 const asUuid = (value) => (typeof value === "string" && UUID_RE.test(value) ? value : undefined);
 
 /**
+ * Validate every identifier read back from disk, not only the one the host sends.
+ *
+ * `eventId` is the only identifier well-formed by construction. `runId` comes from
+ * the snapshot and `installId` from the consent record — both files live where the
+ * customer can see and edit them, and the consent prose itself anticipates
+ * hand-written records. The model constrains these to a UUID pattern, and
+ * validation is request-scoped: one malformed value rejects the whole event, for
+ * every event, and the snapshot advances regardless of the send outcome. So a
+ * single hand-edited character would silently end telemetry for that run.
+ *
+ * Re-mint rather than omit: unlike an optional attribute, a run with no runId
+ * cannot be correlated at all.
+ */
+const asUuidOrMint = (value) => asUuid(value) ?? randomUUID();
+
+/**
  * The three payload fields whose names differ by host, read with fallbacks so one
  * script serves both without branching on which host it is.
  *
@@ -659,6 +713,10 @@ const send = async (installId, skill, runId, event, dir, sessionId) => {
     installId,
     source: SOURCE,
     pluginVersion: pluginVersion(),
+    // The client cannot clamp this usefully: it has no idea what the server's
+    // clock reads, so the skew it would need to correct for is exactly the thing
+    // it cannot measure. The tolerance therefore lives server-side — see the
+    // handler's temporal validation.
     occurredAt: Date.now(),
     // Fresh per emission: a genuine phase re-run is a real second occurrence
     // and must not dedup away.
@@ -718,10 +776,7 @@ const runSessionEnd = async () => {
     return;
   }
 
-  // Consent is resolved against the migration tree in the session's cwd, so the
-  // payload has to be parsed before the check rather than after.
-  const consent = readConsentAt(findMigrationRoot(cwdOf(hook)));
-  if (consent.consent !== "granted" || optedOutByEnv()) {
+  if (optedOutByEnv()) {
     trace.outcome = "no_consent";
     return;
   }
@@ -735,15 +790,63 @@ const runSessionEnd = async () => {
     const runDir = dirname(statusFile);
     const snapshot = readJson(runPath(runDir));
     if (!snapshot || snapshot.sessionId !== sessionId) continue;
+    // Per-candidate, for the same reason as the reconcile path.
+    const consent = consentForRun(statusFile);
+    if (consent.consent !== "granted") continue;
     seen++;
     const result = await processStatusFile(
-      snapshot.skill, statusFile, sessionId, consent.installId ?? installId(),
+      snapshot.skill, statusFile, sessionId, asUuidOrMint(consent.installId ?? installId()),
     );
     posted += result.posted;
   }
 
   trace.posted = posted;
   trace.outcome = !seen ? "no_run_this_session" : posted ? "reconciled" : "no_delta";
+};
+
+/**
+ * Exclusive lock for one run directory, using directory creation as the
+ * test-and-set: `mkdir` without `recursive` fails with EEXIST if the path exists,
+ * atomically, on every filesystem we care about.
+ *
+ * The loser does not wait and does not emit. That is safe rather than lossy — the
+ * holder is reading the same state file and is about to report the same
+ * transitions — and it keeps a hook cheap, which matters because these run inside
+ * the customer's turn.
+ *
+ * Stale locks are stealable. A hook killed at the host's timeout leaves the
+ * directory behind, and without reaping it telemetry for that run would stop
+ * permanently; the window is generous enough to exceed any legitimate hold, since
+ * a hold is bounded by the POST timeout.
+ */
+const LOCK_STALE_MS = 60_000;
+
+const acquireRunLock = (runDir) => {
+  const lockPath = join(runDir, ".telemetry-lock");
+  try {
+    mkdirSync(lockPath);
+    return lockPath;
+  } catch (err) {
+    if (err?.code !== "EEXIST") return null; // unwritable dir: fail open, emit nothing
+    // Steal it only if it is old enough to be abandoned rather than active.
+    try {
+      const age = Date.now() - statSync(lockPath).mtimeMs;
+      if (age < LOCK_STALE_MS) return null;
+      rmSync(lockPath, { recursive: true, force: true });
+      mkdirSync(lockPath);
+      return lockPath;
+    } catch {
+      return null;
+    }
+  }
+};
+
+const releaseRunLock = (lockPath) => {
+  try {
+    rmSync(lockPath, { recursive: true, force: true });
+  } catch {
+    /* a lock we cannot remove is reaped as stale by the next invocation */
+  }
 };
 
 /**
@@ -768,33 +871,58 @@ const processStatusFile = async (skill, absolute, sessionId, installId) => {
   }
 
   const snapshotPath = runPath(ownDir);
-  const snapshot = readJson(snapshotPath);
-  const events = diffToEvents(snapshot, current);
 
-  // runId is minted here, not derived from migration_id: that marker is
-  // MMDD-HHMM, so two customers starting in the same minute would otherwise
-  // share a runId on a shared backend.
-  const runId = snapshot?.runId ?? randomUUID();
+  // Serialise everything below. Reading the snapshot, sending, and writing the
+  // snapshot back is a read-modify-write whose window spans the network calls, so
+  // two overlapping invocations would both see the same "before" state, both mint
+  // a runId and both report the same transitions — and neither the diff nor the
+  // eventId key can collapse that, because each process mints its own.
+  const lock = acquireRunLock(ownDir);
+  if (!lock) return { outcome: "locked", posted: 0 };
 
-  for (const event of events) {
-    await send(installId, skill, runId, event, ownDir, sessionId);
+  try {
+    const snapshot = readSnapshot(snapshotPath);
+
+    // A snapshot we cannot parse is not a new run. Treating it as one would emit
+    // RUN_STARTED plus every resolved phase again under a fresh runId.
+    if (snapshot === SNAPSHOT_UNREADABLE) {
+      return { outcome: "snapshot_unreadable", posted: 0 };
+    }
+
+    const events = diffToEvents(snapshot, current);
+
+    // runId is minted here, not derived from migration_id: that marker is
+    // MMDD-HHMM, so two customers starting in the same minute would otherwise
+    // share a runId on a shared backend. Validated on the way back in because the
+    // snapshot is a customer-editable file — see asUuidOrMint.
+    const runId = asUuidOrMint(snapshot?.runId);
+
+    // Concurrently, under one budget. Sending serially cost up to one POST
+    // timeout per event, which on a reconcile catching a whole run could exceed
+    // the host's hook timeout — and a hook killed mid-loop never reaches the
+    // snapshot write below, so the next trigger repeats the whole batch.
+    await Promise.allSettled(
+      events.map((event) => send(installId, skill, runId, event, ownDir, sessionId)),
+    );
+
+    writeJson(snapshotPath, {
+      runId,
+      migration_id: current.migration_id,
+      current_phase: current.current_phase,
+      run_mode: current.run_mode,
+      phases: current.phases ?? {},
+      // Recorded so SessionEnd can find runs this session left unfinished, and
+      // report each under the right skill with its artifacts still readable.
+      skill,
+      dir: ownDir,
+      sessionId,
+      completed: events.some((e) => e.eventName === "RUN_COMPLETED") || snapshot?.completed === true,
+    });
+
+    return { outcome: events.length ? "emitted" : "no_delta", posted: events.length };
+  } finally {
+    releaseRunLock(lock);
   }
-
-  writeJson(snapshotPath, {
-    runId,
-    migration_id: current.migration_id,
-    current_phase: current.current_phase,
-    run_mode: current.run_mode,
-    phases: current.phases ?? {},
-    // Recorded so SessionEnd can find runs this session left unfinished, and
-    // report each under the right skill with its artifacts still readable.
-    skill,
-    dir: ownDir,
-    sessionId,
-    completed: events.some((e) => e.eventName === "RUN_COMPLETED") || snapshot?.completed === true,
-  });
-
-  return { outcome: events.length ? "emitted" : "no_delta", posted: events.length };
 };
 
 const runHook = async (skill) => {
@@ -820,14 +948,14 @@ const runHook = async (skill) => {
 
   const absolute = filePath.startsWith("/") ? filePath : join(cwdOf(hook), filePath);
 
-  const consent = readConsentAt(findMigrationRoot(dirname(absolute)));
+  const consent = consentForRun(absolute);
   if (consent.consent !== "granted" || optedOutByEnv()) {
     trace.outcome = "no_consent";
     return;
   }
 
   const result = await processStatusFile(
-    skill, absolute, sessionOf(hook), consent.installId ?? installId(),
+    skill, absolute, sessionOf(hook), asUuidOrMint(consent.installId ?? installId()),
   );
   trace.outcome = result.outcome;
   trace.posted = result.posted;
@@ -892,8 +1020,8 @@ const runReconcile = async (skill) => {
   trace.mode = "stop_reconcile";
   const hook = JSON.parse(readFileSync(0, "utf8"));
 
-  const consent = readConsentAt(findMigrationRoot(cwdOf(hook)));
-  if (consent.consent !== "granted" || optedOutByEnv()) {
+  // Opt-out is global, so it can short-circuit before any file work.
+  if (optedOutByEnv()) {
     trace.outcome = "no_consent";
     return;
   }
@@ -908,16 +1036,36 @@ const runReconcile = async (skill) => {
 
   const outcomes = [];
   let posted = 0;
+  // Consent is resolved PER CANDIDATE, from that candidate's own migration tree.
+  // Discovery walks several levels up, so one cwd can surface run directories from
+  // sibling or parent projects; reading consent once from cwd would let a grant in
+  // one project authorise emission for runs outside it.
+  let unconsented = 0;
   for (const candidate of candidates) {
+    const consent = consentForRun(candidate);
+    if (consent.consent !== "granted") {
+      unconsented++;
+      continue;
+    }
     const result = await processStatusFile(
-      skill, candidate, sessionOf(hook), consent.installId ?? installId(),
+      skill, candidate, sessionOf(hook), asUuidOrMint(consent.installId ?? installId()),
     );
     outcomes.push(result.outcome);
     posted += result.posted;
   }
+  if (unconsented && !outcomes.length) {
+    trace.outcome = "no_consent";
+    trace.detail = `${unconsented} run(s) without consent`;
+    return;
+  }
 
   trace.posted = posted;
-  trace.outcome = posted ? "recovered" : "no_delta";
+  // Surface an unusual per-candidate outcome rather than flattening everything to
+  // no_delta. "Checked and found nothing to do" and "refused to read a corrupt
+  // snapshot" are opposite situations, and the trace is the only place the
+  // difference is visible.
+  const notable = outcomes.find((o) => o !== "no_delta" && o !== "emitted");
+  trace.outcome = notable ?? (posted ? "recovered" : "no_delta");
   trace.detail = `${candidates.length} status file(s)`;
 };
 

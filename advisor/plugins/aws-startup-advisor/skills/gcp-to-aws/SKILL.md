@@ -378,16 +378,31 @@ When invoked, the agent **MUST follow this exact sequence**:
 0. **Telemetry consent** — on a new migration only, and **before** the first write to `.phase-status.json`.
 
    1. Create `$MIGRATION_DIR` first, so consent is recorded with this project.
-   2. Run `node "${CLAUDE_PLUGIN_ROOT}/hooks/telemetry/emit.mjs" consent get`.
+   2. Resolve the emitter path (see **Resolving the emitter path** below), then run
+      `node "$EMIT" consent get`.
       - Anything other than `"consent": "unset"` → a decision already exists for this repo. **Do not ask again.** Continue to step 1.
    3. On `unset`, ask once, plainly:
 
       > "Before we start: may I share anonymous progress data about this migration with AWS — which phases complete, the size band of your estate, and whether it includes a database or AI? It never includes your code, file paths, resource names, project IDs, or exact costs. It's optional, this migration works exactly the same either way, and you can change your mind at any time."
 
    4. Record the answer with the CLI — **never by writing the file yourself**:
-      - Yes → `node "${CLAUDE_PLUGIN_ROOT}/hooks/telemetry/emit.mjs" consent grant`
-      - No → `node "${CLAUDE_PLUGIN_ROOT}/hooks/telemetry/emit.mjs" consent revoke`
+      - Yes → `node "$EMIT" consent grant`
+      - No → `node "$EMIT" consent revoke`
    5. Acknowledge the answer in one short line and move on. Do not re-ask, do not argue, do not repeat the offer later in the run.
+
+**Resolving the emitter path.** `${CLAUDE_PLUGIN_ROOT}` is set by Claude Code and by
+nothing else, so a command that relies on it fails silently on any other host — the
+variable expands to empty and the path resolves to `/hooks/telemetry/emit.mjs`.
+Resolve it with a fallback instead, and reuse the result for every consent command
+below:
+
+```bash
+EMIT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")" 2>/dev/null || pwd)}/hooks/telemetry/emit.mjs"
+[ -f "$EMIT" ] || EMIT=$(find "$HOME" -maxdepth 6 -path "*aws-startup-advisor/hooks/telemetry/emit.mjs" 2>/dev/null | head -1)
+```
+
+If no `emit.mjs` can be found, skip the consent step entirely and continue the
+migration — telemetry is optional and must never block the customer's work.
 
    **Why the ordering is mandatory.** Consent is stored at `.migration/telemetry.json` and nothing is emitted without it — not even locally. Asking after Discover has written `.phase-status.json` permanently loses that run's first transitions, so a run that stops during Discover would be invisible and the funnel would have no denominator.
 

@@ -94,8 +94,24 @@ gates are all derived from the phase files' frontmatter and `INTERPRETER.md` —
 are not restated here.
 
 **Telemetry consent (cold start only, before the first `.phase-status.json` write).**
-Create `$MIGRATION_DIR` first, then run
-`node "${CLAUDE_PLUGIN_ROOT}/hooks/telemetry/emit.mjs" consent get`. Anything other
+
+**Resolving the emitter path.** `${CLAUDE_PLUGIN_ROOT}` is set by Claude Code and by
+nothing else, so a command that relies on it fails silently on any other host — the
+variable expands to empty and the path resolves to `/hooks/telemetry/emit.mjs`.
+Resolve it with a fallback instead, and reuse the result for every consent command
+below:
+
+```bash
+EMIT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")" 2>/dev/null || pwd)}/hooks/telemetry/emit.mjs"
+[ -f "$EMIT" ] || EMIT=$(find "$HOME" -maxdepth 6 -path "*aws-startup-advisor/hooks/telemetry/emit.mjs" 2>/dev/null | head -1)
+```
+
+If no `emit.mjs` can be found, skip the consent step entirely and continue the
+migration — telemetry is optional and must never block the customer's work.
+
+
+Create `$MIGRATION_DIR` first, then resolve the emitter path as below and run
+`node "$EMIT" consent get`. Anything other
 than `"consent": "unset"` means this repo already has a decision — **do not ask
 again**. On `unset`, ask once, plainly:
 
@@ -109,8 +125,8 @@ Record the answer with the CLI, **never by writing the file yourself** — the c
 writes the required shape and reuses the machine-level install identifier, whereas a
 hand-written file is likely to omit fields and read as no consent at all:
 
-- Yes → `emit.mjs consent grant`
-- No → `emit.mjs consent revoke`
+- Yes → `node "$EMIT" consent grant`
+- No → `node "$EMIT" consent revoke`
 
 Acknowledge in one line and continue; do not re-ask later in the run. Consent is
 stored at `.migration/telemetry.json` and nothing is emitted without it, not even
