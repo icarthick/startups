@@ -19,23 +19,34 @@
  *                  accepts (Write|Edit), recovered from the transcript.
  *   EMITTED        what actually reached the endpoint (events.jsonl).
  *
- * Coverage, not multiplicity. Two earlier models asserted exact counts and both
- * broke: a final-state model scores a legitimate phase re-run as "unexpected",
- * and a write-sequence replay needs every Bash-written JSON blob to be
- * recoverable from the transcript, which it is not. Both reported delivery above
- * 100%, which means the denominator was wrong, not that anything over-delivered.
- * A required signal that is ABSENT is the defect under investigation; the skills
- * genuinely re-run phases, so repeats are reported as information.
+ * Coverage is scored as a SET comparison, not a count. Two earlier models
+ * asserted exact counts and both broke: a final-state model scores a legitimate
+ * phase re-run as "unexpected", and a write-sequence replay needs every
+ * Bash-written JSON blob to be recoverable from the transcript, which it is not.
+ * Both reported delivery above 100%, which means the denominator was wrong, not
+ * that anything over-delivered. A required signal that is ABSENT is the defect
+ * that comparison exists to find.
  *
  * A missing signal that VISIBLE also lacks is matcher loss (D1a). A missing
  * ABORTED is the session-end path (D1b). Splitting them stops one defect from
  * being mistaken for the other.
  *
+ * MULTIPLICITY is then checked separately, because set coverage is blind to a
+ * signal arriving twice and that blindness let two duplicate-run defects survive
+ * seven otherwise-clean matrix runs. Rather than reinstate an exact-count model
+ * that cannot tell a re-run from a duplicate, the checks are restricted to shapes
+ * no legitimate run can produce — chiefly more than one runId per run directory —
+ * and everything a re-run could explain is printed as information. Those checks
+ * are the only part of this script that sets a non-zero exit status.
+ *
  *   validate-events.mjs <logRoot> <scratchRoot> <stateRoot> [transcriptRoot]
+ *
+ *   DUP_WINDOW_MS   how close two identical signals must be to count as a
+ *                   duplicate rather than a re-run (default 2000)
  */
 
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 import { homedir } from "node:os";
 
 const [logRoot, scratchRoot, stateRoot, transcriptRootArg] = process.argv.slice(2);
@@ -192,10 +203,26 @@ const findStateObject = (text) => {
   return null;
 };
 
+/**
+ * The host's transcript directory for a sample: the working directory the run
+ * actually used, with every `/` replaced by `-`.
+ *
+ * Taken from the `scratch=` line the runner recorded, NOT from the scratch root
+ * passed to this script. Those differ in both directions and each was wrong once:
+ * the path was hardcoded to `/tmp/tel-samples`, so running the matrix anywhere
+ * else silently found no transcript and reported every sample as matcher loss;
+ * and deriving it from the rebased root instead breaks the archive case, where
+ * the run happened in `/tmp` and only its outputs were moved. The transcript
+ * lives wherever the host put it at run time, so the recorded path is the only
+ * one that is right in both cases.
+ */
+const transcriptDirFor = (recordedScratch) =>
+  join(transcriptRoot, String(recordedScratch).replace(/\//g, "-"));
+
 /** Prefer the transcript whose filename IS the run's session id — with repeated
  *  runs in the same scratch dir, "newest" is a guess and the session id is not. */
-const findTranscript = (label, sessionId) => {
-  const dir = join(transcriptRoot, `-tmp-tel-samples-${label}`);
+const findTranscript = (recordedScratch, sessionId) => {
+  const dir = transcriptDirFor(recordedScratch);
   if (!existsSync(dir)) return null;
   if (sessionId && sessionId !== "unknown" && existsSync(join(dir, `${sessionId}.jsonl`))) {
     return join(dir, `${sessionId}.jsonl`);
@@ -217,7 +244,7 @@ const statusFiles = existsSync(logRoot)
   ? readdirSync(logRoot).filter((f) => f.endsWith(".status")).sort()
   : [];
 
-let grandExpected = 0, grandEmitted = 0, grandMissing = 0, grandUnexpected = 0;
+let grandExpected = 0, grandEmitted = 0, grandMissing = 0, grandUnexpected = 0, grandDefects = 0;
 const rows = [];
 
 for (const sf of statusFiles) {
@@ -241,9 +268,23 @@ for (const sf of statusFiles) {
     return { ...ma, runMode: ma.attributes?.runMode };
   });
 
+  // The envelope fields the multiplicity checks below need: which run an event
+  // claims, its dedup key, and when it was stamped. Kept separate from
+  // `emittedActs` so the coverage comparison keeps comparing exactly what it did.
+  const emittedFull = emitted.map((e) => {
+    const ma = e.body?.pluginTelemetryEvent?.migrationActivity ?? {};
+    return {
+      runId: ma.runId,
+      eventId: e.body?.eventId,
+      occurredAt: e.body?.occurredAt,
+      key: key({ ...ma, runMode: ma.attributes?.runMode }),
+      eventName: ma.eventName,
+    };
+  });
+
   const finalState = runDir ? readJson(join(runDir, ".phase-status.json")) : null;
 
-  const writes = extractWrites(findTranscript(label, meta.session_id));
+  const writes = extractWrites(findTranscript(meta.scratch, meta.session_id));
   let unparsedEdits = writes.filter((w) => !w.state).length;
 
   /**
@@ -267,17 +308,18 @@ for (const sf of statusFiles) {
 
   // GROUND TRUTH: the set of signals that MUST appear at least once.
   //
-  // Multiplicity is deliberately not asserted. Two earlier models both failed on
-  // it: deriving expected events from the final on-disk state scores a legitimate
-  // phase re-run as "unexpected", and replaying the write sequence needs every
-  // Bash-written JSON blob to be recoverable from the transcript, which it is not.
-  // Both produced delivery rates above 100%, which says the denominator was wrong
-  // rather than that anything over-delivered.
+  // Multiplicity is deliberately not asserted HERE. Two earlier models both failed
+  // on it: deriving expected events from the final on-disk state scores a
+  // legitimate phase re-run as "unexpected", and replaying the write sequence needs
+  // every Bash-written JSON blob to be recoverable from the transcript, which it is
+  // not. Both produced delivery rates above 100%, which says the denominator was
+  // wrong rather than that anything over-delivered.
   //
-  // What actually matters for this validation is whether a required signal is
-  // ABSENT — a dropped event is the failure mode under investigation, and the
-  // skills legitimately re-run phases, so repeats are reported separately as
-  // information rather than counted as defects.
+  // What this comparison answers is whether a required signal is ABSENT — a dropped
+  // event is a failure mode under investigation, and the skills legitimately re-run
+  // phases, so repeats are reported separately as information rather than counted
+  // as defects. Duplication is checked further down, against invariants that do not
+  // need the write history to be recoverable.
   const truth = [];
   if (finalState) {
     truth.push({ eventName: "RUN_STARTED" });
@@ -384,17 +426,149 @@ for (const sf of statusFiles) {
     console.log("\n  TRIGGERS: no trace.jsonl — hook never launched, or DEBUG was off");
   }
 
+  // ---- multiplicity
+  //
+  // Everything above this point measures coverage: whether each required signal
+  // arrived at least once. That is deliberately blind to a signal arriving twice,
+  // which is why two duplicate-run defects survived seven clean matrix runs — an
+  // unserialised snapshot read-modify-write reporting one migration as two runs,
+  // and an unreadable snapshot re-emitting a whole history under a fresh runId.
+  // Both are invisible to a set comparison and obvious to a count.
+  //
+  // These checks are chosen to be SOUND rather than complete: the skills
+  // legitimately re-run phases, so anything a re-run can explain is reported as
+  // information, and only the shapes no legitimate run can produce are called
+  // defects. A false alarm here would be worse than the gap it closes, because
+  // the next person would learn to ignore the section.
+  const defects = [];
+  const notes = [];
+
+  // Every `.migration/<id>/` with a phase file is one run, and the snapshot beside
+  // it holds the runId that run was reported under. That mapping is what makes
+  // "more runIds than runs" decidable.
+  const migrationRoot = runDir ? dirname(runDir) : null;
+  const runDirs = migrationRoot && existsSync(migrationRoot)
+    ? readdirSync(migrationRoot)
+        .map((e) => join(migrationRoot, e))
+        .filter((d) => existsSync(join(d, ".phase-status.json")))
+    : [];
+  const snapshotRunIds = new Set(
+    runDirs.map((d) => readJson(join(d, ".telemetry-snapshot.json"))?.runId).filter(Boolean),
+  );
+
+  const byRun = new Map();
+  for (const e of emittedFull) {
+    const list = byRun.get(e.runId) ?? [];
+    list.push(e);
+    byRun.set(e.runId, list);
+  }
+
+  // D-M1: one runId per run directory.
+  //
+  // The runId is minted once and then read back from that run's own snapshot, so
+  // there is no legitimate path from one `.migration/<id>/` to two runIds. More
+  // runIds than run directories is the duplicate-run signature directly, and it
+  // inflates the one number this system exists to produce.
+  if (runDirs.length && byRun.size > runDirs.length) {
+    defects.push(
+      `${byRun.size} distinct runId(s) for ${runDirs.length} run director${runDirs.length === 1 ? "y" : "ies"} ` +
+      `— one migration reported as several runs`,
+    );
+  }
+
+  // D-M2: no runId that no snapshot claims.
+  //
+  // The losing half of a duplicated run leaves exactly this trace: events under a
+  // runId that the surviving snapshot does not hold, so the run never completes
+  // and sits in the funnel as a permanent drop-off.
+  if (snapshotRunIds.size) {
+    const orphans = [...byRun.keys()].filter((r) => r && !snapshotRunIds.has(r));
+    if (orphans.length) {
+      defects.push(
+        `orphan runId(s) held by no snapshot: ${orphans.join(", ")} ` +
+        `— events attributed to a run nothing can complete`,
+      );
+    }
+  }
+
+  for (const [runId, evs] of byRun) {
+    const short = String(runId).slice(0, 8);
+
+    // D-M3: exactly one RUN_STARTED per runId. Two means the snapshot was lost
+    // while the runId survived, which cannot happen — they live in the same file.
+    const starts = evs.filter((e) => e.eventName === "RUN_STARTED").length;
+    if (starts > 1) defects.push(`runId ${short}: ${starts} RUN_STARTED (want exactly 1)`);
+
+    // D-M4: at most one terminal per runId. The rubric requires exactly one, and
+    // two was the observed shape of the withdrawn client-side ABORTED.
+    const terminals = evs.filter((e) => e.eventName === "RUN_COMPLETED").length;
+    if (terminals > 1) defects.push(`runId ${short}: ${terminals} terminal events (want at most 1)`);
+  }
+
+  // D-M5: eventId is the downstream dedup key, so a repeat means one occurrence
+  // cannot be told from two no matter what the lake does.
+  const idCounts = new Map();
+  for (const e of emittedFull) idCounts.set(e.eventId, (idCounts.get(e.eventId) ?? 0) + 1);
+  const dupIds = [...idCounts.entries()].filter(([id, n]) => id && n > 1);
+  if (dupIds.length) {
+    defects.push(`repeated eventId(s): ${dupIds.map(([id, n]) => `${String(id).slice(0, 8)}x${n}`).join(", ")}`);
+  }
+
+  // D-M6: the same signal twice within a window no agent turn can fit inside.
+  //
+  // This is the check that separates a duplicate from a re-run without needing the
+  // write history, which is not fully recoverable. A phase genuinely re-running has
+  // to leave its resolved status and come back, which takes agent turns; two
+  // identical signals milliseconds apart are two processes reporting the same
+  // transition. Set DUP_WINDOW_MS to widen it.
+  const DUP_WINDOW_MS = Number(process.env.DUP_WINDOW_MS ?? 2000);
+  const seenAt = new Map();
+  for (const e of emittedFull) {
+    const k = `${e.runId}|${e.key}`;
+    const prior = seenAt.get(k);
+    if (prior != null && typeof e.occurredAt === "number" && Math.abs(e.occurredAt - prior) <= DUP_WINDOW_MS) {
+      defects.push(
+        `runId ${String(e.runId).slice(0, 8)}: ${e.key} emitted twice within ` +
+        `${Math.abs(e.occurredAt - prior)}ms — too close to be a phase re-run`,
+      );
+    }
+    if (typeof e.occurredAt === "number") seenAt.set(k, e.occurredAt);
+  }
+
+  // Repeats outside that window: real, and the skills do re-run phases, so these
+  // are reported so the count is visible rather than asserted on.
+  const repeatKeys = new Map();
+  for (const e of emittedFull) {
+    const k = `${String(e.runId).slice(0, 8)}|${e.key}`;
+    repeatKeys.set(k, (repeatKeys.get(k) ?? 0) + 1);
+  }
+  for (const [k, n] of repeatKeys) if (n > 1) notes.push(`${k} x${n}`);
+
+  console.log("");
+  console.log(`  MULTIPLICITY (${runDirs.length} run dir(s), ${byRun.size} runId(s), ` +
+    `${emittedFull.length} event(s))`);
+  if (!emittedFull.length) {
+    console.log("    no events — nothing to count");
+  } else {
+    for (const d of defects) console.log(`    *** DEFECT: ${d}`);
+    for (const n of notes) console.log(`    repeat (legitimate re-run unless paired with a defect): ${n}`);
+    if (!defects.length) console.log("    OK — one runId per run, one RUN_STARTED each, no repeated eventId");
+  }
+  grandDefects += defects.length;
+
   const expN = truth.length, emitN = emittedActs.length;
   const missN = missing.length;
   const unexpN = unexpected.reduce((a, b) => a + b.n, 0);
   console.log("");
   console.log(`  required signals ${expN}, delivered ${expN - missN}, MISSING ${missN}, repeats ${unexpN}, total events ${emitN}` +
-    `  => ${missN === 0 ? "COMPLETE" : "INCOMPLETE"}`);
+    `  => ${missN === 0 ? "COMPLETE" : "INCOMPLETE"}` +
+    `${defects.length ? `, ${defects.length} MULTIPLICITY DEFECT(S)` : ""}`);
 
   grandExpected += expN; grandEmitted += emitN; grandMissing += missN; grandUnexpected += unexpN;
   rows.push({
     sample: `${meta.id} ${meta.label}`,
     required: expN, delivered: expN - missN, missing: missN, repeats: unexpN, events: emitN,
+    runIds: byRun.size, dupDefects: defects.length,
     bashWrites: writes.filter((w) => !w.visible).length,
     complete: missN === 0 ? "y" : "n",
   });
@@ -402,7 +576,7 @@ for (const sf of statusFiles) {
 
 console.log("\n" + "=".repeat(96));
 console.log("EXPECTED-VS-EMITTED ACCOUNTING\n");
-const cols = ["sample", "required", "delivered", "missing", "repeats", "events", "bashWrites", "complete"];
+const cols = ["sample", "required", "delivered", "missing", "repeats", "events", "runIds", "dupDefects", "bashWrites", "complete"];
 const w = cols.map((c) => Math.max(c.length, ...rows.map((r) => String(r[c]).length)));
 console.log(cols.map((c, i) => c.padEnd(w[i])).join("  "));
 console.log(w.map((n) => "-".repeat(n)).join("  "));
@@ -410,3 +584,11 @@ for (const r of rows) console.log(cols.map((c, i) => String(r[c]).padEnd(w[i])).
 console.log("");
 console.log(`TOTAL required ${grandExpected}, delivered ${grandExpected - grandMissing}, MISSING ${grandMissing}, repeats ${grandUnexpected}, events emitted ${grandEmitted}`);
 console.log(`Delivery rate: ${grandExpected ? (((grandExpected - grandMissing) / grandExpected) * 100).toFixed(1) : "n/a"}% of required signals reached the endpoint`);
+console.log(`Multiplicity: ${grandDefects === 0 ? "no defects" : `${grandDefects} DEFECT(S) — see the per-sample MULTIPLICITY blocks above`}`);
+
+// Coverage stays reported-only: a missing signal is scored against a ground truth
+// derived from final state, and the reasons a required signal can be legitimately
+// absent are still being worked out. A multiplicity defect has no such ambiguity —
+// every check above is one no correct run can trip — so this is the part worth
+// making a gate, and a gate is what stops the lock from silently regressing.
+if (grandDefects > 0) process.exitCode = 1;

@@ -33,8 +33,16 @@ set -uo pipefail
 WORKSPACE="${WORKSPACE:-/home/carthick/workplace/SawsAdvisorApiModel}"
 PLUGIN="${PLUGIN:-/local/home/carthick/dev/github/startups/advisor/plugins/aws-startup-advisor}"
 SAMPLE_ROOT="$WORKSPACE/src/SawsMigrate-SampleData/data/sample-repos-gcp-aws-migration"
-HARNESS="$WORKSPACE/local-harness/server.js"
 EMIT="$PLUGIN/hooks/telemetry/emit.mjs"
+
+# The harness ships in this repository, so run the version under review rather
+# than whatever copy happens to sit in the Brazil workspace. Those two files were
+# the same script until the harness moved here, and an untracked duplicate that
+# silently stops matching is exactly the kind of thing a regression baseline must
+# not be measured against. It needs IDE_EXT_API_PKG because the package whose
+# real handler it loads still lives in the workspace.
+HARNESS="${HARNESS:-$PLUGIN/../../../local-harness/server.js}"
+API_PKG="${IDE_EXT_API_PKG:-$WORKSPACE/src/SawsStartupsAdvisor-IDEExtensionApi}"
 
 SCRATCH_ROOT="${SCRATCH_ROOT:-/tmp/tel-samples}"
 STATE_ROOT="${STATE_ROOT:-/tmp/tel-runs}"
@@ -146,7 +154,7 @@ start_harness() {
     sleep 1
   fi
   : > "$log"
-  ( cd "$WORKSPACE" && setsid node "$HARNESS" "$port" > "$log" 2>&1 < /dev/null & )
+  ( cd "$WORKSPACE" && IDE_EXT_API_PKG="$API_PKG" setsid node "$HARNESS" "$port" > "$log" 2>&1 < /dev/null & )
   for _ in $(seq 1 40); do
     sleep 0.25
     [ -n "$(port_pid "$port")" ] && break
