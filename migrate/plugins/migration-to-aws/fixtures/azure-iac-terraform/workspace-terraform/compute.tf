@@ -24,6 +24,10 @@ resource "azurerm_linux_web_app" "storefront" {
     "DATABASE_URL"        = "postgres://FIXTURE_SENTINEL_MUST_NOT_APPEAR@example.invalid/store"
     "STRIPE_SECRET_KEY"   = "FIXTURE_SENTINEL_MUST_NOT_APPEAR"
     "CACHE_ENDPOINT"      = azurerm_redis_cache.session.hostname
+    # A real reference to the database, which lives in a DIFFERENT resource group.
+    # This is the app-to-data edge that later merges rg-app and rg-data into one
+    # cluster. Without it the horizontal-RG case is not actually expressed.
+    "DATABASE_HOST"       = azurerm_postgresql_flexible_server.store.fqdn
     "VAULT_TOKEN"         = "@Microsoft.KeyVault(SecretUri=https://kv-contoso.vault.azure.net/secrets/api-token/)"
   }
 }

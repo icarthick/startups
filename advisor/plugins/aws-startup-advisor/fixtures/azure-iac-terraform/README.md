@@ -38,6 +38,11 @@ are deliberately not asserted — they cost review attention and prove nothing.
 | `enabled_protocol = "SMB"`                               | dropped                                | carried — it is the EFS-vs-FSx input       |
 | `kafka_enabled = true`                                   | dropped                                | carried — it is the MSK-vs-Kinesis input   |
 | `FIXTURE_SENTINEL_MUST_NOT_APPEAR` in 2 app settings + a VM password | recorded, or redacted in place | discarded entirely                |
+| **5 local names reused across types** (`core`, `storefront`, `reporting`, `data`, `store`) | one entry per name, silently overwriting | one entry per full `azurerm_type.name` address |
+
+The reused local names are deliberate and were a real bug: the first draft of this
+asserter indexed on `tf_resource_name`, so five of its twenty-one type assertions were
+silently pointed at the wrong resource. Identity is the full Terraform address.
 
 The secret sentinel is a greppable token rather than a realistic-looking credential on
 purpose: a realistic one would trip `gitleaks`, which runs over this repo, and a

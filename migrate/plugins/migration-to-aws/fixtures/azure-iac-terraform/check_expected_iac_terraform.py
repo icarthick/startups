@@ -54,20 +54,36 @@ def load(path: Path) -> dict | None:
 
 
 def tf_name(res: dict) -> str:
-    """The Terraform local name, which is how expected-*.json keys resources.
+    """The resource's identity: its full Terraform ADDRESS (`azurerm_subnet.data`).
 
-    Read from provenance rather than from `name`, because a resolved Azure name may
-    be an unevaluated expression (`tf:api`) and must not be relied on for identity.
+    Read from provenance rather than from `name`, because a resolved Azure name may be
+    an unevaluated expression (`tf:api`) and must not be relied on for identity.
+
+    It is the ADDRESS and not `tf_resource_name`, because Terraform namespaces local
+    names PER TYPE, so a bare local name is not unique. This corpus alone collides on
+    five of them — `core`, `storefront`, `reporting`, `data`, `store` — and an index
+    keyed on the bare name silently overwrites, which quietly points five type
+    assertions at the wrong resource and makes them pass or fail by accident of
+    iteration order.
     """
-    return (res.get("config") or {}).get("tf_resource_name") or ""
+    return (res.get("config") or {}).get("tf_address") or ""
 
 
 def by_tf_name(resources: list[dict]) -> dict[str, dict]:
+    """Index by Terraform address, failing loudly on a missing or duplicate one."""
     out: dict[str, dict] = {}
     for r in resources:
         n = tf_name(r)
-        if n:
-            out[n] = r
+        if not n:
+            local = (r.get("config") or {}).get("tf_resource_name") or r.get("azure_id") or "?"
+            FAILS.append(
+                f"{local!r}: no config.tf_address. It is the identity field — see "
+                f"extract-terraform.md step 2.6; tf_resource_name alone is not unique."
+            )
+            continue
+        if n in out:
+            FAILS.append(f"duplicate config.tf_address {n!r} — addresses are unique in Terraform")
+        out[n] = r
     return out
 
 
@@ -81,7 +97,7 @@ def check_types(index: dict[str, dict], exp: dict) -> None:
             continue
         res = index.get(local)
         if res is None:
-            FAILS.append(f"no inventory entry for Terraform resource {local!r}")
+            FAILS.append(f"no inventory entry for Terraform address {local!r}")
             continue
         actual = res.get("azure_type")
         check(
@@ -239,27 +255,51 @@ def check_fan_in(index: dict[str, dict], resources: list[dict], exp: dict) -> No
         NOTES.append(f"plan {spec['plan_local_name']!r} azure_id = {plan_id}")
 
 
-def check_cross_rg_edge(resources: list[dict], exp: dict) -> None:
+def check_cross_rg_edge(index: dict[str, dict], exp: dict) -> None:
+    """Assert the SPECIFIC app-to-database edge, not merely that some edge crosses.
+
+    The corpus also contains crossing subnet edges (a NIC in rg-shared into a subnet in
+    rg-app). Accepting any crossing edge would let an extractor that drops the
+    app-to-data reference pass, which is the one edge the horizontal-resource-group
+    merge actually depends on.
+    """
     spec = exp["cross_resource_group_edge"]
-    rg_of = {r.get("azure_id"): r.get("resource_group") for r in resources}
-    crossing = [
-        (tf_name(r), e.get("type"), e.get("to"))
-        for r in resources
-        for e in edges_of(r)
-        if e.get("to") in rg_of
-        and rg_of.get(e["to"]) is not None
-        and r.get("resource_group") is not None
-        and rg_of[e["to"]] != r.get("resource_group")
+    src = index.get(spec["from_tf_address"])
+    dst = index.get(spec["to_tf_address"])
+    if src is None or dst is None:
+        FAILS.append(
+            f"cannot check the cross-resource-group edge: missing "
+            f"{spec['from_tf_address']!r} or {spec['to_tf_address']!r}"
+        )
+        return
+
+    check(
+        src.get("resource_group") == spec["from_resource_group"],
+        f"{spec['from_tf_address']!r} resource_group is {src.get('resource_group')!r}, "
+        f"expected {spec['from_resource_group']!r}",
+    )
+    check(
+        dst.get("resource_group") == spec["to_resource_group"],
+        f"{spec['to_tf_address']!r} resource_group is {dst.get('resource_group')!r}, "
+        f"expected {spec['to_resource_group']!r}",
+    )
+
+    target = dst.get("azure_id")
+    match = [
+        e for e in edges_of(src)
+        if e.get("to") == target and e.get("type") in spec["acceptable_edge_types"]
     ]
     check(
-        bool(crossing),
-        "no edge crosses a resource-group boundary. The corpus deliberately places the "
-        "app in rg-app and its database in rg-data, so at least one edge must cross: "
-        "an extractor that drops those leaves resource-group-seeded clustering unable "
-        "to ever merge them.",
+        bool(match),
+        f"no {'/'.join(spec['acceptable_edge_types'])} edge from "
+        f"{spec['from_tf_address']!r} (in {spec['from_resource_group']}) to "
+        f"{spec['to_tf_address']!r} (in {spec['to_resource_group']}). The app's "
+        f"DATABASE_HOST setting interpolates the server's fqdn, and that edge is the "
+        f"ONLY thing that later merges these two resource groups into one cluster — "
+        f"resource-group seeding alone would leave the app and its database apart.",
     )
-    if crossing:
-        NOTES.append(f"{len(crossing)} cross-resource-group edge(s) preserved")
+    if match:
+        NOTES.append(f"app-to-data edge preserved across rg boundary: {match[0].get('type')}")
 
 
 def check_private_endpoint(index: dict[str, dict], resources: list[dict], inv: dict, exp: dict) -> None:
@@ -306,6 +346,17 @@ def check_secrets(inv: dict, index: dict[str, dict], exp: dict) -> None:
         f"not redacted in place — a redaction placeholder still discloses that the field "
         f"existed.",
     )
+    for r in inv.get("resources") or []:
+        cfg = r.get("config") or {}
+        for bad in spec.get("forbidden_config_keys", []):
+            check(
+                bad not in cfg,
+                f"{tf_name(r) or '?'}: config carries {bad!r}. Values are DISCARDED, so the "
+                f"container must not exist — a redaction placeholder still discloses that "
+                f"the field was there and roughly how long it was, which is why asserting "
+                f"only on the secret's text is not enough.",
+            )
+
     owner = index.get(spec["app_setting_names_owner_local_name"])
     if owner is None:
         FAILS.append(f"no inventory entry for {spec['app_setting_names_owner_local_name']!r}")
@@ -317,6 +368,31 @@ def check_secrets(inv: dict, index: dict[str, dict], exp: dict) -> None:
         f"{sorted(spec['app_setting_names_expected'])!r} — names are kept, values never are",
     )
 
+
+def check_child_rg_inheritance(index: dict[str, dict], exp: dict) -> None:
+    spec = exp.get("child_resource_group_inheritance")
+    if not spec:
+        return
+    child = index.get(spec["tf_address"])
+    parent = index.get(spec["parent_tf_address"])
+    if child is None or parent is None:
+        FAILS.append(
+            f"cannot check child resource-group inheritance: missing "
+            f"{spec['tf_address']!r} or {spec['parent_tf_address']!r}"
+        )
+        return
+    check(
+        child.get("resource_group") == spec["expected_resource_group"],
+        f"{spec['tf_address']!r} resource_group is {child.get('resource_group')!r}, expected "
+        f"{spec['expected_resource_group']!r}. It declares no resource_group_name and must "
+        f"inherit its parent's via the storage_account_id reference — a null group cannot "
+        f"be clustered, and most child resources in a real estate look like this.",
+    )
+    check(
+        child.get("resource_group") == parent.get("resource_group"),
+        f"{spec['tf_address']!r} resource_group {child.get('resource_group')!r} does not match "
+        f"its parent {spec['parent_tf_address']!r} ({parent.get('resource_group')!r})",
+    )
 
 def check_warnings(inv: dict, exp: dict) -> None:
     warnings = json.dumps(inv.get("warnings") or []) + json.dumps(inv.get("iac_metadata") or {})
@@ -395,9 +471,10 @@ def main() -> int:
     check_function_app(index, exp)
     check_azure_ids(resources, exp)
     check_fan_in(index, resources, exp)
-    check_cross_rg_edge(resources, exp)
+    check_cross_rg_edge(index, exp)
     check_private_endpoint(index, resources, inv, exp)
     check_secrets(inv, index, exp)
+    check_child_rg_inheritance(index, exp)
     check_warnings(inv, exp)
     check_discriminators(index, exp)
     check_no_terraform_leakage(inv, exp)

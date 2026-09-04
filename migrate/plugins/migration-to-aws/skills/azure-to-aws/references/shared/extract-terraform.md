@@ -36,17 +36,35 @@ For every `resource "azurerm_<x>" "<local_name>" { … }`:
    name breaks the drift comparison against a live capture.
 3. **Resolve `resource_group_name`.** If it is a reference
    (`azurerm_resource_group.app.name`), follow it to that block's `name`. If that is
-   itself an expression, apply rule 2. If the attribute is absent, set
-   `resource_group: null` and add a `warnings[]` entry — a resource with no resolvable
-   group cannot be clustered.
+   itself an expression, apply rule 2.
+
+   **A CHILD resource inherits its parent's resource group.** Many child types carry no
+   `resource_group_name` at all and instead reference the parent
+   (`storage_account_id`, `server_id`, `namespace_name`, `virtual_network_name`):
+   follow that reference and take the parent's group. Treating an absent
+   `resource_group_name` as unresolvable would null out the group for storage shares
+   and containers, SQL databases, Event Hubs, Service Bus queues and topics, and Cosmos
+   databases — most of a real estate's child resources — and a resource with no group
+   cannot be clustered, so the whole cluster seed would collapse.
+
+   Only when neither an explicit group nor a resolvable parent exists: set
+   `resource_group: null` and add a `warnings[]` entry.
 4. **Resolve `location`** the same way, into `location`.
 5. **Reconstruct `azure_id`** per `arm-type-canonicalization.md` § Reconstructing
    `azure_id`, including the resource-group exception and the
    `<subscription-unknown>` placeholder rule.
-6. **Set `source: "terraform"`** and record provenance in `config.tf_file` and
-   `config.tf_resource_name`. Provenance is the reason IaC stays a first-class source
-   even where live capture is authoritative for state: it is what lets Generate emit
-   replacement Terraform that resembles what the customer already maintains.
+6. **Set `source: "terraform"`** and record provenance in `config.tf_file`,
+   `config.tf_resource_name`, and `config.tf_address`. Provenance is the reason IaC
+   stays a first-class source even where live capture is authoritative for state: it
+   is what lets Generate emit replacement Terraform that resembles what the customer
+   already maintains.
+
+   **`config.tf_address` is `<azurerm_type>.<local_name>`** (e.g.
+   `azurerm_subnet.data`), and it is the identity field — `tf_resource_name` alone is
+   NOT unique. Terraform namespaces local names per type, so a single module routinely
+   contains `azurerm_resource_group.data` and `azurerm_subnet.data`, or
+   `azurerm_linux_web_app.storefront` and `azurerm_application_insights.storefront`.
+   Anything keyed on the bare local name silently collapses those pairs into one.
 7. **Copy the sizing and routing attributes** the mapping tables need — see § Per-type
    attributes.
 8. **Extract edges** — see § Edges.
@@ -121,6 +139,7 @@ contain). Resolve each reference to the target's reconstructed `azure_id`.
 | `subnet_id`, `virtual_network_subnet_id`                           | `network`            | VNet colocation                                                        |
 | `private_service_connection.private_connection_resource_id` on a private endpoint | `private_link` | the app-to-data edge; see below                              |
 | `@Microsoft.KeyVault(...)` in an app setting, or a `key_vault_id`   | `secret_ref`         | value is never recorded, only the reference                            |
+| a reference to a data resource's `fqdn` / `hostname` / `endpoint` / `.id` from a compute resource's config | `data_ref` | **the app-to-data edge.** The commonest real form is an app setting interpolating a database or cache address. It is the edge that merges an app and its database when they sit in different resource groups, so dropping it defeats the merge |
 | `principal_id` + `scope` on an `azurerm_role_assignment`           | `identity_grant`     | "app X reads storage Y" — cleaner than GCP exposes it                  |
 | `tags` containing `app` or `workload`                              | `declared_affinity`  | declared intent when present; tag KEYS are safe to keep verbatim       |
 
@@ -143,6 +162,7 @@ merges them. Never drop an edge because it crosses a group boundary.
 - [ ] Every entry's `azure_type` appears in `arm-type-canonicalization.md`.
 - [ ] No entry's `azure_type` starts with `azurerm_`.
 - [ ] Every `azure_id` is unique, and matches the standard form (or the resource-group exception).
+- [ ] Every entry carries `config.tf_address`, and every `tf_address` is unique.
 - [ ] Every site with a `service_plan_id` has a `hosted_on` edge.
 - [ ] `config.app_setting_names` contains only strings; no `app_settings` values appear anywhere in the contribution.
 - [ ] No `tfstate` file was read.

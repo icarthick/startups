@@ -1,0 +1,673 @@
+{
+  "phase": "discover",
+  "metadata": {
+    "discovery_timestamp": "2026-09-04T18:00:00Z",
+    "discovery_sources": [
+      "terraform"
+    ],
+    "subscriptions_discovered": [
+      "<subscription-unknown>"
+    ],
+    "total_resources": 27,
+    "confidence": "inferred"
+  },
+  "resources": [
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app",
+      "azure_type": "Microsoft.Resources/resourceGroups",
+      "name": "rg-app",
+      "resource_group": "rg-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": "main.tf",
+        "tf_resource_name": "app",
+        "tf_address": "azurerm_resource_group.app"
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data",
+      "azure_type": "Microsoft.Resources/resourceGroups",
+      "name": "rg-data",
+      "resource_group": "rg-data",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": "main.tf",
+        "tf_resource_name": "data",
+        "tf_address": "azurerm_resource_group.data"
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared",
+      "azure_type": "Microsoft.Resources/resourceGroups",
+      "name": "rg-shared",
+      "resource_group": "rg-shared",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": "main.tf",
+        "tf_resource_name": "shared",
+        "tf_address": "azurerm_resource_group.shared"
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web",
+      "azure_type": "Microsoft.Web/serverfarms",
+      "name": "tf:web",
+      "resource_group": "rg-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": "",
+        "tf_resource_name": "web",
+        "tf_address": "azurerm_service_plan.web",
+        "name_expression": "asp-${var.prefix}-web",
+        "sku_name": "S1",
+        "worker_count": 2,
+        "os_type": "Linux"
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:func",
+      "azure_type": "Microsoft.Web/serverfarms",
+      "name": "tf:func",
+      "resource_group": "rg-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": "",
+        "tf_resource_name": "func",
+        "tf_address": "azurerm_service_plan.func",
+        "name_expression": "asp-${var.prefix}-func",
+        "sku_name": "Y1",
+        "worker_count": 1,
+        "os_type": "Linux"
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Web/serverfarms/tf:legacy",
+      "azure_type": "Microsoft.Web/serverfarms",
+      "name": "tf:legacy",
+      "resource_group": "rg-shared",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": "",
+        "tf_resource_name": "legacy",
+        "tf_address": "azurerm_service_plan.legacy",
+        "name_expression": "asp-${var.prefix}-legacy",
+        "sku_name": "P1v3",
+        "worker_count": 1,
+        "os_type": "Windows"
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:storefront",
+      "azure_type": "Microsoft.Web/sites",
+      "name": "tf:storefront",
+      "resource_group": "rg-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": "",
+        "tf_resource_name": "storefront",
+        "tf_address": "azurerm_linux_web_app.storefront",
+        "kind": "app,linux",
+        "service_plan_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web",
+        "https_only": true,
+        "runtime_stack": "node|20-lts",
+        "app_setting_names": [
+          "CACHE_ENDPOINT",
+          "DATABASE_HOST",
+          "DATABASE_URL",
+          "STRIPE_SECRET_KEY",
+          "VAULT_TOKEN"
+        ]
+      },
+      "tags": {},
+      "edges": [
+        {
+          "type": "hosted_on",
+          "to": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web",
+          "via": "service_plan_id"
+        },
+        {
+          "type": "data_ref",
+          "to": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.Cache/Redis/tf:session",
+          "via": "app_settings.CACHE_ENDPOINT"
+        },
+        {
+          "type": "data_ref",
+          "to": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.DBforPostgreSQL/flexibleServers/tf:store",
+          "via": "app_settings.DATABASE_HOST"
+        },
+        {
+          "type": "secret_ref",
+          "to": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.KeyVault/vaults/tf:main",
+          "via": "app_settings.VAULT_TOKEN"
+        }
+      ],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:admin",
+      "azure_type": "Microsoft.Web/sites",
+      "name": "tf:admin",
+      "resource_group": "rg-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": "",
+        "tf_resource_name": "admin",
+        "tf_address": "azurerm_linux_web_app.admin",
+        "kind": "app,linux",
+        "service_plan_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web"
+      },
+      "tags": {},
+      "edges": [
+        {
+          "type": "hosted_on",
+          "to": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web",
+          "via": "service_plan_id"
+        }
+      ],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:checkout",
+      "azure_type": "Microsoft.Web/sites",
+      "name": "tf:checkout",
+      "resource_group": "rg-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": "",
+        "tf_resource_name": "checkout",
+        "tf_address": "azurerm_linux_web_app.checkout",
+        "kind": "app,linux",
+        "service_plan_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web"
+      },
+      "tags": {},
+      "edges": [
+        {
+          "type": "hosted_on",
+          "to": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web",
+          "via": "service_plan_id"
+        }
+      ],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:docs",
+      "azure_type": "Microsoft.Web/sites",
+      "name": "tf:docs",
+      "resource_group": "rg-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": "",
+        "tf_resource_name": "docs",
+        "tf_address": "azurerm_linux_web_app.docs",
+        "kind": "app,linux",
+        "service_plan_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web"
+      },
+      "tags": {},
+      "edges": [
+        {
+          "type": "hosted_on",
+          "to": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web",
+          "via": "service_plan_id"
+        }
+      ],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:webhooks",
+      "azure_type": "Microsoft.Web/sites",
+      "name": "tf:webhooks",
+      "resource_group": "rg-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": "",
+        "tf_resource_name": "webhooks",
+        "tf_address": "azurerm_linux_web_app.webhooks",
+        "kind": "app,linux",
+        "service_plan_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web"
+      },
+      "tags": {},
+      "edges": [
+        {
+          "type": "hosted_on",
+          "to": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web",
+          "via": "service_plan_id"
+        }
+      ],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:imageresize",
+      "azure_type": "Microsoft.Web/sites",
+      "name": "tf:imageresize",
+      "resource_group": "rg-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": "",
+        "tf_resource_name": "imageresize",
+        "tf_address": "azurerm_linux_function_app.imageresize",
+        "kind": "functionapp,linux",
+        "service_plan_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:func"
+      },
+      "tags": {},
+      "edges": [
+        {
+          "type": "hosted_on",
+          "to": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:func",
+          "via": "service_plan_id"
+        },
+        {
+          "type": "data_ref",
+          "to": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Storage/storageAccounts/tf:assets",
+          "via": "storage_account_name"
+        }
+      ],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Compute/virtualMachines/tf:reporting",
+      "azure_type": "Microsoft.Compute/virtualMachines",
+      "name": "tf:reporting",
+      "resource_group": "rg-shared",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": "",
+        "tf_resource_name": "reporting",
+        "tf_address": "azurerm_windows_virtual_machine.reporting",
+        "size": "Standard_D4s_v5",
+        "os_type": "Windows",
+        "image_publisher": "MicrosoftWindowsServer",
+        "image_offer": "WindowsServer",
+        "image_sku": "2022-datacenter-azure-edition"
+      },
+      "tags": {},
+      "edges": [
+        {
+          "type": "network",
+          "to": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Network/networkInterfaces/tf:reporting",
+          "via": "network_interface_ids"
+        }
+      ],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.DBforPostgreSQL/flexibleServers/tf:store",
+      "azure_type": "Microsoft.DBforPostgreSQL/flexibleServers",
+      "name": "tf:store",
+      "resource_group": "rg-data",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": "",
+        "tf_resource_name": "store",
+        "tf_address": "azurerm_postgresql_flexible_server.store",
+        "sku_name": "GP_Standard_D2s_v3",
+        "storage_mb": 65536,
+        "version": "16",
+        "backup_retention_days": 14,
+        "zone": "1",
+        "high_availability": {
+          "mode": "ZoneRedundant",
+          "standby_availability_zone": "2"
+        }
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.Cache/Redis/tf:session",
+      "azure_type": "Microsoft.Cache/Redis",
+      "name": "tf:session",
+      "resource_group": "rg-data",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": "",
+        "tf_resource_name": "session",
+        "tf_address": "azurerm_redis_cache.session",
+        "sku_name": "Standard",
+        "family": "C",
+        "capacity": 1
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.DocumentDB/databaseAccounts/tf:catalog",
+      "azure_type": "Microsoft.DocumentDB/databaseAccounts",
+      "name": "tf:catalog",
+      "resource_group": "rg-data",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": "",
+        "tf_resource_name": "catalog",
+        "tf_address": "azurerm_cosmosdb_account.catalog",
+        "kind": "MongoDB",
+        "capabilities": [
+          "EnableMongo"
+        ],
+        "consistency_level": "Session",
+        "geo_locations": [
+          {
+            "location": "westeurope",
+            "failover_priority": 0
+          }
+        ]
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Storage/storageAccounts/tf:assets",
+      "azure_type": "Microsoft.Storage/storageAccounts",
+      "name": "tf:assets",
+      "resource_group": "rg-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": "",
+        "tf_resource_name": "assets",
+        "tf_address": "azurerm_storage_account.assets",
+        "account_tier": "Standard",
+        "account_replication_type": "LRS",
+        "account_kind": "StorageV2",
+        "static_website": {
+          "index_document": "index.html"
+        }
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Storage/storageAccounts/tf:assets/fileServices/default/shares/reports",
+      "azure_type": "Microsoft.Storage/storageAccounts/fileServices/shares",
+      "name": "reports",
+      "resource_group": "rg-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": "",
+        "tf_resource_name": "reports",
+        "tf_address": "azurerm_storage_share.reports",
+        "enabled_protocol": "SMB",
+        "quota": 512
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.EventHub/namespaces/tf:telemetry",
+      "azure_type": "Microsoft.EventHub/namespaces",
+      "name": "tf:telemetry",
+      "resource_group": "rg-data",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": "",
+        "tf_resource_name": "telemetry",
+        "tf_address": "azurerm_eventhub_namespace.telemetry",
+        "sku": "Standard",
+        "capacity": 2,
+        "kafka_enabled": true
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/virtualNetworks/tf:core",
+      "azure_type": "Microsoft.Network/virtualNetworks",
+      "name": "tf:core",
+      "resource_group": "rg-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": "",
+        "tf_resource_name": "core",
+        "tf_address": "azurerm_virtual_network.core",
+        "address_space": [
+          "10.20.0.0/16"
+        ]
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/virtualNetworks/tf:core/subnets/snet-apps",
+      "azure_type": "Microsoft.Network/virtualNetworks/subnets",
+      "name": "snet-apps",
+      "resource_group": "rg-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": "",
+        "tf_resource_name": "apps",
+        "tf_address": "azurerm_subnet.apps",
+        "address_prefixes": [
+          "10.20.1.0/24"
+        ]
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/virtualNetworks/tf:core/subnets/snet-data",
+      "azure_type": "Microsoft.Network/virtualNetworks/subnets",
+      "name": "snet-data",
+      "resource_group": "rg-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": "",
+        "tf_resource_name": "data",
+        "tf_address": "azurerm_subnet.data",
+        "address_prefixes": [
+          "10.20.2.0/24"
+        ]
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Network/networkInterfaces/tf:reporting",
+      "azure_type": "Microsoft.Network/networkInterfaces",
+      "name": "tf:reporting",
+      "resource_group": "rg-shared",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": "",
+        "tf_resource_name": "reporting",
+        "tf_address": "azurerm_network_interface.reporting"
+      },
+      "tags": {},
+      "edges": [
+        {
+          "type": "network",
+          "to": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/virtualNetworks/tf:core/subnets/snet-apps",
+          "via": "ip_configuration.subnet_id"
+        }
+      ],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.Network/privateEndpoints/tf:store",
+      "azure_type": "Microsoft.Network/privateEndpoints",
+      "name": "tf:store",
+      "resource_group": "rg-data",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": "",
+        "tf_resource_name": "store",
+        "tf_address": "azurerm_private_endpoint.store",
+        "subresource_names": [
+          "postgresqlServer"
+        ]
+      },
+      "tags": {},
+      "edges": [
+        {
+          "type": "network",
+          "to": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/virtualNetworks/tf:core/subnets/snet-data",
+          "via": "subnet_id"
+        },
+        {
+          "type": "private_link",
+          "to": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.DBforPostgreSQL/flexibleServers/tf:store",
+          "via": "private_service_connection.private_connection_resource_id"
+        }
+      ],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.KeyVault/vaults/tf:main",
+      "azure_type": "Microsoft.KeyVault/vaults",
+      "name": "tf:main",
+      "resource_group": "rg-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": "",
+        "tf_resource_name": "main",
+        "tf_address": "azurerm_key_vault.main",
+        "sku_name": "standard"
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.OperationalInsights/workspaces/tf:core",
+      "azure_type": "Microsoft.OperationalInsights/workspaces",
+      "name": "tf:core",
+      "resource_group": "rg-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": "",
+        "tf_resource_name": "core",
+        "tf_address": "azurerm_log_analytics_workspace.core",
+        "sku": "PerGB2018",
+        "retention_in_days": 30
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Insights/components/tf:storefront",
+      "azure_type": "Microsoft.Insights/components",
+      "name": "tf:storefront",
+      "resource_group": "rg-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": "",
+        "tf_resource_name": "storefront",
+        "tf_address": "azurerm_application_insights.storefront",
+        "application_type": "web"
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
+    }
+  ],
+  "iac_metadata": {
+    "dialects_found": [
+      "terraform"
+    ],
+    "dialects_extracted": [
+      "terraform"
+    ],
+    "files_scanned": 5,
+    "modules_unresolved": [
+      "module.cdn (source Azure/cdn/azurerm 3.1.0 \u2014 content not in workspace, its resources were NOT discovered)"
+    ],
+    "untranslated_types": [
+      "azurerm_dev_test_lab (local name: sandbox)"
+    ],
+    "subscription_id_source": "unresolved"
+  },
+  "warnings": [
+    {
+      "code": "untranslated_terraform_type",
+      "detail": "azurerm_dev_test_lab.sandbox is absent from arm-type-canonicalization.md; skipped rather than guessed"
+    },
+    {
+      "code": "module_not_resolved",
+      "detail": "module.cdn source Azure/cdn/azurerm is not in the workspace; its resources were not discovered"
+    },
+    {
+      "code": "private_endpoint_consumed",
+      "detail": "azurerm_private_endpoint.store produced a private_link edge to azurerm_postgresql_flexible_server.store; the endpoint itself is not a mapping target"
+    }
+  ],
+  "unclustered": []
+}
