@@ -1,6 +1,14 @@
 # OpenAI to Bedrock — Model Selection Guide
 
-**Applies to:** OpenAI SDK usage detected in GCP-hosted applications → Amazon Bedrock
+> Canonical OpenAI-compatible → Bedrock model-selection guide. Source-cloud
+> agnostic: it serves direct OpenAI API usage, Azure OpenAI, and any other
+> OpenAI-protocol endpoint, because the Bedrock target does not depend on which
+> endpoint served the calls.
+> Vendored into each consuming skill as
+> `references/vendored/ai/ai-openai-to-bedrock.md` and kept byte-identical by
+> `shared:check`; edit HERE, then run `shared:sync`.
+
+**Applies to:** OpenAI SDK usage detected in applications hosted on any source cloud → Amazon Bedrock
 
 This file is loaded by `design-ai.md` when `ai-workload-profile.json` has `summary.ai_source` = `"openai"` or
 `"both"`. It provides the selection policy and mapping tables for OpenAI → Bedrock migration decisions.
@@ -8,7 +16,7 @@ This file is loaded by `design-ai.md` when `ai-workload-profile.json` has `summa
 **Facts live in `references/shared/openai-on-bedrock.md`** — model IDs, endpoint paths, region matrix, quotas, prompt
 caching rules, and pricing provenance. Read it before applying this file. Do not restate those facts here.
 
-**Model lifecycle:** before recommending any Bedrock model, check `references/shared/ai-model-lifecycle.md`. Do not
+**Model lifecycle:** before recommending any Bedrock model, check `references/vendored/ai/ai-model-lifecycle.md`. Do not
 recommend Legacy models as primary selections for new migrations.
 
 **Recommend defaults (Jul 2026):** Claude Sonnet 5 (`anthropic.claude-sonnet-5`) for balanced/flagship; Claude Opus 4.8 for hardest reasoning; Claude Haiku 4.5 for cost/speed. Sonnet 5 intro pricing is **$2/$10 through Aug 31, 2026**, then $3/$15 — comparison tables below use the steady-state $3/$15 rate unless noted. Do not default to Claude Fable 5.

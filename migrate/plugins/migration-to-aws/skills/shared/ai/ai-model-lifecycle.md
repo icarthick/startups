@@ -1,5 +1,11 @@
 # Bedrock Model Lifecycle Awareness
 
+> Canonical Bedrock model Active/Legacy/EOL registry and the 90-day exclusion
+> rule. Source-cloud agnostic: it is a property of Bedrock's model catalog.
+> Vendored into each consuming skill as
+> `references/vendored/ai/ai-model-lifecycle.md` and kept byte-identical by
+> `shared:check`; edit HERE, then run `shared:sync`.
+
 Reference: [Amazon Bedrock Model Lifecycle](https://docs.aws.amazon.com/bedrock/latest/userguide/model-lifecycle.html)
 
 Models on Bedrock move through three states: **Active** → **Legacy** (minimum 6 months before EOL) → **End-of-Life (EOL)**. After EOL, the model is unavailable and requests fail.
@@ -129,7 +135,7 @@ The multi-provider quick reference table includes a `Status` column:
 
 When refreshing the cache, recompute `days_to_eol` and update the Status column from the [model lifecycle page](https://docs.aws.amazon.com/bedrock/latest/userguide/model-lifecycle.html).
 
-### Mapping Guides (`ai-openai-to-bedrock.md`, `ai-gemini-to-bedrock.md`)
+### Mapping Guides (`ai-openai-to-bedrock.md`, `ai-anthropic-to-bedrock.md`, and any source-cloud-specific guide the consuming skill ships)
 
 - "Best Bedrock Match" columns must only contain Active models.
 - Exclusion-zone models must not appear in any recommendation row.

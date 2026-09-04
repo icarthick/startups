@@ -1,5 +1,11 @@
 # Bedrock Quota Awareness — Migration Decision Logic
 
+> Canonical Bedrock TPM/RPM quota-risk logic. Source-cloud agnostic: quotas are
+> an AWS-account property, assessed from token volume and target model alone.
+> Vendored into each consuming skill as
+> `references/vendored/ai/bedrock-quotas.md` and kept byte-identical by
+> `shared:check`; edit HERE, then run `shared:sync`.
+
 For raw quota documentation, use the AWS Documentation MCP server or see: [Quotas for Amazon Bedrock](https://docs.aws.amazon.com/bedrock/latest/userguide/quotas.html) | [How tokens are counted](https://docs.aws.amazon.com/bedrock/latest/userguide/quotas-token-burndown.html)
 
 ---

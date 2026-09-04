@@ -1,5 +1,11 @@
 # Anthropic SDK → Amazon Bedrock Migration
 
+> Canonical Anthropic-SDK → Bedrock client-swap guide. Source-cloud agnostic:
+> the mapping depends on the SDK the code uses, never on which cloud hosted it.
+> Vendored into each consuming skill as
+> `references/vendored/ai/ai-anthropic-to-bedrock.md` and kept byte-identical by
+> `shared:check`; edit HERE, then run `shared:sync`.
+
 > Loaded by `design-ai.md` when `ai_source == "anthropic"`.
 > The user is already on Claude via the Anthropic SDK. Migration is a client swap only.
 > No model change, no prompt rewriting, no retraining required.
@@ -17,7 +23,7 @@
 
 † Claude Sonnet 5 intro pricing through Aug 31, 2026; then $3 / $15 (same as Sonnet 4.6). Prefer the `us.` inference-profile prefix for on-demand invoke. Sonnet 4.6 (`anthropic.claude-sonnet-4-6`) remains Active if the customer must stay on the 4.6 SKU.
 
-Older Claude models — Claude 3.5 Haiku, Claude 3 Sonnet, Claude 3.5 Sonnet (v1/v2), Claude 3 Haiku, and Claude 3.7 Sonnet — are past EOL or within the 90-day exclusion window. Do **not** recommend them as migration targets. See `shared/ai-model-lifecycle.md` for authoritative status (recomputed each run).
+Older Claude models — Claude 3.5 Haiku, Claude 3 Sonnet, Claude 3.5 Sonnet (v1/v2), Claude 3 Haiku, and Claude 3.7 Sonnet — are past EOL or within the 90-day exclusion window. Do **not** recommend them as migration targets. See `references/vendored/ai/ai-model-lifecycle.md` for authoritative status (recomputed each run).
 
 **Recommendation:** Default new Bedrock targets to **Claude Sonnet 5** (flagship) / **Claude Opus 4.8** (hardest reasoning) / **Claude Haiku 4.5** (cost/speed). Converse API call shape is identical across generations. Do **not** default to Claude Fable 5 (frontier / Mythos-class pricing — opt-in only).
 

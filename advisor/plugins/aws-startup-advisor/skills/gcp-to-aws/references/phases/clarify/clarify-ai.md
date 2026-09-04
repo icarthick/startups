@@ -584,7 +584,7 @@ Category G answers are stored in `preferences.json` → `ai_constraints.agentic`
 
 **Field contract (consumed by Design phase):**
 
-- `migration_approach` — Routes Design to the correct path: `"retarget"` uses existing model-swap flow, `"harness"` loads `design-ref-harness.md`, `"strands"` loads `design-ref-agentic-to-agentcore.md`
+- `migration_approach` — Routes Design to the correct path: `"retarget"` uses existing model-swap flow, `"harness"` loads `vendored/ai/design-ref-harness.md`, `"strands"` loads `vendored/ai/design-ref-agentic-to-agentcore.md`
 - `memory_requirement` — Determines whether AgentCore Memory is included in design
 - `task_duration` — Determines AgentCore Runtime recommendation and session limit warnings
 - `incremental_migration` — Determines whether incremental migration artifacts are generated

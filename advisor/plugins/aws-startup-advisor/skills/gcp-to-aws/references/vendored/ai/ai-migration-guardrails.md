@@ -1,5 +1,11 @@
 # AI Migration Guardrails
 
+> Canonical guardrails for every agentic migration path. Source-cloud agnostic:
+> these are Bedrock/AgentCore constraints, not source-provider facts.
+> Vendored into each consuming skill as
+> `references/vendored/ai/ai-migration-guardrails.md` and kept byte-identical by
+> `shared:check`; edit HERE, then run `shared:sync`.
+
 Shared warnings and constraints for all agentic migration paths. Loaded once by `design-ai.md` when `agentic_profile.is_agentic == true`. Path-specific design references (Harness, Strands, retarget) should NOT duplicate these — reference this file instead.
 
 ---
@@ -100,7 +106,7 @@ Claude models on Mantle have an additional **output TPM cap** that differs by mo
 
 Before recommending any Bedrock model in an agentic design:
 
-1. Check `references/shared/ai-model-lifecycle.md` for model status
+1. Check `references/vendored/ai/ai-model-lifecycle.md` for model status
 2. Do NOT recommend Legacy models as primary selections
 3. If a model is approaching EOL, note the date and suggest the Active successor
 
