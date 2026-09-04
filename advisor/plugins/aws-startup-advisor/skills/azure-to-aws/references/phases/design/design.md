@@ -6,6 +6,8 @@ _input:
   - azure-resource-inventory.json
   - azure-resource-clusters.json
   - preferences.json
+_knowledge:
+  - { file: knowledge/design/fast-path-services.json }
 _fragments:
   - _id: infra
     _trigger: { _always: true }
@@ -45,6 +47,10 @@ _postconditions:
   - _assert: "no Microsoft.Web/sites resource carries its own compute sizing in aws_config unless preferences.json records an explicit isolation split for its plan; the compute line belongs to the Microsoft.Web/serverfarms plan"
     _on_failure: _halt_and_inform
   - _assert: "every resource in the inventory is accounted for: mapped in services[], deferred in deferred[], or recorded in warnings[] as a skip or as an edge-bearing config source that was consumed"
+    _on_failure: _halt_and_inform
+  - _assert: "iac_metadata.untranslated_types is empty; a type Discover could not name is treated as cost-bearing and STOPs the design, because the skill cannot demonstrate that a resource it could not identify is free"
+    _on_failure: _halt_and_inform
+  - _assert: "every deferred[] entry carries aws_service 'Deferred — specialist engagement' and a reason, and carries NO confidence field — a deferral did not come from a rubric"
     _on_failure: _halt_and_inform
   - _assert: "AWS App Runner does not appear as a target anywhere in aws-design.json"
     _on_failure: _halt_and_inform
@@ -101,21 +107,29 @@ a *service* and never touch capacity; adding a seventh would break "apply in ord
 first match wins". Each rubric file gets an additive `## Right-Sizing` section,
 structurally parallel to `## CPU Architecture`.
 
-## Status — skeleton (build step 1)
+## Status — build step 3 (pass 1 only)
 
-Wiring only: one fragment, one assembler, and the postconditions that encode the
-finished contract.
+**Pass 1 is real.** `knowledge/design/fast-path-services.json` carries the Direct
+Mappings, Skip Mappings, and specialist-gate rows; `design-refs/fast-path.md` is their
+contract; `design-refs/index.md` routes everything else. **Pass 2 — the category rubric
+files — does not exist yet**, so on any estate carrying compute or a relational
+database this phase **halts** rather than improvising a target. See `index.md`'s halt
+guard, which is the same guard and the same reasoning as `discover-iac.md` Step 2.
 
 | Lands in | What                                                                                                     |
 | -------- | -------------------------------------------------------------------------------------------------------- |
-| step 3   | Canonical ARM types, the 10-row Direct Mappings table, Skip Mappings, the split unknown-type policy, the specialist-gate table |
-| step 4   | Pattern consumption at cluster level                                                                      |
-| step 5   | The per-category rubric files and the `knowledge/*.json` sizing tables, wired through `_knowledge` `_when` guards |
+| step 4   | Pattern consumption at cluster level; the cluster-level `data-pipeline` gate                               |
+| step 5   | The per-category rubric files named by `index.md`, and the `knowledge/*.json` sizing tables wired through `_knowledge` `_when` guards |
 | step 6   | The AI design route                                                                                       |
 
-Step 3 comes before the rubric content deliberately: the precedence order and the
+Step 3 came before the rubric content deliberately: the precedence order and the
 admission test decide what each rubric file has to cover, and getting the Direct
 Mappings row set wrong makes every downstream confidence label wrong.
+
+The `_postconditions` above encode the FINISHED contract, so several of them fail today
+by construction — a halted design does not account for every resource, and it may carry
+a non-empty `pending_rubric[]`. That is the intended behaviour: the gate reports the
+skill's gap loudly instead of letting a plausible mapping pass for a real one.
 
 ## Step: Run the phase
 

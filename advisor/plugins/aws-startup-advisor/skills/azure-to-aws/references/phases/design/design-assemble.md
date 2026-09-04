@@ -28,7 +28,18 @@ _produces:
    awsknowledge MCP. This is non-blocking: a failed check becomes a warning, not a
    gate failure.
 6. Re-check the invariant before writing: no `deterministic` row's `aws_service` was
-   changed by a pattern constraint.
+   changed by a pattern constraint. Verify it against
+   `knowledge/design/fast-path-services.json` rather than from memory — every row
+   labelled `deterministic` must name a canonical type present in `direct_mappings`,
+   and its `aws_service` must equal that row's `aws_service` or one of its
+   `alternatives[]`.
+7. `deferred[]` entries carry no `confidence` field; `services[]` entries always do.
+8. **Write the artifact even when the phase is going to fail its gate.** A STOP from
+   the unknown-type policy, or a `pending_rubric[]` from a missing category file, still
+   produces `aws-design.json` — carrying everything that WAS determined, plus the
+   `halt` object naming what blocked. The gate then fails on its own merits. Discarding
+   the work would make the user re-run the whole phase to learn one missing table row,
+   and would hide which resources were already fine.
 
 ## Report shape
 

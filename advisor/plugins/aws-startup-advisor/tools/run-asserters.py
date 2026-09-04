@@ -36,9 +36,14 @@ ASSERTERS = {
     "heroku-live-capture/check_expected_estimate.py": None,
     "gcp-live-capture/check_expected_drift.py": None,
     "gcp-live-capture/check_expected_baseline.py": None,
-    # Input-corpus fixture: the workspace is committed, the run tree is not (producing
-    # one needs an agent run), so this is smoke-only — it must fail cleanly on an empty dir.
+    # Input-corpus fixture. `workspace-terraform/` is the committed INPUT; each golden
+    # tree below is the hand-authored expected output for one phase.
     "azure-iac-terraform/check_expected_iac_terraform.py": "azure-iac-terraform/after-discover",
+    # Design pass 1. The golden tree is deliberately a HALTED design — the corpus carries
+    # an untranslated cost-bearing type and the pass-2 rubric files do not exist yet — so
+    # it does NOT satisfy design.md's _postconditions. It pins the mapping TABLE's
+    # application, which is what build step 3 delivers.
+    "azure-iac-terraform/check_expected_design.py": "azure-iac-terraform/after-design-halted",
 }
 
 
