@@ -1,0 +1,107 @@
+---
+_phase: discover
+_title: "Discover Azure Resources"
+_init: true
+_input: workspace
+_fragments:
+  - _id: iac
+    _trigger: { _always: true }
+    _file: phases/discover/discover-iac.md
+_assemble:
+  _file: phases/discover/discover-assemble.md
+_produces:
+  - azure-resource-inventory.json
+  - azure-resource-clusters.json
+_advances_to: clarify
+_interactive: false
+_exec:
+  _agent: rw
+_re_entry_guard:
+  _stale_if_completed: clarify
+  _stale_artifact: preferences.json
+  _on_reentry: stop_unless_confirmed
+  _on_confirm: reset_downstream_to_pending
+_preconditions:
+  - _check_single_active_phase: true
+    _on_failure: _halt_and_inform
+  - _assert: "at least one Azure source is available: a .tf file containing an azurerm_* resource, a .bicep file, or an ARM template (a .json file whose $schema contains 'deploymentTemplate') exists in the workspace"
+    _on_failure: _unrecoverable
+_postconditions:
+  - _check_file_exists: [azure-resource-inventory.json, azure-resource-clusters.json]
+    _on_failure: _halt_and_inform
+  - _validate_json: [azure-resource-inventory.json, azure-resource-clusters.json]
+    _on_failure: _halt_and_inform
+  - _assert: "azure-resource-inventory.json has at least one resources[] entry, and metadata carries discovery_timestamp, discovery_sources, and subscriptions_discovered"
+    _on_failure: _halt_and_inform
+  - _assert: "every resources[] entry has azure_id (a full ARM resource ID), azure_type (a canonical Microsoft.* type string), resource_group, subscription_id, and config — no entry carries a raw azurerm_* type in azure_type"
+    _on_failure: _halt_and_inform
+  - _assert: "metadata.discovery_sources reflects which sources actually produced data; the iac fragment always runs and may exit empty, so a source appears only when it contributed at least one resource"
+    _on_failure: _halt_and_inform
+  - _assert: "if .tf files containing azurerm_* resources were FOUND in the workspace, resources[] contains at least one entry with source 'terraform'; the same holds independently for 'bicep' and 'arm'"
+    _on_failure: _halt_and_inform
+  - _assert: "no secret VALUES appear anywhere in the inventory — app settings, connection strings, and Key Vault entries carry NAMES only"
+    _on_failure: _halt_and_inform
+  - _assert: "azure-resource-clusters.json has one entry per cluster, each with cluster_id, tier, member azure_ids, and the edges[] set that justified the grouping; every inventory resource is either a cluster member or listed in unclustered[]"
+    _on_failure: _halt_and_inform
+_forbids_files:
+  - README.md
+  - discovery-summary.md
+  - "*.txt"
+  - "terraform/**"
+  - preferences.json
+---
+
+# Phase 1: Discover Azure Resources
+
+## Orientation
+
+Inventory what exists on Azure into `azure-resource-inventory.json` in
+`$MIGRATION_DIR/`, and derive `azure-resource-clusters.json` from it. This phase is
+composed of FRAGMENTS (independent discoverers) plus one ASSEMBLER, declared in the
+frontmatter `_fragments`/`_assemble` — the interpreter runs each fragment whose
+`_trigger` is true (loading its `_file` only then), then the assembler. Read each
+unit file for its own contract; this phase owns only lifecycle and the cross-cutting
+`_postconditions`.
+
+Two facts the frontmatter cannot express:
+
+1. **Fragments are additive, not redundant, and they may disagree.** IaC carries
+   *declared intent* (module structure, naming, what is parameterized, and resources
+   declared but never deployed). Live `az` and RDfA carry *actual state*. When two
+   sources disagree about the same `azure_id`, the assembler records BOTH values and
+   which one won as a drift entry. A disagreement is never silently reconciled — the
+   drift is itself customer-visible value.
+
+2. **The canonical type vocabulary is ARM, not Terraform.** Four of the five
+   discovery sources speak `Microsoft.*` natively; only Terraform needs translating.
+   That translation happens inside `discover-iac.md`, so every downstream table
+   keys off one vocabulary. `azure_id` is the full ARM resource ID, which embeds
+   subscription and resource group — one field supplies the cluster seed key, the
+   environment scope, and uniqueness with no derivation.
+
+## Status — skeleton (build step 1)
+
+Wiring only. Today the phase runs one fragment (`discover-iac.md`, Terraform only)
+and an assembler that writes both artifacts.
+
+| Lands in | What                                                                                   |
+| -------- | -------------------------------------------------------------------------------------- |
+| step 2   | Bicep + ARM inside `discover-iac.md`; the `billing` and `app-code` fragments           |
+| step 2   | The `rdfa` fragment, then the live `az` path — security contract, capture pre-work, parsing fragment, in that order |
+| step 4   | Real clustering (resource-group seed, split/merge on typed edges, tiering) and the pattern catalog in `azure-resource-clusters.json` |
+
+The live `az` path will NOT be a plain fragment. This phase runs under
+`_exec: { _agent: rw }` with `_interactive: false`, and a dispatched worker is
+file-only — it cannot prompt for consent. Live capture therefore becomes
+main-window pre-work invoked from this phase's `_preconditions` prose, writing to
+`$MIGRATION_DIR/live-capture/`, with the dispatched fragment merely parsing that
+directory. RDfA needs no such split: reading an archive the customer already handed
+over is not interactive.
+
+## Step: Run the phase
+
+1. Perform `_init` state setup per `INTERPRETER.md` § `_init: true`.
+2. Run each fragment whose `_trigger` holds.
+3. Run `discover-assemble.md`.
+4. Evaluate `_postconditions`. On all-pass emit `HANDOFF_OK`; on any failure emit
+   `GATE_FAIL` and stop. Do not patch an artifact to force a gate to pass.

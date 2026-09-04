@@ -109,7 +109,7 @@ guidance.
 
 ### Migration
 
-- [Azure to AWS](references/migration-azure-to-aws.md)
+- [Azure to AWS](references/migration-azure-to-aws.md) — for the PRE-decision advisory conversation only ("should we leave Azure?", "what would this look like on AWS?"). Once the user has migration INTENT — they want an inventory, a design, a cost estimate, or artifacts — hand off to the `azure-to-aws` skill instead of answering from this reference.
 - [App Runner to ECS](references/migration-apprunner-to-ecs-express.md)
 
 ### IoT

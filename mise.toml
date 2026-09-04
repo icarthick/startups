@@ -50,9 +50,11 @@ run = [
   "node migrate/plugins/migration-to-aws/tools/frontmatter-validator/validate.ts migrate/plugins/migration-to-aws/skills/heroku-to-aws",
   "node migrate/plugins/migration-to-aws/tools/frontmatter-validator/validate.ts migrate/plugins/migration-to-aws/skills/agent-advisor",
   "node migrate/plugins/migration-to-aws/tools/frontmatter-validator/validate.ts migrate/plugins/migration-to-aws/skills/gcp-to-aws",
+  "node migrate/plugins/migration-to-aws/tools/frontmatter-validator/validate.ts migrate/plugins/migration-to-aws/skills/azure-to-aws",
   "node advisor/plugins/aws-startup-advisor/tools/frontmatter-validator/validate.ts advisor/plugins/aws-startup-advisor/skills/heroku-to-aws",
   "node advisor/plugins/aws-startup-advisor/tools/frontmatter-validator/validate.ts advisor/plugins/aws-startup-advisor/skills/agent-advisor",
   "node advisor/plugins/aws-startup-advisor/tools/frontmatter-validator/validate.ts advisor/plugins/aws-startup-advisor/skills/gcp-to-aws",
+  "node advisor/plugins/aws-startup-advisor/tools/frontmatter-validator/validate.ts advisor/plugins/aws-startup-advisor/skills/azure-to-aws",
 ]
 
 [tasks."lint:types"]
