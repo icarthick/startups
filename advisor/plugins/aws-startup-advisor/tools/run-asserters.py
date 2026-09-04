@@ -36,6 +36,9 @@ ASSERTERS = {
     "heroku-live-capture/check_expected_estimate.py": None,
     "gcp-live-capture/check_expected_drift.py": None,
     "gcp-live-capture/check_expected_baseline.py": None,
+    # Input-corpus fixture: the workspace is committed, the run tree is not (producing
+    # one needs an agent run), so this is smoke-only — it must fail cleanly on an empty dir.
+    "azure-iac-terraform/check_expected_iac_terraform.py": None,
 }
 
 

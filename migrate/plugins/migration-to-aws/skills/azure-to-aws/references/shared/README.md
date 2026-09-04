@@ -12,8 +12,10 @@ here — see `references/vendored/README.md`.
 | `schema-discover-azure.md`      | `azure-resource-inventory.json` + `azure-resource-clusters.json` shapes  |
 | `schema-preferences.md`         | `preferences.json` shape and the assumption-sheet disposition vocabulary |
 | `schema-workshop-scenarios.md`  | `scenarios/index.json` shape and the workshop preference-patch contract  |
+| `arm-type-canonicalization.md`  | the `azurerm_* → Microsoft.*` table, the traps, and `azure_id` reconstruction |
+| `extract-terraform.md`          | Terraform extraction rules, per-type attributes, edges, secret boundary  |
 
-Landing later, per the build sequence: `extract-terraform.md`, `extract-bicep.md`,
-`extract-arm.md`, `arm-type-canonicalization.md`, `azure-live-security-contract.md`,
+Landing later, per the build sequence: `extract-bicep.md`,
+`extract-arm.md`, `azure-live-security-contract.md`,
 `schema-discover-rdfa.md`, `schema-discover-billing.md`, `schema-discover-ai.md`,
 `azure-pricing-cache.md`, and `migration-complexity.md`.

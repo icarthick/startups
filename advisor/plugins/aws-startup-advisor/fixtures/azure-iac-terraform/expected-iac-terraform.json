@@ -1,0 +1,131 @@
+{
+  "_comment": "Pinned facts for the azure-iac-terraform fixture. Every entry is a decision where a plausible improvisation and the correct answer DIVERGE — a fact the model would get wrong by reasoning from the Terraform alone instead of consulting arm-type-canonicalization.md and extract-terraform.md. Facts a model gets right by accident are deliberately not asserted here; they cost review attention and prove nothing.",
+
+  "inventory_file": "azure-resource-inventory.json",
+
+  "discovery_sources": ["terraform"],
+
+  "resource_counts": {
+    "declared_in_corpus": 28,
+    "expected_in_inventory": 27,
+    "_comment": "28 resource blocks; azurerm_dev_test_lab is untranslated and therefore skipped, not guessed."
+  },
+
+  "canonical_types": {
+    "_comment": "Keyed by the Terraform local name. Casing is asserted exactly.",
+    "app": "Microsoft.Resources/resourceGroups",
+    "data": "Microsoft.Resources/resourceGroups",
+    "shared": "Microsoft.Resources/resourceGroups",
+    "web": "Microsoft.Web/serverfarms",
+    "func": "Microsoft.Web/serverfarms",
+    "legacy": "Microsoft.Web/serverfarms",
+    "storefront": "Microsoft.Web/sites",
+    "admin": "Microsoft.Web/sites",
+    "checkout": "Microsoft.Web/sites",
+    "docs": "Microsoft.Web/sites",
+    "webhooks": "Microsoft.Web/sites",
+    "imageresize": "Microsoft.Web/sites",
+    "reporting": "Microsoft.Compute/virtualMachines",
+    "store": "Microsoft.DBforPostgreSQL/flexibleServers",
+    "session": "Microsoft.Cache/Redis",
+    "catalog": "Microsoft.DocumentDB/databaseAccounts",
+    "assets": "Microsoft.Storage/storageAccounts",
+    "reports": "Microsoft.Storage/storageAccounts/fileServices/shares",
+    "telemetry": "Microsoft.EventHub/namespaces",
+    "core": "Microsoft.OperationalInsights/workspaces",
+    "main": "Microsoft.KeyVault/vaults"
+  },
+
+  "forbidden_types": {
+    "_comment": "Plausible guesses that are not real ARM type strings, or are the wrong casing. None may appear as any resource's azure_type.",
+    "values": [
+      "Microsoft.Web/functionApps",
+      "Microsoft.Web/serverFarms",
+      "Microsoft.Cache/redis",
+      "Microsoft.CosmosDB/databaseAccounts",
+      "Microsoft.CosmosDB/accounts",
+      "Microsoft.DocumentDB/accounts",
+      "Microsoft.Storage/fileShares",
+      "Microsoft.DBforPostgresql/flexibleServers",
+      "Microsoft.EventHubs/namespaces",
+      "Microsoft.KeyVault/Vaults",
+      "Microsoft.DevTestLab/labs"
+    ]
+  },
+
+  "function_app": {
+    "_comment": "The sharpest trap: a function app is a sites resource discriminated by kind, and Microsoft.Web/functionApps does not exist.",
+    "local_name": "imageresize",
+    "azure_type": "Microsoft.Web/sites",
+    "kind_contains": "functionapp"
+  },
+
+  "azure_id": {
+    "_comment": "Terraform carries no ARM IDs, so these are reconstructed. The resource-group form is the exception that carries no /providers/ segment.",
+    "subscription_placeholder": "<subscription-unknown>",
+    "subscription_id_source": "unresolved",
+    "resource_group_form_has_no_providers_segment": true,
+    "standard_form_regex": "^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft\\.[A-Za-z]+/.+$",
+    "resource_group_form_regex": "^/subscriptions/[^/]+/resourceGroups/[^/]+$"
+  },
+
+  "app_service_plan_fan_in": {
+    "_comment": "THE 5x cost trap. Five apps share one S1 plan with worker_count 2. A per-app mapping would emit five compute line items downstream; the hosted_on edges are what prevent it. Asserted at Discover because by Design it is already too late to recover the edge.",
+    "plan_local_name": "web",
+    "plan_sku_name": "S1",
+    "plan_worker_count": 2,
+    "expected_hosted_on_edge_count": 5,
+    "idle_plan_local_name": "legacy",
+    "idle_plan_expected_hosted_on_edge_count": 0
+  },
+
+  "cross_resource_group_edge": {
+    "_comment": "The app lives in rg-app, its database in rg-data. RG-seeded clustering alone would split them; this edge is what later merges them. An extractor that drops edges crossing a group boundary fails here.",
+    "from_resource_group": "rg-data",
+    "to_resource_group": "rg-data",
+    "required_edge_types": ["private_link", "network", "hosted_on", "secret_ref"]
+  },
+
+  "private_endpoint": {
+    "_comment": "Edge-bearing config source, not a mapping target: inventoried so it can be reported as skipped, but its value is the private_link edge to the resource it fronts.",
+    "local_name": "store",
+    "azure_type": "Microsoft.Network/privateEndpoints",
+    "must_produce_edge_type": "private_link",
+    "must_appear_in_warnings": true
+  },
+
+  "secrets": {
+    "_comment": "Hard boundary. The corpus carries a greppable sentinel in three places: two app_settings values and a VM admin_password. None may appear anywhere in the artifact, not even redacted in place — a redaction placeholder still discloses that the field existed.",
+    "sentinel": "FIXTURE_SENTINEL_MUST_NOT_APPEAR",
+    "app_setting_names_expected": [
+      "CACHE_ENDPOINT",
+      "DATABASE_URL",
+      "STRIPE_SECRET_KEY",
+      "VAULT_TOKEN"
+    ],
+    "app_setting_names_owner_local_name": "storefront"
+  },
+
+  "untranslated_types": {
+    "_comment": "azurerm_dev_test_lab is deliberately absent from arm-type-canonicalization.md. It must be reported, not guessed: a guessed type fails silently against every downstream mapping table.",
+    "expected": ["azurerm_dev_test_lab"]
+  },
+
+  "unresolved_modules": {
+    "_comment": "A registry module whose content is not in the workspace. Silence here is how a Terraform-only inventory ends up confidently missing a third of the estate.",
+    "expected_substring": "Azure/cdn"
+  },
+
+  "routing_discriminators": {
+    "_comment": "Attributes that are the sole input to a later rubric decision. Dropping one does not fail any shape assertion — it just makes the rubric guess.",
+    "smb_share": { "local_name": "reports", "config_key": "enabled_protocol", "value": "SMB" },
+    "kafka_namespace": { "local_name": "telemetry", "config_key": "kafka_enabled", "value": true },
+    "cosmos_mongo_api": { "local_name": "catalog", "config_key": "kind", "value": "MongoDB" },
+    "windows_vm_image_sku": { "local_name": "reporting", "config_key": "image_sku", "value": "2022-datacenter-azure-edition" }
+  },
+
+  "forbidden_artifact_substrings": {
+    "_comment": "Terraform type strings must never survive into the artifact; the canonical vocabulary is ARM.",
+    "values": ["azurerm_"]
+  }
+}

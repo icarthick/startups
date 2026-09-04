@@ -12,8 +12,8 @@ _contributes:
 
 ## Why one fragment covers three dialects
 
-Terraform `azurerm_*`, Bicep, and ARM JSON all land here. Bicep compiles *to* ARM
-and both key off the same `Microsoft.*` type namespace, so they share one reason to
+Terraform `azurerm_*`, Bicep, and ARM JSON all land here. Bicep compiles *to* ARM and
+both key off the same `Microsoft.*` type namespace, so they share one reason to
 change; all three converge on one section of one artifact; and the extraction
 semantics (Azure resource type → inventory entry) are shared, with only the surface
 syntax differing.
@@ -24,36 +24,105 @@ containing `deploymentTemplate`. A `_when` would fail open: one misjudgment sile
 drops all IaC discovery. So this fragment always runs, detects the dialects present
 itself, and exits cleanly when it finds none.
 
-## Provenance is per dialect
+## Step 1: Detect the dialects present
 
-Because this fragment always runs and may exit empty, "the fragment ran" proves
-nothing. Record in `metadata.discovery_sources` only the dialects that actually
-produced at least one resource, and set `source` on each resource entry to the
-dialect it came from. The phase's `_postconditions` assert per dialect: if `.tf` /
-`.bicep` / ARM files were found in the workspace, at least one resource must be
-sourced from each dialect that was found.
+Record each independently — a repo may carry all three.
 
-## Status — skeleton (build step 1)
+| Dialect     | Detection                                                                                             |
+| ----------- | ----------------------------------------------------------------------------------------------------- |
+| `terraform` | a `**/*.tf` or `**/*.tf.json` file containing a `resource "azurerm_` block                             |
+| `bicep`     | a `**/*.bicep` file                                                                                    |
+| `arm`       | a `**/*.json` file whose top-level `$schema` contains `deploymentTemplate`                              |
 
-Terraform (`azurerm_*`) extraction only, and the `azurerm_* → Microsoft.*`
-translation table it needs is not written yet.
+Exclude `.terraform/`, `**/node_modules/`, `**/.git/`, and anything under
+`$MIGRATION_DIR` from all three scans.
 
-| Lands in | What                                                                                                              |
-| -------- | ----------------------------------------------------------------------------------------------------------------- |
-| step 2   | Bicep and ARM extraction, via `references/shared/extract-{terraform,bicep,arm}.md` loaded only for dialects present |
-| step 3   | `references/shared/arm-type-canonicalization.md` — the `azurerm_* → Microsoft.*` table applied here                |
+**If no dialect is present:** write nothing, add no entry to
+`metadata.discovery_sources`, and exit cleanly. This is a normal outcome — a startup
+with no IaC is the common case, and the phase's other fragments cover it.
 
-Keeping the extraction rules in separate `extract-*.md` refs is a context-budget
-decision, not a taste one: gcp's single-dialect `discover-iac.md` is already 402
-lines, and this phase also loads the app-code, billing, RDfA, and live fragments.
+## Step 2: Load the extraction ref for each dialect present — and HALT if it is missing
 
-## Step: Extract
+For each detected dialect, load its ref and follow it:
 
-1. Detect which dialects are present. If none, write nothing, add no discovery
-   source, and exit cleanly — this is a normal outcome, not an error.
-2. For each dialect present, load its `extract-*.md` ref and follow it.
-3. Translate every extracted type to its canonical `Microsoft.*` form. Reconstruct
-   `azure_id` for Terraform-sourced resources (the other dialects supply it).
-4. Append to `azure-resource-inventory.json`'s `resources[]` and write the
-   `iac_metadata` section. Never emit a secret value; app settings and connection
-   strings carry names only.
+| Dialect     | Ref                                        |
+| ----------- | ------------------------------------------ |
+| `terraform` | `references/shared/extract-terraform.md`   |
+| `bicep`     | `references/shared/extract-bicep.md`       |
+| `arm`       | `references/shared/extract-arm.md`         |
+
+> **HALT if a dialect is present and its ref is not on disk.** Emit `GATE_FAIL` naming
+> the dialect and the missing file. Do **not** extract that dialect from your own
+> knowledge of the syntax, and do not silently skip it.
+>
+> This guard exists because the two failure modes are otherwise indistinguishable, and
+> they need opposite responses. "No dialect present" is a clean exit. "The dialect is
+> present but this skill has not been taught to read it" is a bug, and improvising
+> past it produces output that looks correct, satisfies every shape assertion in the
+> phase's `_postconditions`, and is unreproducible — because it came from model priors
+> rather than from `arm-type-canonicalization.md`. That output would be labelled
+> `confidence: deterministic`, which would be a lie. A loud halt is the only honest
+> behaviour.
+
+Loading only the refs for dialects actually present is also the context-budget
+mechanism: three dialects' rules loaded unconditionally would blow the phase's ~800-line
+budget on their own, before the app-code, billing, RDfA, and live fragments are counted.
+
+## Step 3: Canonicalize every type
+
+Every extracted resource's type is translated to its canonical `Microsoft.*` ARM
+string via `references/shared/arm-type-canonicalization.md`. Nothing downstream ever
+sees an `azurerm_*` string, and the mapping tables compare these strings
+case-sensitively.
+
+A type absent from that table is recorded in `warnings[]` as
+`untranslated_terraform_type` and the resource is skipped. **Do not guess.** A guessed
+type does not fail loudly — it silently fails to match every mapping table, and the
+resource falls through the unknown-type policy for the wrong reason, so the report
+blames the customer's estate for the skill's gap.
+
+## Step 4: Write the contribution
+
+Append to `azure-resource-inventory.json`'s `resources[]` and write `iac_metadata`:
+
+```jsonc
+"iac_metadata": {
+  "dialects_found": ["terraform"],          // detected, not merely scanned for
+  "dialects_extracted": ["terraform"],      // produced ≥1 resource
+  "files_scanned": 0,
+  "modules_unresolved": [],                 // registry/git modules whose content is absent
+  "untranslated_types": [],
+  "subscription_id_source": "unresolved"    // "unresolved" when it came from a variable or the environment
+}
+```
+
+`dialects_found` and `dialects_extracted` are separate because the phase's
+`_postconditions` assert per dialect: if `.tf` / `.bicep` / ARM files were **found**,
+`resources[]` must contain at least one entry sourced from each dialect that was
+found. "The fragment ran" proves nothing — it always runs and may exit empty.
+
+## Step 5: Never emit a secret
+
+App settings and connection strings contribute **names only**. Storage account keys,
+Key Vault secret values, passwords, and tokens are discarded — not redacted in place,
+because a redaction placeholder still discloses that the field existed and roughly how
+long it was. A Key Vault *reference* is kept as a `secret_ref` edge, because the
+reference is architecture and the secret is not.
+
+Do not read `terraform.tfstate`, `*.tfstate.backup`, or `.terraform/` under any
+circumstance. State carries resolved values the configuration only references.
+
+## Status — build step 2 (partial)
+
+**Terraform is implemented**, via `extract-terraform.md` plus
+`arm-type-canonicalization.md`. It is exercised by the `azure-iac-terraform` fixture
+and its asserter.
+
+| Lands in | What                                                              |
+| -------- | ----------------------------------------------------------------- |
+| step 2   | `extract-bicep.md` and `extract-arm.md`                            |
+
+Until those two refs exist, a workspace containing `.bicep` or ARM templates **halts**
+per Step 2 rather than partially discovering. That is deliberate: a partial inventory
+presented as complete is worse than a stop, because the estimate that follows is
+confidently wrong about the size of the estate.
