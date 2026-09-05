@@ -39,7 +39,12 @@ the validation checklist.
 5. **Every disagreement becomes a drift entry.** Record both values, both sources,
    and which won, so the report can say "your Terraform declares `Standard_D2s_v3`,
    your tenant is running `Standard_D4s_v3`" instead of quietly picking one.
-6. Derive `azure-resource-clusters.json`.
+6. **Merge the fragments' `warnings[]` into one top-level array** on the inventory,
+   preserving every entry. The array is always present, `[]` when clean. Every `code`
+   comes from the closed vocabulary in `schema-discover-azure.md` § Warnings — do not
+   invent one, because an invented code makes the report's grouping unstable and any
+   fixture assertion on a code unreliable.
+7. Derive `azure-resource-clusters.json`.
 
 ## Confidence vocabulary
 
@@ -59,8 +64,16 @@ evidence. User-facing label: **"Measured from your actual usage."**
 ## Status — skeleton (build step 1)
 
 Writes both artifacts from the single IaC fragment. `azure-resource-clusters.json`
-is emitted with one cluster per resource group and an empty `edges[]` — a seed with
-no refinement.
+is emitted with one cluster per resource group, `justification: "seed:resource_group"`,
+and an empty `edges[]` — a seed with no refinement.
+
+**`justification` is what makes that empty `edges[]` legitimate rather than a silent
+gap.** An unrefined cluster has a real reason — its members share a resource group —
+and it is not an edge. Without the field, "grouped by the seed" and "grouped for no
+recorded reason" produce identical output, and the phase's postcondition on the
+justifying edge set could only pass by not being evaluated. Set it on every cluster;
+`split:*` and `merge:*` become reachable with step 4, and those values require a
+non-empty `edges[]`.
 
 | Lands in | What                                                                                                    |
 | -------- | ------------------------------------------------------------------------------------------------------- |

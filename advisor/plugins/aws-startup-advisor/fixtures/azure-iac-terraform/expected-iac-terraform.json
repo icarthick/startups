@@ -168,5 +168,100 @@
     "tf_address": "azurerm_storage_share.reports",
     "parent_tf_address": "azurerm_storage_account.assets",
     "expected_resource_group": "rg-app"
+  },
+  "contract_vocabulary": {
+    "_why": "Added after a fresh-context capability run. The run was CORRECT by every rule the refs stated and still diverged from the golden tree on three unstated things: it wrote null for unset attributes, it invented warning codes, and it dropped three cost-relevant config fields that no per-type row asked for. None of those failed a single existing assertion. These checks turn 'the extraction ref is silent' from an invisible defect into a CI failure.",
+    "warning_codes": [
+      "untranslated_terraform_type",
+      "module_not_resolved",
+      "private_endpoint_consumed",
+      "resource_group_unresolved",
+      "name_expression_unresolved",
+      "subscription_id_unresolved",
+      "multiplicity_unresolved"
+    ],
+    "_warning_codes_why": "Closed vocabulary, defined in schema-discover-azure.md \u00a7 Warnings. An invented code makes the report's grouping unstable and every fixture assertion on a code unreliable \u2014 the fresh run emitted `module_not_discovered` where the contract says `module_not_resolved`, which no shape assertion could catch.",
+    "warning_required_keys": [
+      "code",
+      "detail"
+    ],
+    "warning_required_one_of": [
+      "azure_id",
+      "identifier"
+    ],
+    "edge_types": [
+      "hosted_on",
+      "network",
+      "private_link",
+      "secret_ref",
+      "data_ref",
+      "identity_grant",
+      "declared_affinity"
+    ],
+    "_edge_types_why": "Canonical set in schema-discover-azure.md \u00a7 Typed edges. A per-dialect ref maps its own syntax onto these and may not invent a type: step 4's clustering reads the edge TYPE to decide whether a merge is justified, so an unknown type is silently ignored there rather than rejected here.",
+    "forbid_null_config_values": true,
+    "_forbid_null_why": "`omit, do not null` (extract-terraform.md \u00a7 Per-type attributes). A null makes 'the customer did not set this' indistinguishable from 'the extractor found nothing to read', and it pads config with mostly-noise for every optional attribute in the table."
+  },
+  "required_config_fields": {
+    "_why": "The COST-BEARING and ROUTING fields, per canonical type. Each one is the sole input to a later sizing or mapping decision, so a missing field does not fail a shape assertion \u2014 it just makes Design or Estimate guess. Four of these rows exist because extract-terraform.md \u00a7 Per-type attributes had no entry for the type at all and a correct-by-the-ref extraction therefore dropped the field.",
+    "Microsoft.Web/serverfarms": [
+      "sku_name",
+      "worker_count",
+      "os_type"
+    ],
+    "Microsoft.Web/sites": [
+      "kind"
+    ],
+    "Microsoft.Compute/virtualMachines": [
+      "size",
+      "os_type",
+      "image_publisher",
+      "image_sku"
+    ],
+    "Microsoft.DBforPostgreSQL/flexibleServers": [
+      "sku_name",
+      "storage_mb",
+      "version"
+    ],
+    "Microsoft.Cache/Redis": [
+      "sku_name",
+      "family",
+      "capacity"
+    ],
+    "Microsoft.DocumentDB/databaseAccounts": [
+      "kind",
+      "capabilities"
+    ],
+    "Microsoft.Storage/storageAccounts": [
+      "account_kind",
+      "account_tier"
+    ],
+    "Microsoft.Storage/storageAccounts/fileServices/shares": [
+      "enabled_protocol"
+    ],
+    "Microsoft.EventHub/namespaces": [
+      "sku",
+      "kafka_enabled"
+    ],
+    "Microsoft.Network/virtualNetworks": [
+      "address_space"
+    ],
+    "Microsoft.Network/virtualNetworks/subnets": [
+      "address_prefixes"
+    ],
+    "Microsoft.KeyVault/vaults": [
+      "sku_name"
+    ],
+    "Microsoft.OperationalInsights/workspaces": [
+      "sku",
+      "retention_in_days"
+    ],
+    "Microsoft.Insights/components": [
+      "application_type",
+      "workspace_id"
+    ],
+    "Microsoft.Network/privateEndpoints": [
+      "subresource_names"
+    ]
   }
 }

@@ -41,7 +41,11 @@ _postconditions:
     _on_failure: _halt_and_inform
   - _assert: "no secret VALUES appear anywhere in the inventory — app settings, connection strings, and Key Vault entries carry NAMES only"
     _on_failure: _halt_and_inform
-  - _assert: "azure-resource-clusters.json has one entry per cluster, each with cluster_id, tier, member azure_ids, and the edges[] set that justified the grouping; every inventory resource is either a cluster member or listed in unclustered[]"
+  - _assert: "warnings[] is present on the inventory (empty is fine), and every entry carries a code from the closed vocabulary in schema-discover-azure.md § Warnings, a detail, and an azure_id or identifier"
+    _on_failure: _halt_and_inform
+  - _assert: "every edges[] entry's type appears in schema-discover-azure.md § Typed edges — a per-dialect ref may map new syntax onto an existing type but may not invent one"
+    _on_failure: _halt_and_inform
+  - _assert: "azure-resource-clusters.json has one entry per cluster, each with cluster_id, tier, member azure_ids, and a justification; any cluster justified by edges, a split, or a merge has a non-empty edges[] carrying them, while a cluster justified by the resource-group seed alone has an empty edges[]; every inventory resource is either a cluster member or listed in unclustered[]"
     _on_failure: _halt_and_inform
 _forbids_files:
   - README.md

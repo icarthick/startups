@@ -173,6 +173,21 @@ provider appears exactly once:
 /subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.Web/sites/<site>/slots/<slot>
 ```
 
+**A storage account's four sub-services are implicit singletons named `default`.** The
+Terraform resource carries no name for that segment — there is only ever one — so the
+literal `default` has to be supplied when the ID is built, and it is easy to omit
+because nothing in the source hints at it:
+
+```
+/…/Microsoft.Storage/storageAccounts/<acct>/blobServices/default/containers/<name>
+/…/Microsoft.Storage/storageAccounts/<acct>/fileServices/default/shares/<name>
+/…/Microsoft.Storage/storageAccounts/<acct>/queueServices/default/queues/<name>
+/…/Microsoft.Storage/storageAccounts/<acct>/tableServices/default/tables/<name>
+```
+
+The canonical **type** strings in the tables above deliberately omit `default` — a type
+has no instance names in it. Only the **ID** carries it.
+
 **A resource group is the exception** — its own ID carries no `/providers/` segment
 at all, even though its canonical type is `Microsoft.Resources/resourceGroups`:
 
@@ -183,7 +198,10 @@ at all, even though its canonical type is `Microsoft.Resources/resourceGroups`:
 When the subscription id is not present in the Terraform (the common case — it comes
 from the provider block, a variable, or the environment), use the literal placeholder
 `<subscription-unknown>` in that position and set
-`metadata.subscription_id_source: "unresolved"`. Do **not** invent a GUID: a fabricated
+`iac_metadata.subscription_id_source: "unresolved"` — **`iac_metadata`, not
+`metadata`**. It belongs there because it is an IaC-specific fact: only Terraform needs
+the ID reconstructed at all, so only the IaC section has anything to say about where the
+subscription half came from. Do **not** invent a GUID: a fabricated
 subscription id makes `azure_id` non-unique across two runs of the same repo and
 breaks the drift comparison against a live capture, which is the one thing the ID
 exists to support.

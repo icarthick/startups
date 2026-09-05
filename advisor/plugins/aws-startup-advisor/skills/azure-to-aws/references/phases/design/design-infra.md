@@ -113,6 +113,27 @@ past the second produces a mapping that satisfies every shape assertion, carries
 not part of the finished contract, which is why `design.md`'s `_postconditions` do not
 mention it and do not pass while it is populated.
 
+## Warning codes
+
+Design writes its own `warnings[]` on `aws-design.json`, with the same entry shape as
+Discover's (`schema-discover-azure.md` § Warnings: `code`, `azure_id` or `identifier`,
+`detail`) and a **separate closed vocabulary**. Discover's codes describe what could not
+be read; these describe what was decided.
+
+| `code`                        | Emitted when                                                                        |
+| ----------------------------- | ----------------------------------------------------------------------------------- |
+| `skipped_no_aws_equivalent`   | a `skip_mappings` row with `kind: noise`                                             |
+| `skipped_config_source`       | a `skip_mappings` row with `kind: config_source` — the `detail` MUST name what it contributed |
+| `skipped_observability`       | an `Microsoft.Insights/*` or Log Analytics resource; carries `report_note: "cloudwatch_fallback"` |
+| `app_consumed_by_plan`        | one per `Microsoft.Web/sites` folded into its plan, with `plan_azure_id`             |
+| `idle_app_service_plan`       | a plan with zero apps; `severity: "cost_optimization"`                               |
+| `benign_unknown_type`         | an unmapped canonical type that cleared the cost-bearing test                        |
+| `<hard_blocker key>`          | a `hard_blockers` row, e.g. `azure_edition_windows_server`; `severity: "blocker"`     |
+
+A cost-bearing unknown and an untranslated type produce a `halt` entry, **not** a
+warning. That distinction is the whole point of the split policy: a warning means the
+design continued, and these two mean it did not.
+
 ## Private endpoints are config sources, not targets
 
 Skipped as standalone output, but their `privateLinkServiceId` /

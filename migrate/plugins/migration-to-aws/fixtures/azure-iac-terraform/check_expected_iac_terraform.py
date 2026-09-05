@@ -430,6 +430,75 @@ def check_discriminators(index: dict[str, dict], exp: dict) -> None:
         )
 
 
+def check_contract_vocabulary(inv: dict, exp: dict) -> None:
+    """Enforce the parts of the contract a correct-by-the-ref run can still get wrong.
+
+    Every check here exists because a fresh-context capability run diverged from the
+    golden tree on something no ref stated, and no existing assertion noticed.
+    """
+    spec = exp.get("contract_vocabulary")
+    if not spec:
+        return
+
+    allowed_codes = set(spec["warning_codes"])
+    warnings = inv.get("warnings")
+    if not isinstance(warnings, list):
+        FAILS.append(
+            "inventory has no top-level warnings[] array. Three files mandate writing to "
+            "it; it is defined in schema-discover-azure.md § Warnings and is always "
+            "present, [] when clean."
+        )
+    else:
+        for w in warnings:
+            code = w.get("code")
+            check(
+                code in allowed_codes,
+                f"warning code {code!r} is not in the closed vocabulary "
+                f"{sorted(allowed_codes)}. {spec['_warning_codes_why']}",
+            )
+            for k in spec["warning_required_keys"]:
+                check(bool(w.get(k)), f"warning {code!r} has no {k!r}")
+            check(
+                any(w.get(k) for k in spec["warning_required_one_of"]),
+                f"warning {code!r} has neither {' nor '.join(spec['warning_required_one_of'])} "
+                f"— a warning nobody can attribute to anything is noise",
+            )
+
+    allowed_edges = set(spec["edge_types"])
+    for r in inv.get("resources") or []:
+        for e in edges_of(r):
+            check(
+                e.get("type") in allowed_edges,
+                f"{tf_name(r) or '?'}: edge type {e.get('type')!r} is not in the canonical "
+                f"set {sorted(allowed_edges)}. {spec['_edge_types_why']}",
+            )
+
+    if spec.get("forbid_null_config_values"):
+        for r in inv.get("resources") or []:
+            for k, v in (r.get("config") or {}).items():
+                check(
+                    v is not None,
+                    f"{tf_name(r) or '?'}: config.{k} is null. {spec['_forbid_null_why']}",
+                )
+
+
+def check_required_config_fields(resources: list[dict], exp: dict) -> None:
+    spec = exp.get("required_config_fields")
+    if not spec:
+        return
+    for r in resources:
+        want = spec.get(r.get("azure_type") or "")
+        if not want:
+            continue
+        cfg = r.get("config") or {}
+        for field in want:
+            check(
+                field in cfg,
+                f"{tf_name(r) or '?'} ({r.get('azure_type')}): config is missing "
+                f"{field!r}. {spec['_why']}",
+            )
+
+
 def check_no_terraform_leakage(inv: dict, exp: dict) -> None:
     # tf_file / tf_resource_name are legitimate provenance, so scan azure_type only.
     for r in inv.get("resources") or []:
@@ -477,6 +546,8 @@ def main() -> int:
     check_child_rg_inheritance(index, exp)
     check_warnings(inv, exp)
     check_discriminators(index, exp)
+    check_contract_vocabulary(inv, exp)
+    check_required_config_fields(resources, exp)
     check_no_terraform_leakage(inv, exp)
 
     if FAILS:

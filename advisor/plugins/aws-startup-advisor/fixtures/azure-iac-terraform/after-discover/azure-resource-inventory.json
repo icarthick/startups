@@ -632,7 +632,8 @@
         "tf_file": "",
         "tf_resource_name": "storefront",
         "tf_address": "azurerm_application_insights.storefront",
-        "application_type": "web"
+        "application_type": "web",
+        "workspace_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.OperationalInsights/workspaces/tf:core"
       },
       "tags": {},
       "edges": [],
@@ -658,15 +659,28 @@
   "warnings": [
     {
       "code": "untranslated_terraform_type",
-      "detail": "azurerm_dev_test_lab.sandbox is absent from arm-type-canonicalization.md; skipped rather than guessed"
+      "identifier": "azurerm_dev_test_lab.sandbox",
+      "detail": "absent from arm-type-canonicalization.md; skipped rather than guessed, so it is NOT in resources[] \u2014 Design reads iac_metadata.untranslated_types and STOPs on it"
     },
     {
       "code": "module_not_resolved",
-      "detail": "module.cdn source Azure/cdn/azurerm is not in the workspace; its resources were not discovered"
+      "identifier": "module.cdn (source Azure/cdn/azurerm 3.1.0)",
+      "detail": "the module source is not in the workspace, so its resources were not discovered and the inventory is incomplete by an unknown amount"
     },
     {
       "code": "private_endpoint_consumed",
-      "detail": "azurerm_private_endpoint.store produced a private_link edge to azurerm_postgresql_flexible_server.store; the endpoint itself is not a mapping target"
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.Network/privateEndpoints/tf:store",
+      "detail": "read for its private_link edge to the Postgres flexible server, then skipped as a mapping target; that edge is the explicit app-to-data edge"
+    },
+    {
+      "code": "subscription_id_unresolved",
+      "identifier": "provider \"azurerm\" (no subscription_id; comes from ARM_SUBSCRIPTION_ID)",
+      "detail": "every azure_id carries the <subscription-unknown> placeholder, so none can be drift-matched against a live capture until the subscription is known"
+    },
+    {
+      "code": "name_expression_unresolved",
+      "identifier": "21 resources named with ${var.prefix}",
+      "detail": "each azure_id carries a tf:<local> name segment instead of the real Azure name, so those resources cannot be matched against a live capture"
     }
   ],
   "unclustered": []
