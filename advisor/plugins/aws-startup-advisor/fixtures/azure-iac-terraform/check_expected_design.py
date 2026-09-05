@@ -354,6 +354,66 @@ def check_pending_rubric(design: dict, id_of: dict[str, str], exp: dict) -> None
     )
 
 
+def check_cluster_pattern_status(design: dict, exp: dict) -> None:
+    """Assert the honest 'no pattern catalog' state, not a plausible architecture string.
+
+    design.md's cluster postcondition demands target_architecture while patterns.md does
+    not exist. An agent optimising for a green gate writes a convincing string there and
+    nothing downstream can catch it, so the honest state has to be BOTH expressible and
+    asserted.
+    """
+    spec = exp.get("cluster_pattern_status")
+    if not spec:
+        return
+    clusters = {c.get("cluster_id"): c for c in (design.get("clusters") or []) if isinstance(c, dict)}
+    for cid in spec["expected_cluster_ids"]:
+        c = clusters.get(cid)
+        if c is None:
+            FAILS.append(f"no clusters[] entry for {cid!r}. {spec['_why']}")
+            continue
+        check(
+            c.get("pattern_status") == spec["expected_status"],
+            f"cluster {cid!r}: pattern_status is {c.get('pattern_status')!r}, expected "
+            f"{spec['expected_status']!r} — design-refs/patterns.md is not on disk, so no "
+            f"recognition was ATTEMPTED, which is a different fact from 'nothing matched'.",
+        )
+        if spec.get("target_architecture_must_be_null"):
+            check(
+                c.get("target_architecture") is None,
+                f"cluster {cid!r}: target_architecture is "
+                f"{c.get('target_architecture')!r}, expected null. {spec['_why']}",
+            )
+
+
+def check_compute_unit_fields(design: dict, exp: dict) -> None:
+    spec = exp.get("compute_unit_required_fields")
+    if not spec:
+        return
+    for e in entries(design):
+        if e.get("azure_type") != spec["azure_type"]:
+            continue
+        for field in spec["required"]:
+            check(
+                field in e,
+                f"{spec['azure_type']} entry {e.get('azure_id')!r} is missing {field!r} "
+                f"(section {e.get('_section')}). {spec['_why']}",
+            )
+
+
+def check_halt_covers_pending(design: dict, exp: dict) -> None:
+    spec = exp["missing_rubric_halt"]
+    if not spec.get("require_halt_entry_per_ref_file"):
+        return
+    refs = {e.get("ref_file") for e in (design.get("pending_rubric") or []) if e.get("ref_file")}
+    named = json.dumps((design.get("halt") or {}).get("blocking") or [])
+    for r in sorted(refs):
+        check(
+            r in named,
+            f"{r!r} appears in pending_rubric[] but no halt.blocking entry names it. "
+            f"{spec['_require_halt_entry_why']}",
+        )
+
+
 def check_skips(design: dict, id_of: dict[str, str], exp: dict) -> None:
     spec = exp["skips"]
     warnings = design.get("warnings") or []
@@ -511,6 +571,9 @@ def main() -> int:
     check_fan_in(design, inv, id_of, exp)
     check_unknown_stop(design, exp)
     check_pending_rubric(design, id_of, exp)
+    check_halt_covers_pending(design, exp)
+    check_cluster_pattern_status(design, exp)
+    check_compute_unit_fields(design, exp)
     check_skips(design, id_of, exp)
     check_hard_blocker(design, id_of, exp)
     check_deferred_shape(design, exp)

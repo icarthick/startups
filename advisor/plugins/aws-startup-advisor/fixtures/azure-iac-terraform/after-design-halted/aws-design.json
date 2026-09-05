@@ -1,11 +1,9 @@
 {
-  "_what_this_is": "The GOLDEN aws-design.json for build step 3 (pass 1 only), produced by applying knowledge/design/fast-path-services.json to after-discover/azure-resource-inventory.json. It is a HALTED design on purpose, and the directory name says so: the corpus contains an untranslated cost-bearing type and the category rubric files do not exist yet, so the design phase emits GATE_FAIL. Both blockers are recorded in `halt`. This is NOT a completed phase run and does not satisfy design.md's _postconditions — see ../README.md § The Design oracle.",
-  "_absent_on_purpose": "clusters[] is absent. Cluster-level fields (pattern_id, target_architecture, the pattern's constraint set) land in build step 4; fabricating them here would put unverifiable data in a committed golden tree. check_expected_design.py asserts nothing about clusters.",
-
+  "_what_this_is": "The GOLDEN aws-design.json for build step 3 (pass 1 only), produced by applying knowledge/design/fast-path-services.json to after-discover/azure-resource-inventory.json. It is a HALTED design on purpose, and the directory name says so: the corpus contains an untranslated cost-bearing type and the category rubric files do not exist yet, so the design phase emits GATE_FAIL. Both blockers are recorded in `halt`. This is NOT a completed phase run and does not satisfy design.md's _postconditions \u2014 see ../README.md \u00a7 The Design oracle.",
+  "_absent_on_purpose": "clusters[] now carries pattern_status: 'catalog_absent' rather than being omitted \u2014 schema-design-aws.md gives that state a defined home, so recording it is honest where fabricating a target_architecture would not be. The MEMBER lists and tiers are still step 4's (real clustering is not built), so the asserter checks only pattern_status and the target_architecture-is-null rule.",
   "phase": "design",
   "timestamp": "2026-09-04T19:00:00Z",
   "source_inventory": "azure-resource-inventory.json",
-
   "halt": {
     "reason": "unknown_type, missing_rubric_file",
     "blocking": [
@@ -19,7 +17,7 @@
         "kind": "missing_rubric_file",
         "identifier": "references/design-refs/compute.md",
         "why": "design-refs/index.md routes Microsoft.Web/serverfarms and Microsoft.Compute/virtualMachines here. The file does not exist (build step 5).",
-        "action": "land build step 5, or map these resources by hand — never improvise the rubric"
+        "action": "land build step 5, or map these resources by hand \u2014 never improvise the rubric"
       },
       {
         "kind": "missing_rubric_file",
@@ -29,14 +27,41 @@
       }
     ]
   },
-
+  "clusters": [
+    {
+      "cluster_id": "rg-app",
+      "pattern_id": "unclassified",
+      "pattern_status": "catalog_absent",
+      "target_architecture": null,
+      "rationale": "No architecture can be stated for rg-app. design-refs/patterns.md is not on disk (build step 4), so no pattern recognition was attempted \u2014 this is NOT 'nothing matched'. The cluster is also unrefined: it is the resource-group seed, carried from Discover with justification 'seed:resource_group'.",
+      "constraints_imposed": []
+    },
+    {
+      "cluster_id": "rg-data",
+      "pattern_id": "unclassified",
+      "pattern_status": "catalog_absent",
+      "target_architecture": null,
+      "rationale": "No architecture can be stated for rg-data. design-refs/patterns.md is not on disk (build step 4), so no pattern recognition was attempted \u2014 this is NOT 'nothing matched'. The cluster is also unrefined: it is the resource-group seed, carried from Discover with justification 'seed:resource_group'.",
+      "constraints_imposed": []
+    },
+    {
+      "cluster_id": "rg-shared",
+      "pattern_id": "unclassified",
+      "pattern_status": "catalog_absent",
+      "target_architecture": null,
+      "rationale": "No architecture can be stated for rg-shared. design-refs/patterns.md is not on disk (build step 4), so no pattern recognition was attempted \u2014 this is NOT 'nothing matched'. The cluster is also unrefined: it is the resource-group seed, carried from Discover with justification 'seed:resource_group'.",
+      "constraints_imposed": []
+    }
+  ],
   "services": [
     {
       "service_id": "vpc-core",
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/virtualNetworks/tf:core",
       "azure_type": "Microsoft.Network/virtualNetworks",
       "aws_service": "VPC",
-      "aws_config": { "cidr_block": "10.20.0.0/16" },
+      "aws_config": {
+        "cidr_block": "10.20.0.0/16"
+      },
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.Network/virtualNetworks",
       "rationale": "Direct Mappings row, condition Always. A VNet is a VPC regardless of what runs in it; the address space is preserved."
@@ -46,7 +71,9 @@
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/virtualNetworks/tf:core/subnets/snet-apps",
       "azure_type": "Microsoft.Network/virtualNetworks/subnets",
       "aws_service": "VPC subnet",
-      "aws_config": { "cidr_block": "10.20.1.0/24" },
+      "aws_config": {
+        "cidr_block": "10.20.1.0/24"
+      },
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.Network/virtualNetworks/subnets",
       "rationale": "Direct Mappings row, condition Always."
@@ -56,7 +83,9 @@
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/virtualNetworks/tf:core/subnets/snet-data",
       "azure_type": "Microsoft.Network/virtualNetworks/subnets",
       "aws_service": "VPC subnet",
-      "aws_config": { "cidr_block": "10.20.2.0/24" },
+      "aws_config": {
+        "cidr_block": "10.20.2.0/24"
+      },
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.Network/virtualNetworks/subnets",
       "rationale": "Direct Mappings row, condition Always."
@@ -66,7 +95,11 @@
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.Cache/Redis/tf:session",
       "azure_type": "Microsoft.Cache/Redis",
       "aws_service": "ElastiCache Redis",
-      "aws_config": { "source_sku": "Standard", "source_family": "C", "source_capacity": 1 },
+      "aws_config": {
+        "source_sku": "Standard",
+        "source_family": "C",
+        "source_capacity": 1
+      },
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.Cache/Redis",
       "rationale": "Direct Mappings row, condition Always. Node sizing is post-selection and does not revisit the service choice."
@@ -76,7 +109,10 @@
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.KeyVault/vaults/tf:main",
       "azure_type": "Microsoft.KeyVault/vaults",
       "aws_service": "Secrets Manager",
-      "aws_config": { "kms_added": false, "kms_reason": "no vaults/keys child and no key operations recorded in the inventory" },
+      "aws_config": {
+        "kms_added": false,
+        "kms_reason": "no vaults/keys child and no key operations recorded in the inventory"
+      },
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.KeyVault/vaults",
       "rationale": "Direct Mappings row, condition Always. KMS is added only when the vault holds keys; ACM for certificates. Additive company does not change the row's target."
@@ -101,7 +137,10 @@
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Storage/storageAccounts/tf:assets/fileServices/default/shares/reports",
       "azure_type": "Microsoft.Storage/storageAccounts/fileServices/shares",
       "aws_service": "FSx for Windows File Server",
-      "aws_config": { "source_protocol": "SMB", "source_quota_gb": 512 },
+      "aws_config": {
+        "source_protocol": "SMB",
+        "source_quota_gb": 512
+      },
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.Storage/storageAccounts/fileServices/shares",
       "rationale": "Direct Mappings row, condition enabled_protocol == SMB. Protocol is the whole rubric (owner decision 11.5); an SMB share is usually AD-joined, which is why FSx for Windows File Server and not EFS. This is a SEPARATE resource from its parent storage account and does not inherit the account's S3 target."
@@ -111,33 +150,48 @@
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.DocumentDB/databaseAccounts/tf:catalog",
       "azure_type": "Microsoft.DocumentDB/databaseAccounts",
       "aws_service": "DocumentDB",
-      "aws_config": { "source_api": "MongoDB", "source_capabilities": ["EnableMongo"], "source_consistency_level": "Session" },
+      "aws_config": {
+        "source_api": "MongoDB",
+        "source_capabilities": [
+          "EnableMongo"
+        ],
+        "source_consistency_level": "Session"
+      },
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.DocumentDB/databaseAccounts",
-      "rationale": "Direct Mappings row, Mongo-API branch (kind MongoDB, capability EnableMongo). DocumentDB is the wire-protocol drop-in. NOT DynamoDB — that is the Core (SQL) API branch, which is the only Cosmos surface that routes to the rubric."
+      "rationale": "Direct Mappings row, Mongo-API branch (kind MongoDB, capability EnableMongo). DocumentDB is the wire-protocol drop-in. NOT DynamoDB \u2014 that is the Core (SQL) API branch, which is the only Cosmos surface that routes to the rubric."
     },
     {
       "service_id": "msk-telemetry",
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.EventHub/namespaces/tf:telemetry",
       "azure_type": "Microsoft.EventHub/namespaces",
       "aws_service": "MSK",
-      "aws_config": { "source_sku": "Standard", "source_capacity": 2, "kafka_enabled": true },
+      "aws_config": {
+        "source_sku": "Standard",
+        "source_capacity": 2,
+        "kafka_enabled": true
+      },
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.EventHub/namespaces",
       "rationale": "Direct Mappings row, kafka_enabled == true branch. Protocol is the whole rubric with no throughput threshold (owner decision 11.4): a Kafka-protocol consumer changes a broker endpoint, while Kinesis would be a code rewrite. NOT Kinesis."
     }
   ],
-
   "deferred": [],
-
   "pending_rubric": [
     {
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web",
       "azure_type": "Microsoft.Web/serverfarms",
       "ref_file": "references/design-refs/compute.md",
-      "candidates": ["Elastic Beanstalk", "Fargate", "EKS"],
+      "candidates": [
+        "Elastic Beanstalk",
+        "Fargate",
+        "EKS"
+      ],
       "is_compute_unit": true,
-      "sizing_source": { "sku_name": "S1", "worker_count": 2 },
+      "sizing_source": {
+        "sku_name": "S1",
+        "worker_count": 2
+      },
       "hosted_app_azure_ids": [
         "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:storefront",
         "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:admin",
@@ -151,61 +205,158 @@
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:func",
       "azure_type": "Microsoft.Web/serverfarms",
       "ref_file": "references/design-refs/compute.md",
-      "candidates": ["Lambda", "Fargate"],
+      "candidates": [
+        "Lambda",
+        "Fargate"
+      ],
       "is_compute_unit": true,
-      "sizing_source": { "sku_name": "Y1", "worker_count": 1 },
+      "sizing_source": {
+        "sku_name": "Y1",
+        "worker_count": 1
+      },
       "hosted_app_azure_ids": [
         "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:imageresize"
       ],
-      "note": "Y1 is the consumption plan. Its one site has kind containing functionapp, so the candidate set is the function set — but the target is still a rubric decision, because a function inside an otherwise containerized workload may belong on Fargate."
+      "note": "Y1 is the consumption plan. Its one site has kind containing functionapp, so the candidate set is the function set \u2014 but the target is still a rubric decision, because a function inside an otherwise containerized workload may belong on Fargate."
     },
     {
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Web/serverfarms/tf:legacy",
       "azure_type": "Microsoft.Web/serverfarms",
       "ref_file": "references/design-refs/compute.md",
-      "candidates": ["Elastic Beanstalk", "Fargate"],
+      "candidates": [
+        "Elastic Beanstalk",
+        "Fargate"
+      ],
       "is_compute_unit": true,
-      "sizing_source": { "sku_name": "P1v3", "worker_count": 1 },
+      "sizing_source": {
+        "sku_name": "P1v3",
+        "worker_count": 1
+      },
       "hosted_app_azure_ids": [],
-      "note": "ZERO apps. Idle purchased capacity, still mapped and still flagged as a cost-optimization finding — omitting it would hide money the customer is already spending."
+      "note": "ZERO apps. Idle purchased capacity, still mapped and still flagged as a cost-optimization finding \u2014 omitting it would hide money the customer is already spending."
     },
     {
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Compute/virtualMachines/tf:reporting",
       "azure_type": "Microsoft.Compute/virtualMachines",
       "ref_file": "references/design-refs/compute.md",
-      "candidates": ["EC2"],
+      "candidates": [
+        "EC2"
+      ],
       "is_compute_unit": true,
-      "sizing_source": { "size": "Standard_D4s_v5", "os_type": "Windows" },
-      "note": "Windows, so the x86_64 default applies rather than Graviton. Its image additionally trips the Azure Edition hard blocker — see warnings[]. It does NOT trip the SQL-on-VM specialist gate: the publisher is MicrosoftWindowsServer, not MicrosoftSQLServer."
+      "sizing_source": {
+        "size": "Standard_D4s_v5",
+        "os_type": "Windows"
+      },
+      "note": "Windows, so the x86_64 default applies rather than Graviton. Its image additionally trips the Azure Edition hard blocker \u2014 see warnings[]. It does NOT trip the SQL-on-VM specialist gate: the publisher is MicrosoftWindowsServer, not MicrosoftSQLServer."
     },
     {
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.DBforPostgreSQL/flexibleServers/tf:store",
       "azure_type": "Microsoft.DBforPostgreSQL/flexibleServers",
       "ref_file": "references/design-refs/database.md",
-      "candidates": ["RDS PostgreSQL", "Aurora PostgreSQL"],
-      "sizing_source": { "sku_name": "GP_Standard_D2s_v3", "storage_mb": 65536, "version": "16" },
-      "note": "The family is selected by the availability answer from Clarify, not by the rubric — a post-rubric override gate. high_availability.mode is ZoneRedundant on the source, which is a signal but not the answer: availability is never inferable from IaC."
+      "candidates": [
+        "RDS PostgreSQL",
+        "Aurora PostgreSQL"
+      ],
+      "sizing_source": {
+        "sku_name": "GP_Standard_D2s_v3",
+        "storage_mb": 65536,
+        "version": "16"
+      },
+      "note": "The family is selected by the availability answer from Clarify, not by the rubric \u2014 a post-rubric override gate. high_availability.mode is ZoneRedundant on the source, which is a signal but not the answer: availability is never inferable from IaC."
     }
   ],
-
   "warnings": [
-    { "code": "skipped_no_aws_equivalent", "azure_type": "Microsoft.Resources/resourceGroups", "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app", "detail": "AWS has no resource-group equivalent; becomes account structure and tags, applied manually" },
-    { "code": "skipped_no_aws_equivalent", "azure_type": "Microsoft.Resources/resourceGroups", "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data", "detail": "as above" },
-    { "code": "skipped_no_aws_equivalent", "azure_type": "Microsoft.Resources/resourceGroups", "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared", "detail": "as above" },
-    { "code": "skipped_config_source", "azure_type": "Microsoft.Network/networkInterfaces", "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Network/networkInterfaces/tf:reporting", "detail": "an ENI is created by the EC2 instance that owns it; consumed for its subnet edge into snet-apps, which is the VNet-colocation signal for the VM" },
-    { "code": "skipped_config_source", "azure_type": "Microsoft.Network/privateEndpoints", "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.Network/privateEndpoints/tf:store", "detail": "edge-bearing config source, not a target; consumed for the private_link edge to the Postgres flexible server, which is the explicit app-to-data edge" },
-    { "code": "skipped_observability", "azure_type": "Microsoft.OperationalInsights/workspaces", "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.OperationalInsights/workspaces/tf:core", "report_note": "cloudwatch_fallback", "detail": "observability is re-established on the target rather than migrated; CloudWatch Logs is where it lands, with no import path for retained data" },
-    { "code": "skipped_observability", "azure_type": "Microsoft.Insights/components", "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Insights/components/tf:storefront", "report_note": "cloudwatch_fallback", "detail": "Application Insights; CloudWatch (metrics, Logs, Application Signals) is where it lands. application_type 'web' and the workspace link are worth mentioning in the report" },
-
-    { "code": "app_consumed_by_plan", "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:storefront", "plan_azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web", "detail": "runtime node 20-lts and 5 app-setting NAMES contributed to the plan's mapping; no compute line item of its own" },
-    { "code": "app_consumed_by_plan", "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:admin", "plan_azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web", "detail": "no compute line item of its own" },
-    { "code": "app_consumed_by_plan", "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:checkout", "plan_azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web", "detail": "no compute line item of its own" },
-    { "code": "app_consumed_by_plan", "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:docs", "plan_azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web", "detail": "no compute line item of its own" },
-    { "code": "app_consumed_by_plan", "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:webhooks", "plan_azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web", "detail": "no compute line item of its own" },
-    { "code": "app_consumed_by_plan", "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:imageresize", "plan_azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:func", "detail": "kind contains functionapp; contributed to the func plan's mapping, no compute line item of its own" },
-
-    { "code": "idle_app_service_plan", "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Web/serverfarms/tf:legacy", "severity": "cost_optimization", "detail": "P1v3 plan with zero apps deployed to it — purchased capacity with no workload. Mapped anyway, and flagged: this is money already being spent." },
-
-    { "code": "azure_edition_windows_server", "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Compute/virtualMachines/tf:reporting", "severity": "blocker", "detail": "image_sku 2022-datacenter-azure-edition. AWS Application Migration Service refuses an Azure Edition Windows Server image — it carries Azure-specific platform integration and must be re-imaged to a standard Windows Server edition before replication can start. Stated, not asked: there is no option to weigh." }
+    {
+      "code": "skipped_no_aws_equivalent",
+      "azure_type": "Microsoft.Resources/resourceGroups",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app",
+      "detail": "AWS has no resource-group equivalent; becomes account structure and tags, applied manually"
+    },
+    {
+      "code": "skipped_no_aws_equivalent",
+      "azure_type": "Microsoft.Resources/resourceGroups",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data",
+      "detail": "as above"
+    },
+    {
+      "code": "skipped_no_aws_equivalent",
+      "azure_type": "Microsoft.Resources/resourceGroups",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared",
+      "detail": "as above"
+    },
+    {
+      "code": "skipped_config_source",
+      "azure_type": "Microsoft.Network/networkInterfaces",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Network/networkInterfaces/tf:reporting",
+      "detail": "an ENI is created by the EC2 instance that owns it; consumed for its subnet edge into snet-apps, which is the VNet-colocation signal for the VM"
+    },
+    {
+      "code": "skipped_config_source",
+      "azure_type": "Microsoft.Network/privateEndpoints",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.Network/privateEndpoints/tf:store",
+      "detail": "edge-bearing config source, not a target; consumed for the private_link edge to the Postgres flexible server, which is the explicit app-to-data edge"
+    },
+    {
+      "code": "skipped_observability",
+      "azure_type": "Microsoft.OperationalInsights/workspaces",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.OperationalInsights/workspaces/tf:core",
+      "report_note": "cloudwatch_fallback",
+      "detail": "observability is re-established on the target rather than migrated; CloudWatch Logs is where it lands, with no import path for retained data"
+    },
+    {
+      "code": "skipped_observability",
+      "azure_type": "Microsoft.Insights/components",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Insights/components/tf:storefront",
+      "report_note": "cloudwatch_fallback",
+      "detail": "Application Insights; CloudWatch (metrics, Logs, Application Signals) is where it lands. application_type 'web' and the workspace link are worth mentioning in the report"
+    },
+    {
+      "code": "app_consumed_by_plan",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:storefront",
+      "plan_azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web",
+      "detail": "runtime node 20-lts and 5 app-setting NAMES contributed to the plan's mapping; no compute line item of its own"
+    },
+    {
+      "code": "app_consumed_by_plan",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:admin",
+      "plan_azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web",
+      "detail": "no compute line item of its own"
+    },
+    {
+      "code": "app_consumed_by_plan",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:checkout",
+      "plan_azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web",
+      "detail": "no compute line item of its own"
+    },
+    {
+      "code": "app_consumed_by_plan",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:docs",
+      "plan_azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web",
+      "detail": "no compute line item of its own"
+    },
+    {
+      "code": "app_consumed_by_plan",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:webhooks",
+      "plan_azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web",
+      "detail": "no compute line item of its own"
+    },
+    {
+      "code": "app_consumed_by_plan",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:imageresize",
+      "plan_azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:func",
+      "detail": "kind contains functionapp; contributed to the func plan's mapping, no compute line item of its own"
+    },
+    {
+      "code": "idle_app_service_plan",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Web/serverfarms/tf:legacy",
+      "severity": "cost_optimization",
+      "detail": "P1v3 plan with zero apps deployed to it \u2014 purchased capacity with no workload. Mapped anyway, and flagged: this is money already being spent."
+    },
+    {
+      "code": "azure_edition_windows_server",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Compute/virtualMachines/tf:reporting",
+      "severity": "blocker",
+      "detail": "image_sku 2022-datacenter-azure-edition. AWS Application Migration Service refuses an Azure Edition Windows Server image \u2014 it carries Azure-specific platform integration and must be re-imaged to a standard Windows Server edition before replication can start. Stated, not asked: there is no option to weigh."
+    }
   ]
 }

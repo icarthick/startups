@@ -8,6 +8,7 @@ _input:
   - preferences.json
 _knowledge:
   - { file: knowledge/design/fast-path-services.json }
+  - { file: references/shared/schema-design-aws.md }
 _fragments:
   - _id: infra
     _trigger: { _always: true }
@@ -42,11 +43,11 @@ _postconditions:
     _on_failure: _halt_and_inform
   - _assert: "every entry whose confidence is 'deterministic' matches a row in the Direct Mappings table, and no pattern constraint changed its aws_service — a pattern may narrow rubric candidates and may never override a deterministic mapping"
     _on_failure: _halt_and_inform
-  - _assert: "every cluster in azure-resource-clusters.json appears in clusters[] with pattern_id, target_architecture, a cluster-level rationale, and the constraint set the pattern imposed"
+  - _assert: "every cluster in azure-resource-clusters.json appears in clusters[] with pattern_id, pattern_status, a cluster-level rationale, and constraints_imposed; target_architecture is a real string when pattern_status is 'recognized' and is null otherwise — a plausible architecture string written while design-refs/patterns.md is absent is the failure this checks for"
     _on_failure: _halt_and_inform
-  - _assert: "no Microsoft.Web/sites resource carries its own compute sizing in aws_config unless preferences.json records an explicit isolation split for its plan; the compute line belongs to the Microsoft.Web/serverfarms plan"
+  - _assert: "no Microsoft.Web/sites resource has an entry in services[], deferred[], or pending_rubric[] unless preferences.json records an explicit isolation split for its plan — function apps included; the compute line belongs to the Microsoft.Web/serverfarms plan, and every serverfarms entry carries hosted_app_azure_ids and sizing_source"
     _on_failure: _halt_and_inform
-  - _assert: "every resource in the inventory is accounted for: mapped in services[], deferred in deferred[], or recorded in warnings[] as a skip or as an edge-bearing config source that was consumed"
+  - _assert: "every resource in the inventory is accounted for EXACTLY ONCE: mapped in services[], deferred in deferred[], held in pending_rubric[] because its rubric file is absent, or recorded in warnings[] as a skip or as an edge-bearing config source that was consumed"
     _on_failure: _halt_and_inform
   - _assert: "iac_metadata.untranslated_types is empty; a type Discover could not name is treated as cost-bearing and STOPs the design, because the skill cannot demonstrate that a resource it could not identify is free"
     _on_failure: _halt_and_inform

@@ -115,7 +115,7 @@ unstable and makes a fixture assertion on any code unreliable. Add a row here fi
 | `module_not_resolved`           | a `module` block's source is a registry or git address whose content is not in the workspace |
 | `private_endpoint_consumed`     | a private endpoint was read for its edge and skipped as a target; names the edge produced |
 | `resource_group_unresolved`     | neither an explicit `resource_group_name` nor a resolvable parent exists      |
-| `name_expression_unresolved`    | `name` is an expression, so `name` is `tf:<local>` and `azure_id` is **not** a real ARM ID. Flags a resource that cannot be drift-matched against a live capture |
+| `name_expression_unresolved`    | one or more resources' `name` is an expression, so `name` is `tf:<local>` and `azure_id` is **not** a real ARM ID — those resources cannot be drift-matched against a live capture. **ONE entry per run**, listing the affected `tf_address`es in `detail`, not one per resource: it routinely applies to most of a repo (a corpus naming everything `${var.prefix}` produced 21 of 25 warnings) and per-resource entries bury every actionable warning |
 | `subscription_id_unresolved`    | the subscription id came from a variable or the environment, so `azure_id` carries the `<subscription-unknown>` placeholder. One entry per run, not per resource |
 | `multiplicity_unresolved`       | a `count` / `for_each` expression was not evaluated; the entry represents an unknown number of real resources |
 

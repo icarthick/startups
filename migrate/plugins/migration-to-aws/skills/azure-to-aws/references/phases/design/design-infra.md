@@ -17,6 +17,7 @@ disposition table, pass 2 is the category rubric. It applies the precedence orde
 
 | File                                          | When                                                    |
 | --------------------------------------------- | ------------------------------------------------------- |
+| `references/shared/schema-design-aws.md`      | always — the artifact contract, including every REQUIRED field |
 | `knowledge/design/fast-path-services.json`    | always — it is pass 1 for every resource                |
 | `references/design-refs/fast-path.md`         | always — the contract for what the table's labels claim  |
 | `references/design-refs/specialist-gates.md`  | when any resource matches a `specialist_gates` row       |
@@ -29,9 +30,14 @@ Stated once, in `fast-path.md` § The admission test. The short form: **is this 
 correct regardless of the surrounding architecture?** Architecture-invariant rows are
 admissible; everything else is a rubric decision. That is why the table is all
 infrastructure primitives with one exception (`managedClusters` → EKS), and why Azure
-Functions (`Microsoft.Web/sites` with `kind=functionapp`) → Lambda is a *rubric* row —
-a function inside an otherwise Fargate-based workload may belong on Fargate, and a
-durable or long-running function hits the eliminator anyway.
+Functions → Lambda is *not* a fast-path row: a function inside an otherwise
+Fargate-based workload may belong on Fargate, and a durable or long-running function
+hits the eliminator anyway.
+
+Note the unit carefully. The rubric row is the **plan**
+(`Microsoft.Web/serverfarms`), not the function app — a site never gets its own entry
+(see § The App Service Plan cost trap). A hosted site's `kind` narrows the plan's
+candidate set to {Lambda, Fargate}; it does not make the site a mapping subject.
 
 ## Unknown types: two different unknowns
 
@@ -78,18 +84,12 @@ IaC-only run, where there is no consumption data to consult.
 A STOP is not a crash. **Write `aws-design.json` with everything determined so far**,
 plus a `halt` object, and then let the phase emit `GATE_FAIL`:
 
-```jsonc
-"halt": {
-  "reason": "unknown_type",
-  "blocking": [
-    {
-      "kind": "untranslated_terraform_type",   // or "unmapped_canonical_type"
-      "identifier": "azurerm_dev_test_lab (local name: sandbox)",
-      "action": "add a row to references/shared/arm-type-canonicalization.md, then re-run Design"
-    }
-  ]
-}
-```
+The `halt` shape is in `schema-design-aws.md` § `halt`. Three `kind` values exist —
+`untranslated_terraform_type`, `unmapped_canonical_type`, and `missing_rubric_file` —
+and **every one of them that applies must be listed.** A halt that names only the first
+blocker sends the reader back for a second round trip, and a `pending_rubric[]` with no
+matching `missing_rubric_file` entry reads as complete to anything that only inspects
+`services[]`, which is most report code.
 
 Discarding the work would make the user re-run everything to learn one missing row, and
 it would hide *which* resources were already fine. Writing the partial artifact is also
@@ -101,17 +101,23 @@ patching an artifact to force a gate to pass — the gate still fails, loudly, a
 
 `index.md` names a category file per type. **If that file is not on disk, HALT** — same
 guard, same reasoning, as `discover-iac.md` Step 2. Record each affected resource in
-`pending_rubric[]` with its `azure_type`, the `ref_file` that is missing, and the
-candidate targets `index.md` listed, then emit `GATE_FAIL`.
+`pending_rubric[]` per `schema-design-aws.md`, **and add one `missing_rubric_file` entry
+to `halt.blocking` per distinct missing file** (not per resource), then emit `GATE_FAIL`.
+
+`index.md`'s right-hand column gives a rubric row an unordered **candidate set**, not an
+answer. If you can pick a target from that column alone, you are improvising — the column
+exists to tell you which rubric to open.
 
 Do **not** map it from your own knowledge of Azure and AWS. "No rubric is needed" and
 "the rubric has not been written yet" are otherwise indistinguishable, and improvising
 past the second produces a mapping that satisfies every shape assertion, carries a
 `confidence` label it did not earn, and differs between two runs of the same estate.
 
-`pending_rubric[]` is a **build-phase section** that disappears once step 5 lands. It is
-not part of the finished contract, which is why `design.md`'s `_postconditions` do not
-mention it and do not pass while it is populated.
+`pending_rubric[]` is **permanent, not scaffolding.** It empties once step 5 lands, but
+it stays in the contract: adding an `index.md` row without its file is a mistake that can
+recur, and this is where it surfaces. `design.md`'s accounting postcondition therefore
+lists it as a valid way for a resource to be accounted for — a correctly halted design
+should fail on the `halt`, not on bookkeeping.
 
 ## Warning codes
 
@@ -156,8 +162,13 @@ environments; Azure fans N apps **in** to one compute target.
    count — never from the app count.
 2. Apps become deployments onto that target. Each contributes runtime and app settings
    to `aws_config`; none emits its own compute line item.
-3. Emit one mapping per plan, keyed by the plan's ARM ID, with one `warnings[]` entry
-   per app consumed.
+3. Emit one mapping per plan, keyed by the plan's ARM ID, with one
+   `app_consumed_by_plan` warning per app consumed. The plan's entry MUST carry
+   `hosted_app_azure_ids` (every app that folded in) and `sizing_source` (the SKU and
+   instance count capacity came from) — both are required by
+   `schema-design-aws.md`, in `services[]` and in `pending_rubric[]` alike. Without
+   them, "five apps correctly fanned in" and "four fanned in and one silently dropped"
+   produce identical artifacts, and the rule cannot be audited at all.
 4. Split only on a stated isolation requirement from `preferences.json`, never by
    default — and when splitting, say plainly in the rationale that compute cost rises.
 5. A plan with **zero** apps is idle capacity: map it, and flag it as a
@@ -166,6 +177,14 @@ environments; Azure fans N apps **in** to one compute target.
 **Find the apps by the `hosted_on` edge**, which Discover writes from each site's
 `service_plan_id` / `serverFarmId`. Do not group by resource group or by name prefix:
 the edge is the only reliable link, and it is present for every discovery source.
+
+**A `Microsoft.Web/sites` resource never gets an entry of its own** — not in
+`services[]`, not in `deferred[]`, not in `pending_rubric[]`. This includes function
+apps: a Y1 or FC1 consumption plan is still the compute unit, and the hosted sites'
+`kind` is an INPUT to the plan's target choice rather than a reason to map the site
+separately. On a consumption plan the plan carries no worker capacity, so `sizing_source`
+records the plan's SKU plus the fact that capacity is per-execution — it never becomes a
+reason to size the functions individually.
 
 The fan-in rule is **structural and independent of the target**, so it holds even while
 the compute rubric is still pending: the count of compute units is one per plan whether
