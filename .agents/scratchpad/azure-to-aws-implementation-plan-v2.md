@@ -1,5 +1,15 @@
 # Azure-to-AWS Migration Skill — Implementation Plan (rev 2, corrected)
 
+> **Where this document lives.** The authoritative copy is
+> `.agents/scratchpad/azure-to-aws-implementation-plan-v2.md` in the `awslabs/startups`
+> repo, on the branch carrying the work. The Pippin artifact is a **mirror**, published
+> from that file.
+>
+> They forked once already: §11 and §12 were added to the repo copy on 2026-09-04 and the
+> Pippin copy sat 8k characters behind them, still describing a build order that §12
+> inverts and an Azure SQL disposition that §11.3 overrules. Nothing enforces the sync, so
+> if you are editing, **edit the repo file and re-publish** — never the mirror.
+
 Revision of the product owner's plan. Section numbering is preserved so this is diffable
 against rev 1. Every change is marked **[CORRECTED]**, **[DECIDED]**, or **[ADDED]**, with
 the reason. Claims about this repo were verified against the working tree; file:line
