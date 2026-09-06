@@ -1273,3 +1273,212 @@ requires a clean non-zero exit as a bitrot guard.
    horizontal-RG merge case and the single-RG split case.
 4. **Estimate last, with tolerances.** Pricing drifts, so exact-total assertions there
    would be permanently brittle.
+
+---
+
+## 13. [ADDED] Decisions taken 2026-09-05 / 09-06
+
+Twenty-one decisions, grouped by what they touch. Every one is either owner-confirmed or a
+judgement call flagged as such in the commit that carried it.
+
+### 13.1 The mapping table
+
+| # | Decision | Why |
+| - | -------- | --- |
+| 13.1a | **Owner decision 11.5 disturbs no Direct Mappings row.** `Microsoft.Storage/storageAccounts` keeps `Always → S3` for its blob surface. | Canonicalization already makes a file share its OWN `resources[]` entry (`.../fileServices/shares`), so a share is never inside the account's mapping unit and cannot pull the account's target anywhere. §11.5's premise assumed one mapping unit; the child-type vocabulary had already split them. The account row's only condition is `account_kind == FileStorage`, where there is no blob surface at all. |
+| 13.1b | **Direct Mappings is 30 rows, not 10.** | Four were additions of NECESSITY: canonicalization emits subnets and the three storage-service children as child-typed resources, so without a row each reaches the unknown-type policy, matches the provider-namespace clause, and STOPS the design on every real estate. §7a.3 fixed the row set before the child-type vocabulary existed. The rest came from the coverage pass (13.2a). |
+| 13.1c | **Three rows are protocol/API-conditioned and still `deterministic`** — SMB/NFS share, `kafka_enabled`, the Cosmos API. | Decisions 11.4 and 11.5 say protocol is the WHOLE rubric, which means there is no rubric left, only a lookup. The condition reads a property of the resource ITSELF, not of its neighbours, so the row stays architecture-invariant. Same shape as gcp's `google_sql_database_instance` (SQL Server) row. |
+| 13.1d | **An UNTRANSLATED type is cost-bearing by default and STOPs Design.** | §7a.4's three-part test cannot clear it — no SKU, no consumption row, no provider namespace, because there is no canonical type at all. The skill cannot demonstrate that a resource it could not NAME is free. The failure is asymmetric: wrongly stopping costs one round trip to add a table row; wrongly skipping understates the estate with nothing to signal it. Design therefore reads `iac_metadata.untranslated_types` as a SEPARATE input, since Discover drops those resources from `resources[]` entirely. |
+| 13.1e | **A STOP writes the artifact.** Everything determined stays in, plus a `halt` object, then the gate fails. | Discarding the work makes the user re-run the phase to learn one missing table row, hides which resources were already fine, and makes the halt untestable by an external asserter. |
+| 13.1f | **Two dispositions worth naming:** Azure Bastion → Systems Manager Session Manager (no host, and free); Traffic Manager → a Route 53 routing policy, not a new service. | The improviser's answer for Bastion is an EC2 bastion instance, which adds a permanent cost line the target architecture does not have. |
+| 13.1g | **Logic Apps, Batch, ML workspaces and Stream Analytics are specialist gates**, not mappings. | In each case the work is a rewrite that the resource does not describe — a Stream Analytics job's cost IS the query rewrite, and naming "Managed Flink" describes none of it. |
+
+### 13.2 Coverage, and the invariant it forced
+
+| # | Decision | Why |
+| - | -------- | --- |
+| 13.2a | **Canonicalization coverage 77 → 137 `azurerm_*` types.** | The old set was sized for the synthetic corpus. A real repo routinely carries `azurerm_firewall`, `route_table`, `virtual_network_peering`, `bastion_host`, `app_configuration`, `key_vault_key` — each silently dropped as untranslated. `arm-type-canonicalization.md` gains a § Coverage is not completeness: 137 is still not the provider surface, and the STOP is the mechanism, one table row is the fix. |
+| 13.2b | **INVARIANT: every canonical type must resolve to a disposition** — a `fast-path-services.json` row, or a Reference row in `index.md`. Asserted with zero tolerance. | 13.2a made the INVENTORY better and DESIGN worse: each newly-translatable type is now discovered, matches no row, hits the cost-bearing namespace clause, and halts. It left **53 orphans**, and every oracle stayed green because the corpus holds a dozen types out of 137. This is the check that would have failed the moment the coverage pass landed. |
+| 13.2c | **`.terraform/modules/` is READ. The blanket `.terraform/` ban was over-broad.** Any `*.tfstate` stays banned. | The ban was written to keep state files out and is correct for state. `modules/` holds nothing but downloaded module SOURCE — exactly as safe as the local module path already recursed into. Modern Azure Terraform leans hard on Azure Verified Modules, so under the ban a repo could declare almost its whole estate through registry modules and return a nearly empty inventory plus one warning, with every downstream phase then reasoning confidently about a fraction of the estate. |
+| 13.2d | **Association-only resources emit an EDGE and no inventory entry, and are NOT reported as untranslated.** | `azurerm_subnet_route_table_association` and its family exist only in Terraform — ARM has a property where Terraform needs an addressable resource. Reporting them as untranslated claims a gap in this skill and BURIES the real gaps, because on an IaC-heavy repo the associations outnumber the genuinely-missing types. |
+
+### 13.3 Contracts and schemas
+
+| # | Decision | Why |
+| - | -------- | --- |
+| 13.3a | **`aws-design.json` gets a schema** — `references/shared/schema-design-aws.md`. | It was the only artifact without one. A capability run reverse-engineered the shape from twelve postconditions and invented reasonable-but-different key names, while the committed golden used a third set — so the oracle was asserting `hosted_app_azure_ids` and `sizing_source` that NO skill file required. A hand-authored golden and a prose-only contract drift by construction. |
+| 13.3b | **`warnings[]` has a closed code vocabulary** (7 codes for Discover, 7 for Design), a required subject, and a `detail` that states the CONSEQUENCE. | Three files mandated writing to it and none defined it. A capability run invented all three and picked `module_not_discovered` where the contract says `module_not_resolved` — which no shape assertion could catch, and which makes any fixture assertion on a code unreliable. |
+| 13.3c | **`pattern_status`: `recognized` / `unclassified` / `catalog_absent`.** `target_architecture` MUST be null unless `recognized`. | `design.md`'s cluster postcondition demanded `target_architecture` while `patterns.md` does not exist, so it was unsatisfiable. A capability run wrote `"UNDETERMINED"` and flagged that an agent optimising for a green gate writes a convincing architecture string instead, which nothing downstream could catch. `unclassified` (catalog consulted, nothing matched) and `catalog_absent` (never attempted) are different facts. |
+| 13.3d | **Cluster `justification`: `seed:resource_group` / `edges` / `split:*` / `merge:*`.** A `split:*` legitimately has an EMPTY `edges[]`; a `merge:*` may not. | `discover.md` demanded the justifying `edges[]` while the assembler instructed an empty one — a live contradiction that passed only because `_assert` has no teeth. And requiring non-empty edges for every non-seed justification made a correct split UNREPRESENTABLE: a capability run mislabelled nine clusters `seed:resource_group` to pass the gate, destroying the information the field exists to carry. A split is justified by an ABSENCE. |
+| 13.3e | **`subscription_id_source` lives in `iac_metadata`, not `metadata`.** | It is an IaC-specific fact — only Terraform needs the ID reconstructed at all, so only the IaC section has standing to say where the subscription half came from. Both readings shipped simultaneously until a capability run found them. |
+| 13.3f | **Containment is NOT an edge.** An ARM `azure_id` contains its parent's as a literal prefix, so it is derivable by truncation from any source. Observability links (`workspace_id`) live in `config`, not `edges[]`. | Adding a containment edge restates derivable information and gives a second thing to keep in sync. An edge implies a dependency the architecture must preserve, and an App Insights → workspace link does not survive the migration at all. |
+| 13.3g | **`name_expression_unresolved` is ONE entry per run**, listing affected addresses. | Per-resource it produced 21 of 25 Discover warnings on a corpus naming everything `${var.prefix}`, burying the four actionable ones. The ref already granted that courtesy to `subscription_id_unresolved`. |
+
+### 13.4 Clustering
+
+| # | Decision | Why |
+| - | -------- | --- |
+| 13.4a | **Containment counts as CONNECTIVITY in the split step**, even though it is not an edge. | Without it a VNet splits from its own subnets and a storage account from its share. A capability run produced **16 clusters** where the file's worked example predicted 3. |
+| 13.4b | **Split only when TWO OR MORE components each contain a primary-eligible resource** (ranks 1–7 in `classification-rules.md`). A component with nothing primary-eligible is a fragment and attaches to the largest component. | A component with no possible primary is not a workload. Without this guard every edgeless observability resource became its own "workload". |
+| 13.4c | **`network` and `secret_ref` are AMBIENT edges and never merge.** They are still recorded and still count for the split step's connectivity. | Everything in a VNet shares subnets; one Key Vault serves the estate. Merging on either collapses the whole estate into one cluster and destroys the partition. Sharing a subnet is weak evidence two resources are related and good evidence two ALREADY-related ones belong together — the asymmetry is the point. |
+| 13.4d | **A weight-and-threshold merge scheme was REJECTED.** Binary merges/does-not per edge type. | The threshold would have no defensible source, would need re-tuning per estate shape, and its failures would be silent. A binary rule is explainable in one sentence per row. |
+| 13.4e | **A worked example must be TRACED against the algorithm, not written by hand.** | 13.4a was caused by exactly that: the example was authored from intuition, the algorithm shipped, and the two disagreed with nothing checking. Both files now say to re-trace if the split step changes. |
+
+### 13.5 Clarify
+
+| # | Decision | Why |
+| - | -------- | --- |
+| 13.5a | **Fragments compute rows and ask NOTHING. The assembler owns the conversation** in three gates: one consolidated sheet (batched five at a time), then the ESSENTIAL questions with their context, then the recap. | `clarify.md` had said each fragment presents its own section, which would give the user FIVE sheets and five interleaved rounds of essentials. gcp runs ONE sheet as a single mandatory gate, and this phase's own postcondition says "every assumption-sheet row the user was shown" — singular. |
+| 13.5b | **`ESSENTIAL` + `value: null` IS the completion gate.** | An essential row has no default on purpose, and it is the only way the contract can express "shown and not answered". A run that completes anyway has invented consent, and the artifact is perfectly well-formed. |
+| 13.5c | **A value taken from its default STAYS `PROPOSED`.** Never promoted to `DETECTED`. | `DETECTED` means read from the estate. Design's rationale prints "you chose Elastic Beanstalk" differently from "we assumed Elastic Beanstalk", and the report prints the difference — but only if Clarify recorded which happened. |
+| 13.5d | **Three rows have NO default at all**: VM cutover, DB cutover, Cosmos read/write split. | The first two select different RUNBOOKS rather than different numbers — MGN is a replication project, a rebuild is a packaging project — so a guess makes every Generate artifact wrong. The third moves the DynamoDB conversion by multiples. |
+| 13.5e | **`data.availability` is ESSENTIAL when the source is zone-redundant**, PROPOSED with default `single-az` otherwise. Never DETECTED from the source's HA setting. | Silently downgrading resilience someone pays for today is one mistake; reading their HA config as the answer is the other — it says what they BOUGHT, not what they NEED. When the answer resolves to single-AZ anyway, Design emits `availability_downgrade_from_source`. |
+| 13.5f | **`identity` always fires and defaults to a fresh IAM Identity Center re-invite, not Entra ID federation.** | Defaulting to federation would leave the migration DEPENDING on the cloud being left — the exit is not an exit if AWS sign-in breaks when the Entra tenant lapses. Marking the category N/A because no managed identities were found is the trap: absence means the workloads use keys, not that there is no identity story. |
+
+### 13.6 Corrections to earlier claims
+
+| Claim | Correction |
+| ----- | ---------- |
+| The 2026-09-04 handoff said **`bedrock-quotas.md` has zero inbound references** and asked whether it was dead. | **Wrong — do not delete it.** Two real load references: `gcp-to-aws/references/phases/design/design-ai.md:192` and `estimate/estimate-ai.md:108`. The claim came from a grep that excluded `vendored/ai/bedrock-quotas.md` to skip the vendored copy, which also ate every REFERENCE to that path. |
+| The plan's §7a.3 fixed **10 Direct Mappings rows**. | Superseded by 13.1b. The row set was fixed before the canonical child-type vocabulary existed. |
+| The corpus's cost-bearing unknown was **`azurerm_dev_test_lab`**. | Swapped to `azurerm_iothub`. `dev_test_lab` was a FRAGILE choice: the first coverage pass added it to the canonicalization table and the fixture silently stopped testing anything. Any fixture depending on a type being ABSENT has that failure mode. IoT is out of this skill's scope by design, so a coverage pass will not absorb it — and it carries a real `sku` block, so the corpus comment is now literally true. |
+
+### 13.7 Two open decisions this section does NOT settle
+
+1. **The untranslated-type STOP is unconditional, and will fire on real repos.** 137 types is not the provider surface, so one unknown type halts Design entirely and the only path forward is "we add a row, you re-run." For a customer-facing run that is probably too strict — not being able to name 1 of 200 resources should not block the plan for the other 199. The proposal is an **explicit user override**: continue, record the under-report in the artifact, name the skipped resources in the report, and **degrade the estimate's confidence label**. The STOP stays the default. Needs an owner decision because it softens a currently absolute rule.
+2. **An exported ARM template is not "declared intent", and the precedence table assumes it is.** `az deployment group export` and the portal's Export-template button produce a SNAPSHOT of current state, not maintained IaC — so it should rank near live, not below RDfA, and it carries no module structure for Generate to imitate. `extract-arm.md` will need to distinguish authored from exported. Decide before writing it.
+
+---
+
+## 14. [ADDED] Sequencing change — Terraform end to end before source breadth
+
+**Decided 2026-09-06, superseding the §Build-sequencing order and §12's amendment.**
+
+The build order is now: **finish every PHASE for Terraform-sourced estates, then add sources.**
+Live `az`, RDfA, billing, app-code, Bicep and ARM all wait.
+
+### Why
+
+The previous order optimised for discovery breadth, which produced a skill that discovers
+five ways and cannot produce an answer. A Terraform-only path that runs
+`discover → clarify → design → estimate → generate` is a deliverable a customer would
+recognise; five discovery sources feeding a phase that halts is not.
+
+Two consequences that are features rather than costs:
+
+- **The multi-source machinery stays dormant.** Source precedence and drift records are
+  written but have never executed, because one source cannot disagree with itself. Deferring
+  live `az` keeps a whole half-built contract off the critical path rather than exercising it
+  half-finished.
+- **Live `az` was the expensive option anyway.** `azure-live-security-contract.md` is the most
+  expensive single file in the skill (§4b-security) and the consent split needs main-window
+  pre-work. Bicep and ARM are the CHEAP remaining dialects — they hand you the ARM type
+  verbatim — but they only help repos that already have IaC.
+
+The counter-argument, recorded because it is real: **most startups have no `azurerm_*`
+Terraform at all**, and SKILL.md commits to live-first as the philosophy. So this ordering
+trades reach for completeness on purpose. Revisit once the Terraform path is end to end.
+
+### The remaining order
+
+| Step | What | State |
+| ---- | ---- | ----- |
+| 5a | Clarify's four infra categories | **done** — `bdd20ae` |
+| 5b | `networking.md` (7 types) + `messaging.md` (5 types); thin `storage.md` / `identity.md` | next |
+| 5c | Estimate content + the ~9 `knowledge/design/*.json` sizing tables | |
+| 5d | `patterns.md` — not a gate, but the report leads with cluster-level rationale and there is none without it | |
+| 5e | Generate — Terraform output, migration guide, report, scripts | |
+| 5f | `workshop` + `feedback` sidebars (`workshop` carries `_gates: generate`) | |
+| 6 | THEN source breadth: Bicep + ARM (cheap), then billing, app-code, RDfA, live `az` | |
+
+`analytics.md` and `gpu-hpc.md` are reachable from 2 and 1 types respectively and can follow
+5b or wait. `licensing.md` and `patterns.md` are routed from ZERO types — they are reached
+conditionally, not by type.
+
+### A missing SIZING table is treated more softly than a missing RUBRIC file
+
+Deliberate, and worth stating because it looks inconsistent. Without
+`appservice-eb-sizing.json` the design still names Elastic Beanstalk and states a dev-tier
+instance size AS a default; without `compute.md` it would have to invent the service choice.
+The first degrades a number's precision, the second fabricates the answer. Only the second
+halts.
+
+---
+
+## 15. [ADDED] How this skill is actually tested
+
+Three mechanisms, and the distinction between them is the most transferable thing in the
+project.
+
+### 15.1 `_assert` proves nothing
+
+The DSL has two layers (`docs/01-concepts.md` §2): structure is checked by a typed
+validator; judgement lives in `_when` and `_assert` prose that CI binds but never evaluates.
+The model both produces the artifact AND evaluates the assertion against it, so there is no
+independent oracle. **Never judge this skill by whether a run completes.**
+
+Related trap already closed: `parse.ts:49` returns null for a file not starting with `---`,
+so a prose-shaped skill passes `lint:frontmatter` GREEN while entirely unvalidated — which is
+what `gcp-to-aws` does today (`0 phase file(s) checked`). Always read the count. azure
+reports **7**.
+
+### 15.2 Extensional vs intensional checks — build both
+
+| | What it does | Catches | Scales with |
+| - | ------------ | ------- | ----------- |
+| **Extensional** | run the phase on an input, compare output to a committed golden | wrong ANSWERS | corpus breadth |
+| **Intensional** | read the artifacts and assert a relationship BETWEEN them, with no input at all | wrong CONTRACTS | pairs of files |
+
+Only extensional checks existed until 13.2b. Every defect the three capability runs found was
+intensional in nature — two files disagreeing about a contract — and extensional tests are
+structurally blind to those. The 53 orphans existed independently of any input; no fixture
+could have caught them by running.
+
+**Practice: for every pair of files where one obliges the other, write the pairing check.**
+Filter: the two are edited at different times, AND the failure is silent. Pairs known to be
+unguarded today:
+
+- edge vocabulary (`schema-discover-azure.md`) → merge/ambient rule (`typed-edges-strategy.md`)
+- Design warning codes → codes used in artifacts (Discover's equivalent IS guarded)
+- `classification-rules.md` primary ranks → the split step's primary-eligible guard
+- `index.md` Reference column → file exists on disk (~7 named files do not, intentionally, and nothing distinguishes "pending" from "typo")
+
+A worked example cannot be an intensional check — it is prose asserting a behaviour. Convert
+it to a tiny fixture instead: the example's estate as input, its cluster count as expected.
+
+### 15.3 The capability test — a required gate per content step
+
+**Method.** Copy the corpus to a scratch dir OUTSIDE the repo. Dispatch a FRESH isolated
+agent at it, pointed only at `SKILL.md`. **Hard-prohibit** reading anything under `fixtures/`,
+any `expected-*` / `check_expected*` file, and anything under a directory starting `after-`.
+Require an exhaustive notes file recording every point the skill left it guessing. Then run
+the Python oracles against its output and diff against the golden.
+
+**It has paid for itself three times, differently each time**, and 44 passing mutation tests
+found none of what it found. Mutations test the ORACLE; a fresh context tests the TEACHING.
+
+| Run | Found |
+| --- | ----- |
+| 1 | Passed the Discover oracle, then diverged on **six things no ref stated** — undefined `warnings[]`, the `subscription_id_source` contradiction, `data_ref` missing from the canonical edge list, the unstated `/fileServices/default/` segment, four missing per-type attribute rows, a live postcondition-vs-assembler contradiction |
+| 2 | Failed Design in **7 places, all under-specification** — the missing `aws-design.json` schema, an unsatisfiable cluster postcondition, a self-contradicting `index.md`. **And proved the halt guard holds under pressure**: told to map six resources whose rubric file was absent, it mapped none, and reported being *strongly tempted* because `index.md` printed the answers |
+| 3 | Confirmed the three inventory fixes end to end, then found the **53-orphan regression** and the **16-vs-3 cluster over-fragmentation** |
+
+**Clarify cannot be reached this way** — it is `_interactive: true`, so a dispatched agent has
+no user. `fixtures/azure-iac-terraform/clarify-answers.json` is a SCRIPTED ANSWER SET that
+substitutes for one, making the sheet's BRANCHING testable. It tests nothing about wording,
+batching or tone; those need a human. It tests which rows fire, which are ESSENTIAL, which are
+N/A — which is where the defects are, because a firing rule is a judgement.
+
+### 15.4 Golden trees are deliberately not "happy paths"
+
+Two of the three goldens are FAILING states, because the gate matters more than the success
+case:
+
+- `after-design-halted/` — halts on the untranslated cost-bearing type
+- `after-clarify/` — BLOCKED, because the scripted user declines to state Azure spend, leaving
+  an ESSENTIAL row unanswered
+
+And a hand-authored golden drifts from a prose-only ref BY CONSTRUCTION. That bit twice in one
+session in opposite directions: `extract-terraform.md` was missing rows the golden had, and
+`design-infra.md` was missing fields the oracle asserted. **If the oracle asserts it, a skill
+file must require it.**
