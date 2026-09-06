@@ -1379,15 +1379,32 @@ The counter-argument, recorded because it is real: **most startups have no `azur
 Terraform at all**, and SKILL.md commits to live-first as the philosophy. So this ordering
 trades reach for completeness on purpose. Revisit once the Terraform path is end to end.
 
+### [CORRECTED 2026-09-06] The corpus does not need the missing rubrics
+
+An earlier reading put `networking.md` + `messaging.md` next. **Verified wrong.** The corpus
+routes ZERO resources to a missing rubric file: Design emits 16 `services[]` with
+`pending_rubric[]` empty and halts on exactly one thing, the untranslated `azurerm_iothub`.
+
+So those rubrics are needed before any **real customer repo** and block nothing on the fixture.
+Estimate and Generate are on the critical path for both definitions of the goal;
+`networking.md` for only one. And `networking.md` / `messaging.md` need corpus EXTENSION to be
+testable at all, since nothing in the fixture reaches them.
+
+**This also promotes §13.7 #1 from an open question to the gate on the whole goal.**
+`estimate.md` carries `_check_phase_completed: design`, and Design GATE_FAILs on the corpus — so
+Estimate and Generate can never run there until the untranslated-type halt is resolved, either
+by the user-override behaviour or by a variant inventory with
+`iac_metadata.untranslated_types` cleared.
+
 ### The remaining order
 
 | Step | What | State |
 | ---- | ---- | ----- |
 | 5a | Clarify's four infra categories | **done** — `bdd20ae` |
-| 5b | `networking.md` (7 types) + `messaging.md` (5 types); thin `storage.md` / `identity.md` | next |
-| 5c | Estimate content + the ~9 `knowledge/design/*.json` sizing tables | |
+| 5c | **Estimate — NEXT.** Dual output, the decision gate that writes `run_mode`, the licensing delta, and the ~9 `knowledge/design/*.json` sizing tables. First phase whose fixtures need TOLERANCES rather than exact assertions | next |
 | 5d | `patterns.md` — not a gate, but the report leads with cluster-level rationale and there is none without it | |
-| 5e | Generate — Terraform output, migration guide, report, scripts | |
+| 5e | Generate — Terraform output, migration guide, report, scripts. Completes the corpus end to end | |
+| 5b | `networking.md` (7) + `messaging.md` (5) + thin `storage.md` / `identity.md`. Needed before any REAL repo, blocks nothing on the corpus; parallelises with 5c–5f and needs corpus extension to be testable | |
 | 5f | `workshop` + `feedback` sidebars (`workshop` carries `_gates: generate`) | |
 | 6 | THEN source breadth: Bicep + ARM (cheap), then billing, app-code, RDfA, live `az` | |
 

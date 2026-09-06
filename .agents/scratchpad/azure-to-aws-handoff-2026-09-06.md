@@ -187,18 +187,47 @@ Fails on `skills/gcp-to-aws/SKILL.md` and `skills/heroku-to-aws/SKILL.md`. **Pre
 
 **Goal: Terraform-sourced Azure estates migrated end to end.** Source breadth waits (plan §14).
 
+> **CORRECTION, made while preparing this handoff.** An earlier draft said `networking.md` +
+> `messaging.md` were next. **They are not on the critical path.** The corpus routes **zero**
+> resources to a missing rubric file — Design already emits 16 `services[]` with
+> `pending_rubric[]` **empty**, and halts on exactly ONE thing: the untranslated
+> `azurerm_iothub`. Check `after-design-halted/aws-design.json`'s `halt.blocking` and
+> `pending_rubric` before trusting either ordering.
+>
+> Consequence: those two rubrics are needed before any **real customer repo** (7 and 5 types),
+> but they block nothing on the fixture. Estimate and Generate are on the critical path for
+> BOTH definitions of the goal; `networking.md` for only one.
+
+### The blocking decision, and it is now blocking
+
+`estimate.md` carries `_check_phase_completed: design`, and Design **GATE_FAILs** on the corpus
+because of the untranslated type. So **Estimate can never run on the corpus, and neither can
+Generate, until that halt is resolved.** What was an open product question in §13.7 is now the
+gate on the whole end-to-end goal. Two paths:
+
+| Path | What it costs |
+| ---- | ------------- |
+| **A — the user override** (§13.7 #1). Continue past an untranslated type when the user explicitly accepts it; record the under-report in the artifact, name the skipped resources in the report, and degrade the estimate's confidence label. | A real behaviour change, and it softens a currently absolute rule. But it is the behaviour a real customer needs, and it makes the corpus runnable end to end without touching the corpus. |
+| **B — a variant inventory.** Commit a second golden identical to `after-discover/` but with `iac_metadata.untranslated_types` cleared, modelling the state AFTER the user files the type. Build Estimate and Generate against that. | One extra committed file and no behaviour change. Keeps the STOP absolute. Does not help a real repo. |
+
+**A is the recommendation** — it is the behaviour the product needs, and the STOP stays the
+default with the override an explicit, recorded decision. But it is the owner's call.
+
+### Order, once that is settled
+
 <table data-id="t5" data-col-sizes="90,400">
   <tr data-id="t5r0"><th data-id="t5h0">Step</th><th data-id="t5h1">What</th></tr>
   <tr data-id="t5r1"><td data-id="t5a1">5a</td><td data-id="t5b1"><strong>done</strong> — Clarify's four infra categories</td></tr>
-  <tr data-id="t5r2"><td data-id="t5a2"><strong>5b</strong></td><td data-id="t5b2"><strong>NEXT — <code>networking.md</code> (7 types: load balancers, App Gateway, NAT, CDN, Front Door, API Management) + <code>messaging.md</code> (5: Service Bus namespace/queues/topics, Event Hub children, SignalR)</strong>. Thin <code>storage.md</code> / <code>identity.md</code> alongside — 1 type each</td></tr>
-  <tr data-id="t5r3"><td data-id="t5a3">5c</td><td data-id="t5b3">Estimate content + the ~9 <code>knowledge/design/*.json</code> sizing tables. <strong>Fixtures here need TOLERANCES</strong>, not exact assertions — pricing drifts</td></tr>
-  <tr data-id="t5r4"><td data-id="t5a4">5d</td><td data-id="t5b4"><code>patterns.md</code> — not a gate, but the report leads with cluster-level rationale and there is none without it</td></tr>
-  <tr data-id="t5r5"><td data-id="t5a5">5e</td><td data-id="t5b5">Generate — Terraform output, migration guide, report, scripts</td></tr>
-  <tr data-id="t5r6"><td data-id="t5a6">5f</td><td data-id="t5b6"><code>workshop</code> + <code>feedback</code> sidebars</td></tr>
+  <tr data-id="t5r2"><td data-id="t5a2"><strong>5c</strong></td><td data-id="t5b2"><strong>NEXT — Estimate.</strong> Dual output (1:1 lift vs right-sized), the post-Estimate decision gate that writes <code>run_mode</code>, the licensing delta line, and the ~9 <code>knowledge/design/*.json</code> sizing tables. <strong>Its fixtures need TOLERANCES</strong>, not exact assertions — pricing drifts, so exact totals would be permanently brittle. First phase where that is true</td></tr>
+  <tr data-id="t5r3"><td data-id="t5a3">5e</td><td data-id="t5b3">Generate — Terraform output, migration guide, report, scripts. Completes the corpus end to end</td></tr>
+  <tr data-id="t5r4"><td data-id="t5a4">5d</td><td data-id="t5b4"><code>patterns.md</code> — not a gate, but the report leads with cluster-level rationale and there is none without it, so the customer-facing headline is empty</td></tr>
+  <tr data-id="t5r5"><td data-id="t5a5">5f</td><td data-id="t5b5"><code>workshop</code> + <code>feedback</code> sidebars (<code>workshop</code> carries <code>_gates: generate</code>)</td></tr>
+  <tr data-id="t5r6"><td data-id="t5a6"><strong>5b</strong></td><td data-id="t5b6"><code>networking.md</code> (7 types) + <code>messaging.md</code> (5) + thin <code>storage.md</code> / <code>identity.md</code> (1 each). <strong>Needed before any real repo, blocks nothing on the corpus.</strong> Independent of 5c–5f so it parallelises — and it needs corpus EXTENSION to be testable at all, since nothing in the fixture reaches these rubrics</td></tr>
   <tr data-id="t5r7"><td data-id="t5a7">6</td><td data-id="t5b7">THEN source breadth: Bicep + ARM (cheap — they hand you the ARM type), then billing, app-code, RDfA, live <code>az</code> (security contract FIRST)</td></tr>
 </table>
 
-`analytics.md` (2 types) and `gpu-hpc.md` (1) can follow 5b or wait. `licensing.md` and `patterns.md` are routed from ZERO types — reached conditionally, not by type.
+`analytics.md` (2 types) and `gpu-hpc.md` (1) sit with 5b. `licensing.md` and `patterns.md` are
+routed from ZERO types — reached conditionally, not by type.
 
 ### Three decisions waiting on the owner
 
