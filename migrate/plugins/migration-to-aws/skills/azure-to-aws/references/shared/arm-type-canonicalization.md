@@ -12,13 +12,17 @@ Terraform types directly.
 ## Rules
 
 1. **The table is the authority, not inference.** Several ARM types are not derivable
-   from the Terraform name, and two are actively misleading (see § Traps). If a type
+   from the Terraform name, and several are actively misleading (see § Traps). If a type
    is absent from this table, `discover-iac.md` records it as an untranslated type in
    `warnings[]` and does NOT guess — a guessed type silently corrupts every
    downstream lookup, because the mapping tables will simply fail to match and the
    resource falls through to the unknown-type policy for the wrong reason.
-2. **Casing is significant.** ARM type strings are compared case-sensitively by the
-   mapping tables in this skill. Copy them verbatim from this file.
+2. **Matching folds case; emission follows this file.** ARM compares resource type
+   strings case-insensitively, so every lookup in this skill — fast-path, Skip
+   Mappings, `index.md` routing, rubric selection — MUST fold case before comparing.
+   A mis-cased type must never fall through to the unknown-type policy. Emit the
+   spelling used in this file, which is a **convention** adopted so `azure_id` strings
+   join by exact match — not a claim about ARM. See § Casing is a convention, not a fact.
 3. **Child types keep their full path.** `Microsoft.Sql/servers/databases` is three
    segments, and it is not interchangeable with `Microsoft.Sql/servers`.
 4. **Deprecated provider names are listed alongside their replacements.** A real
@@ -32,8 +36,7 @@ the reason this file exists rather than relying on the pattern.
 | Trap                                                                                                                                      | Wrong                             | Right                                    |
 | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ---------------------------------------- |
 | **Function apps are not their own type.** `Microsoft.Web/functionApps` does not exist. A function app is a `sites` resource with `kind` containing `functionapp`. | `Microsoft.Web/functionApps`      | `Microsoft.Web/sites`                    |
-| **App Service Plan is `serverfarms`, all lowercase.** The camelCase `serverFarmId` is the *property* on a site that points at the plan — not the type name. | `Microsoft.Web/serverFarms`       | `Microsoft.Web/serverfarms`              |
-| **Redis carries a capital R.** Unlike every neighbouring type, the resource segment is not lowerCamelCase.                                  | `Microsoft.Cache/redis`           | `Microsoft.Cache/Redis`                  |
+| **`serverFarmId` is a property, not a type name.** The camelCase `serverFarmId` on a site is the pointer *to* its plan; the plan's own type is `Microsoft.Web/serverfarms`. | `serverFarmId` used as a type     | `Microsoft.Web/serverfarms`              |
 | **Cosmos DB's provider is `DocumentDB`.** The product was renamed; the ARM provider never was.                                             | `Microsoft.CosmosDB/accounts`     | `Microsoft.DocumentDB/databaseAccounts`  |
 | **Azure OpenAI has no provider of its own.** It is a Cognitive Services account whose `kind` is `OpenAI`.                                   | `Microsoft.OpenAI/accounts`       | `Microsoft.CognitiveServices/accounts`   |
 | **A resource group's own ID has no `/providers/` segment.** See § Reconstructing `azure_id`.                                                | `.../providers/Microsoft.Resources/resourceGroups/rg` | `/subscriptions/<sub>/resourceGroups/rg` |
@@ -134,10 +137,10 @@ carry it into `config.enabled_protocol`.
 | `azurerm_lb_probe`                | `Microsoft.Network/loadBalancers/probes`     |
 | `azurerm_lb_rule`                 | `Microsoft.Network/loadBalancers/loadBalancingRules` |
 | `azurerm_private_dns_zone_virtual_network_link` | `Microsoft.Network/privateDnsZones/virtualNetworkLinks` |
-| `azurerm_dns_a_record`, `azurerm_dns_cname_record`, and the other `azurerm_dns_*_record` types | `Microsoft.Network/dnsZones/<RECORDTYPE>` — the record type is UPPERCASE in the ARM type (`/A`, `/CNAME`, `/TXT`) |
+| `azurerm_dns_a_record`, `azurerm_dns_cname_record`, and the other `azurerm_dns_*_record` types | `Microsoft.Network/dnsZones/<RECORDTYPE>`, the record type taken from the Terraform type name (`/A`, `/CNAME`, `/TXT`) — this row is a pattern, not a lookup |
 | `azurerm_cdn_endpoint`            | `Microsoft.Cdn/profiles/endpoints`           |
 | `azurerm_cdn_frontdoor_endpoint`  | `Microsoft.Cdn/profiles/afdEndpoints`        |
-| `azurerm_web_application_firewall_policy` | `Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies` — capital A on the leading segment |
+| `azurerm_web_application_firewall_policy` | `Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies` |
 | `azurerm_traffic_manager_profile` | `Microsoft.Network/trafficManagerProfiles`   |
 | `azurerm_nat_gateway_public_ip_association`, `azurerm_subnet_route_table_association`, and every other `*_association` | **no type of its own** — see § Association-only resources |
 
@@ -160,7 +163,7 @@ carry it into `config.enabled_protocol`.
 | `azurerm_key_vault_certificate`      | `Microsoft.KeyVault/vaults/certificates`              |
 | `azurerm_federated_identity_credential` | `Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials` |
 | `azurerm_servicebus_subscription`    | `Microsoft.ServiceBus/namespaces/topics/subscriptions` |
-| `azurerm_eventhub_consumer_group`    | `Microsoft.EventHub/namespaces/eventhubs/consumergroups` — all-lowercase `consumergroups` |
+| `azurerm_eventhub_consumer_group`    | `Microsoft.EventHub/namespaces/eventhubs/consumergroups` |
 | `azurerm_eventhub_authorization_rule`| `Microsoft.EventHub/namespaces/eventhubs/authorizationRules` |
 | `azurerm_eventgrid_topic`            | `Microsoft.EventGrid/topics`                          |
 | `azurerm_eventgrid_system_topic`     | `Microsoft.EventGrid/systemTopics`                    |
@@ -189,12 +192,12 @@ it into `config.kafka_enabled`.
 | `azurerm_synapse_workspace`             | `Microsoft.Synapse/workspaces`                         |
 | `azurerm_databricks_workspace`          | `Microsoft.Databricks/workspaces`                      |
 | `azurerm_monitor_autoscale_setting`     | `Microsoft.Insights/autoscaleSettings`                 |
-| `azurerm_application_insights_web_test`  | `Microsoft.Insights/webtests` — all-lowercase `webtests` |
+| `azurerm_application_insights_web_test`  | `Microsoft.Insights/webtests` |
 | `azurerm_monitor_data_collection_rule`  | `Microsoft.Insights/dataCollectionRules`               |
 | `azurerm_monitor_diagnostic_categories` | (data source, not a resource — no entry)               |
 | `azurerm_batch_account`                 | `Microsoft.Batch/batchAccounts`                        |
 | `azurerm_machine_learning_workspace`    | `Microsoft.MachineLearningServices/workspaces`         |
-| `azurerm_stream_analytics_job`          | `Microsoft.StreamAnalytics/streamingjobs` — all-lowercase `streamingjobs` |
+| `azurerm_stream_analytics_job`          | `Microsoft.StreamAnalytics/streamingjobs` |
 | `azurerm_dev_test_lab`                  | `Microsoft.DevTestLab/labs`                            |
 
 Everything in the observability block lands in Skip Mappings — observability is
@@ -234,6 +237,26 @@ would bury the real gaps in noise, and on an IaC-heavy repo the associations out
 the genuinely-missing types. `azurerm_role_assignment` is the one borderline case: it
 *does* have an ARM type (`Microsoft.Authorization/roleAssignments`, a Skip Mapping), so
 it gets an entry AND contributes its `identity_grant` edge.
+
+## Casing is a convention, not a fact
+
+Two of this file's original traps made casing a correctness axis — a capital `R` in
+`Microsoft.Cache/Redis`, and all-lowercase `serverfarms`. Both were unsourced, and the
+second is unsourceable: `Azure/bicep-types-az` ships **both** `Microsoft.Web/serverFarms`
+and `Microsoft.Web/serverfarms` in one generated index. For the cache type, that index
+and `magodo/aztft` — the mapping library behind Microsoft's supported
+`Azure/aztfexport` — both render `Microsoft.Cache/redis`. The capital-R form is what
+appears in **azurerm resource IDs**, which is a Terraform-provider artifact, not an ARM
+type. Nine of this file's 124 externally checkable rows differ from `aztft` by casing
+alone, so the discipline this file claimed to enforce was wrong about 7% of its own
+content.
+
+**Fold case to look up. Emit this file's spelling.** The spelling matters for exactly
+one reason: `azure_id` strings are compared by exact match — cluster membership,
+cluster keys, and the drift comparison against a live capture all require two
+references to one resource to produce one string. It does not matter to ARM, and a
+mis-cased type is a convention violation, never evidence that the translation was
+guessed.
 
 ## Coverage is not completeness
 

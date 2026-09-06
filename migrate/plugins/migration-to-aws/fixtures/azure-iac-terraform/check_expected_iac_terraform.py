@@ -12,8 +12,9 @@ disagree.
 
 So every check here pins a fact where a plausible improvisation and the correct
 answer DIVERGE — the ARM types that are not derivable from the Terraform name
-(`Microsoft.Web/sites` for a function app, the capital R in `Microsoft.Cache/Redis`,
-the `DocumentDB` provider), the App Service Plan fan-in edges that prevent a 5x cost
+(`Microsoft.Web/sites` for a function app, the `DocumentDB` provider), the spelling
+convention that keeps `azure_id` strings joinable, the App Service Plan fan-in edges
+that prevent a 5x cost
 error, the cross-resource-group edge that RG-seeded clustering needs, the routing
 attributes that are the sole input to a later rubric, and the secret boundary.
 Facts a model gets right by accident are deliberately NOT asserted: they cost review
@@ -103,7 +104,8 @@ def check_types(index: dict[str, dict], exp: dict) -> None:
         check(
             actual == expected_type,
             f"{local!r}: azure_type is {actual!r}, expected {expected_type!r} "
-            f"(exact match including casing — see arm-type-canonicalization.md)",
+            f"(exact string; matching folds case but emission must not drift, because "
+            f"azure_id joins are exact — see arm-type-canonicalization.md)",
         )
 
 
@@ -113,7 +115,9 @@ def check_forbidden_types(resources: list[dict], exp: dict) -> None:
         check(
             bad not in present,
             f"forbidden azure_type present: {bad!r} — not a real ARM type string, or "
-            f"the wrong casing. This is the signature of a guessed translation.",
+            f"not the spelling arm-type-canonicalization.md emits. A wrong PROVIDER or "
+            f"type segment is a guessed translation; a case-only difference is a "
+            f"convention violation that breaks azure_id joins, not a wrong answer.",
         )
     for r in resources:
         t = r.get("azure_type") or ""

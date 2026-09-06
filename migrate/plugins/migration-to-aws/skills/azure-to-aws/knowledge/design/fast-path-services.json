@@ -1,6 +1,6 @@
 {
   "_comment": "Pass-1 disposition table for Design, keyed by CANONICAL ARM resource type. Three dispositions live in one file on purpose: they are all lookups on the same key, and the precedence invariant (a type resolves to AT MOST ONE of them) is only mechanically checkable when they sit together. The rubric rules live in references/design-refs/*.md; only the lookup data lives here.",
-  "_match": "EXACT, CASE-SENSITIVE, full-string match of a resource's azure_type against a key. Casing is significant: Microsoft.Cache/Redis and Microsoft.Web/serverfarms are the two rows most often mis-cased, and a near-miss silently falls through to the unknown-type policy. Never substring-match, and never normalize case.",
+  "_match": "EXACT full-string match of a resource's azure_type against a key, with case FOLDED on both sides. Never substring-match. ARM compares type strings case-insensitively and Microsoft's own sources disagree on display casing, so a case-only difference must NEVER fall through to the unknown-type policy \u2014 see references/shared/arm-type-canonicalization.md section 'Casing is a convention, not a fact'. Keys here use that file's spelling as a convention, because azure_id strings are joined by exact match.",
   "_precedence": "Evaluated in this order, per design-refs/fast-path.md: skip_mappings, then specialist_gates, then eliminators (in the category rubric), then direct_mappings. A type present in more than one of the three tables here is a DEFECT in this file, not a runtime choice.",
   "_invariant": "A pattern constraint may narrow the candidate set for a rubric decision. It may NEVER change the aws_service of a direct_mappings row. A genuine pattern/fast-path conflict means the row does not belong here \u2014 demote the row, never let the pattern win.",
   "_on_not_found": "The type is not in this file. Route via references/design-refs/index.md to its category rubric. If index.md has no row either, apply the unknown-type policy in references/phases/design/design-infra.md (benign -> warn and skip; cost-bearing -> STOP).",
@@ -71,7 +71,7 @@
     "Microsoft.Cache/Redis": {
       "aws_service": "ElastiCache Redis",
       "condition": "Always",
-      "notes": "CAPITAL R in the ARM type \u2014 see arm-type-canonicalization.md. Microsoft.Cache/redisEnterprise is NOT this row; it goes through the rubric (modules such as RediSearch have no ElastiCache equivalent)."
+      "notes": "Spelled with a capital R by this skill's emission convention, not by ARM \u2014 see arm-type-canonicalization.md section 'Casing is a convention, not a fact'; matching folds case. Microsoft.Cache/redisEnterprise is NOT this row; it goes through the rubric (modules such as RediSearch have no ElastiCache equivalent)."
     },
     "Microsoft.ContainerRegistry/registries": {
       "aws_service": "ECR",

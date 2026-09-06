@@ -25,7 +25,7 @@ are deliberately not asserted — they cost review attention and prove nothing.
 | ------------------------------------------------------- | -------------------------------------- | ------------------------------------------ |
 | `azurerm_linux_function_app`                            | `Microsoft.Web/functionApps`           | `Microsoft.Web/sites` + `kind`             |
 | `azurerm_service_plan`                                  | `Microsoft.Web/serverFarms`            | `Microsoft.Web/serverfarms` (lowercase f)  |
-| `azurerm_redis_cache`                                   | `Microsoft.Cache/redis`                | `Microsoft.Cache/Redis` (capital R)        |
+| `azurerm_redis_cache`                                   | `Microsoft.Cache/redis`                | `Microsoft.Cache/Redis` — emission convention, NOT an ARM fact; matching folds case |
 | `azurerm_cosmosdb_account`                              | `Microsoft.CosmosDB/...`               | `Microsoft.DocumentDB/databaseAccounts`    |
 | `azurerm_resource_group`                                | an ID with a `/providers/` segment     | no `/providers/` segment                   |
 | no `subscription_id` in the provider block               | an invented GUID                       | the `<subscription-unknown>` placeholder   |

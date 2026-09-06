@@ -17,7 +17,7 @@ resource "azurerm_postgresql_flexible_server" "store" {
   }
 }
 
-# Redis: pins the Microsoft.Cache/Redis capital-R casing quirk.
+# Redis: pins the ElastiCache direct mapping and the sku/family/capacity carry-through.
 resource "azurerm_redis_cache" "session" {
   name                = "redis-${var.prefix}-session"
   resource_group_name = azurerm_resource_group.data.name

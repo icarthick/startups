@@ -10,7 +10,7 @@
     "_comment": "28 resource blocks; azurerm_dev_test_lab is untranslated and therefore skipped, not guessed. Note that 5 local names collide across types (core, storefront, reporting, data, store), which is why identity is the full address."
   },
   "canonical_types": {
-    "_comment": "Keyed by the full Terraform ADDRESS (<azurerm_type>.<local_name>), because a bare local name is NOT unique \u2014 Terraform namespaces them per type. Casing of the ARM type is asserted exactly.",
+    "_comment": "Keyed by the full Terraform ADDRESS (<azurerm_type>.<local_name>), because a bare local name is NOT unique \u2014 Terraform namespaces them per type. The ARM type is asserted as the exact spelling arm-type-canonicalization.md emits: matching folds case, but azure_id joins do not, so emission must be consistent.",
     "azurerm_resource_group.app": "Microsoft.Resources/resourceGroups",
     "azurerm_resource_group.data": "Microsoft.Resources/resourceGroups",
     "azurerm_resource_group.shared": "Microsoft.Resources/resourceGroups",
@@ -42,7 +42,7 @@
     "azurerm_bastion_host.jump": "Microsoft.Network/bastionHosts"
   },
   "forbidden_types": {
-    "_comment": "Plausible guesses that are not real ARM type strings, or are the wrong casing. None may appear as any resource's azure_type.",
+    "_comment": "Plausible guesses that are not real ARM type strings, or not the spelling this skill emits. None may appear as any resource's azure_type. Wrong provider/segment entries pin a guessed translation; the two case-only entries (serverFarms, redis) pin the emission convention that keeps azure_id joinable \u2014 they are NOT claims that Microsoft spells them the other way. See arm-type-canonicalization.md section 'Casing is a convention, not a fact'.",
     "values": [
       "Microsoft.Web/functionApps",
       "Microsoft.Web/serverFarms",
