@@ -1507,3 +1507,221 @@ And a hand-authored golden drifts from a prose-only ref BY CONSTRUCTION. That bi
 session in opposite directions: `extract-terraform.md` was missing rows the golden had, and
 `design-infra.md` was missing fields the oracle asserted. **If the oracle asserts it, a skill
 file must require it.**
+
+---
+
+## 16. [ADDED] Decisions and findings, 2026-09-06 (session 4)
+
+This session produced no new phase content. It corrected a rule that was actively
+wrong, replaced §13.7 #1's open question with a phase, and moved the work off the
+telemetry branch. Everything here supersedes the 2026-09-06 handoff where they conflict.
+
+### 16.1 [CORRECTED] Casing is a convention, not a correctness axis
+
+Rule 2 of `arm-type-canonicalization.md` claimed ARM type strings are compared
+case-sensitively, and named two casing **traps**: a capital `R` in
+`Microsoft.Cache/Redis`, and all-lowercase `Microsoft.Web/serverfarms`. Both were
+unsourced. The second is **unsourceable**: `Azure/bicep-types-az` ships
+`Microsoft.Web/serverFarms` **and** `Microsoft.Web/serverfarms` in one generated index.
+For the cache type, that index and `magodo/aztft` both render `Microsoft.Cache/redis` —
+the capital-R form is what appears in azurerm **resource IDs**, a Terraform-provider
+artifact, not an ARM type. So the file encoded a Terraform fact as an ARM fact, which is
+the exact error it exists to prevent.
+
+Nine of its 124 externally checkable rows differ from `aztft` by casing alone: `serverFarms`,
+`redis`, `dnszones`, `applicationGatewayWebApplicationFirewallPolicies`, `signalR`,
+`consumerGroups`, `autoScaleSettings`, `webTests`, `streamingjobs`. The discipline the file
+claimed to enforce was therefore wrong about 7% of its own content.
+
+Two consequences, both live before the fix:
+
+| Consequence | Detail |
+| ----------- | ------ |
+| A **correct** answer STOPped the design | Rule 2 said a mis-cased type "silently falls through to the unknown-type policy", so a run emitting the sourced `Microsoft.Cache/redis` would have had its Redis treated as untranslated and halted Design under 13.1d |
+| The oracle failed correct answers as fraud | `expected-iac-terraform.json` `forbidden_types` listed **both** `Microsoft.Cache/redis` and `Microsoft.Web/serverFarms`, reported as "the signature of a guessed translation" |
+
+**The fix separates two things the file conflated.** MATCHING folds case, everywhere —
+fast-path, Skip Mappings, `index.md` routing, rubric selection. EMISSION follows this
+file's spelling as a stated **convention**, justified by `azure_id` strings being joined
+by exact match: cluster membership, cluster keys, and the future drift comparison against
+a live capture all require one resource to yield one string. It does not matter to ARM.
+
+No golden churn and no strictness lost: the ~74 existing occurrences of the two display
+strings are correct under the convention and were left alone; all three oracles still
+pass; mutations still caught (`sites`→`functionApps` 8 fails, `Redis`→`redis` 2 fails now
+reported as a convention violation rather than a guess, `DocumentDB`→`CosmosDB` 2 fails).
+
+Deleted the Redis trap. Reframed the serverfarms trap to keep its real content —
+`serverFarmId` is the property pointing **at** the plan, not the plan's type name.
+Removed four inline casing assertions, all among the nine unsourceable rows.
+
+### 16.2 [ADDED] External prior art exists, and it validates the table
+
+`magodo/aztft` ("AzureRM resource type finder", MPL-2.0) is the mapping library behind
+Microsoft's supported `Azure/aztfexport`. `internal/resmap/map.json` carries **1,089**
+azurerm types keyed to provider + type path.
+
+| Check | Result |
+| ----- | ------ |
+| our rows present in aztft | 124 of 132 (the 8 absent are deprecated aliases we deliberately list) |
+| **substantive** disagreements | **1** — `azurerm_resource_group`, where aztft gives a scope path rather than a provider type, and this file is right for its purpose |
+| case-only disagreements | 9 (§16.1) |
+| coverage | 1,089 vs our ~132 |
+
+**The premise that Terraform→ARM is ambiguous is empirically false.** Of 1,089 entries,
+**1,048 resolve to exactly one ARM type and zero resolve to more than one**; 41 have none
+(the association/property-only class plus data sources). The many-ness runs the other way
+— N Terraform types share one ARM type — and N→1 is a function. There is nothing for a
+model to choose, so an LLM asked to "determine the correct mapping" can only invent one,
+which is the false-green §12 describes. Cases that look ambiguous are not: a function app
+and a web app share `Microsoft.Web/sites` and are separated by `kind`, which is a property
+read, not a judgement.
+
+**aztft does not replace 13.2d.** It carries 22 `*_association` entries and flags **none**
+as property-not-resource; it treats them as real resources. That rule remains ours.
+
+**[DECIDED] aztft is NOT adopted as an intensional check** (owner call, 2026-09-06). The
+coverage expansion from ~132 toward the provider surface remains available and is the most
+direct lever on how often the untranslated STOP fires. Note the MPL-2.0 licence is a
+question for whoever owns licensing if data is ever vendored rather than consulted.
+
+### 16.3 [DECIDED] A new `confirm` phase — replacing handoff §8 Paths A and B
+
+§13.7 #1 asked whether the untranslated-type STOP should soften. Neither proposed path is
+taken. Instead an **eighth phase** sits between `discover` and `clarify`:
+
+```yaml
+_phase: confirm
+_requires_phase: discover
+_advances_to: clarify
+_interactive: true      # no _exec, so it can prompt
+```
+
+Plus two one-line rewires easy to miss: `discover.md`'s `_advances_to` becomes `confirm`,
+and `clarify.md`'s `_requires_phase` becomes `confirm`.
+
+| Why | Detail |
+| --- | ------ |
+| A phase, not post-Discover afterwork | Resolving an untranslated type **adds a resource**, and Clarify's fragment triggers read the inventory — so a resolution can change which fragments fire. Afterwork makes that mutation invisible to the interpreter: no `_produces`, no `_re_entry_guard`, no gate |
+| It is cheap | `phase-status.schema.json:6` states phase names are **not** enumerated — "adding a phase to a skill requires no change to this file". No shared-schema change, so no prerequisite PR, unlike `run_mode` |
+| Precedent exists | `agent-advisor` runs an 11-phase chain including `intake` and **`confirm`**. Named `confirm`, not `preview`: gcp's `discover-preview.md` (437 lines, `discover.md:191`) is **report-only** — it writes `migration-preview.json` and a chat block, asks nothing |
+| The STOP stays absolute | With option (b) below, `design.md`'s postcondition *"untranslated_types is empty"* passes **unchanged**. No relaxation, no override, no new confidence tier |
+
+**Boundary rule, or it becomes a second Clarify:** `confirm` resolves **facts about the
+source estate** that Discover could not determine; Clarify resolves **choices about the
+target**. If an answer is discoverable in principle it belongs in `confirm`; if it is a
+preference it belongs in Clarify. This also keeps `preferences.json` free of schema-repair
+state.
+
+**[DECIDED] Option (b): `confirm` amends the inventory in place**, add-only, stamping
+per-entry `azure_type_source` (`table` | `user_confirmed_proposal`), and also writes
+`confirm-resolutions.json` as the audit record. Rejected option (a) — a separate
+resolutions artifact leaving the inventory immutable — because it forces every downstream
+reader to join two files, which is the `untranslated_types`-as-separate-input pattern
+13.1d already found awkward, generalised to four facts.
+
+> **OBLIGATION: amending the inventory obliges RE-DERIVING the clusters.** The clusters
+> artifact carries **64** `azure_id` occurrences — all 64 with `<subscription-unknown>`,
+> 54 with a `tf:` synthetic name — in four roles per cluster (`members`, `member_roles`
+> keys, `primary`, and both `edges` endpoints). Repairing a subscription id or
+> `var.prefix` staleness-breaks every one, and adding a resolved resource changes cluster
+> membership. This is the same trap class as "adding a canonicalization row obliges a
+> disposition row", and it would have been silent. Affordable: the clustering refs total
+> **340 lines** (`clustering-algorithm` 152, `typed-edges-strategy` 65,
+> `classification-rules` 63, `tiering` 60), which fits an interactive phase.
+
+So `confirm` writes `confirm-resolutions.json` **always**; the inventory only when
+something was resolved; the clusters only when the amendment added/removed a resource or
+changed an `azure_id`.
+
+**What it repairs — the payoff is larger than the untranslated type.** All four are
+recorded as warnings nobody reads today, then silently degrade everything downstream:
+
+| Unresolved fact | Today | What `confirm` asks |
+| --------------- | ----- | ------------------- |
+| `untranslated_types` | **halts Design** | "I believe this is `Microsoft.Devices/iotHubs`; it carries a `sku`, so it is cost-bearing. Confirm?" |
+| `modules_unresolved` | one warning | "N resources may be missing — run `terraform init`, or point me at the module source?" |
+| `subscription_id_source: "unresolved"` | `<subscription-unknown>` in **every** ARM ID | "What is the subscription id?" — repairs every synthetic `azure_id` in one answer |
+| `name_expression_unresolved` | `tf:<local>` names, un-drift-matchable | "What is `var.prefix`?" |
+
+That last row is the sleeper: the 2026-09-06 handoff §9 lists the `tf:<local>` synthetic-ID
+problem as unfixed and defers it to the live `az` path. `confirm` fixes it now, by asking.
+
+**Costs, stated:** an eighth phase, so `lint:frontmatter` must report **8** in both trees.
+It is **not capability-testable** (`_interactive: true` → a dispatched agent has no user),
+so it needs `confirm-answers.json` alongside `clarify-answers.json`, which means 2 of 8
+phases are branch-tested only. With nothing unresolved it MUST degenerate to a report and
+advance without asking, or it is a pointless gate on every run. And it needs a completing
+golden branch, with `after-design-halted/` retained for the declined branch.
+
+### 16.4 [CORRECTED] Two gates block the corpus, not one
+
+The 2026-09-06 handoff says "the gate on everything now is ONE owner decision". There are
+**two**, and resolving the untranslated type alone does not make Estimate reachable:
+
+1. `after-clarify/preferences.json` is `clarify_status: BLOCKED_ON_ESSENTIAL` —
+   `baseline.azure_monthly_spend` is `ESSENTIAL`, `value: null`, `blocks_phase: true`,
+   because `clarify-answers.json` deliberately models a user who declines (13.5b). So
+   `design.md`'s `_check_phase_completed: clarify` already fails.
+2. Design halts on the untranslated `azurerm_iothub`.
+
+Neither golden may be "fixed" — both are deliberately failing states (§15.4). A completing
+run therefore needs a **second** scripted answer set and a completing Clarify golden
+regardless of which untranslated-type path is chosen, so that work never distinguished the
+options.
+
+### 16.5 [ADDED] Where the pipeline actually loses information
+
+The concern that `TF(azure) → ARM → TF(aws)` is a lossy double translation does not hold,
+and the reason is worth recording because it will be raised again.
+
+- **The ARM hop is additive, not destructive.** An inventory entry keeps
+  `config.tf_address` (`azurerm_service_plan.web`) alongside `azure_type`, so the
+  Terraform type is never discarded and the step is reversible.
+- **There is no transcoding.** `generate.md`'s `_input` is `aws-design.json`,
+  `estimation-infra.json`, `preferences.json`, `azure-resource-inventory.json` — it never
+  reads Azure HCL. It emits `aws_elastic_beanstalk_environment` from `aws_config`. The ARM
+  type is a **join key for the mapping tables**, not an intermediate representation
+  carrying data. A lossy-IR objection would land only if we transcoded HCL → ARM JSON → HCL.
+- **The real loss is the `config` attribute projection.** `extract-terraform.md` defines a
+  per-type attribute allowlist and drops everything else. That is what caps Generate's
+  fidelity, and it is **independent of ARM** — keying on `azurerm_*` would lose exactly the
+  same attributes.
+- Module structure does survive (`config.tf_module`, `config.tf_module_source`), so §4g's
+  claim holds.
+
+Also recorded: for a Terraform-only customer who never grants live access, the ARM **type**
+buys little — its value is a bet on the four deferred sources. The ARM **ID** buys
+something regardless, since it carries subscription and resource group and so supplies the
+cluster key, environment scope and uniqueness with no derivation.
+
+### 16.6 [ADDED] Defects found, not yet fixed
+
+| Defect | Detail |
+| ------ | ------ |
+| **`azapi_resource` is unhandled** | Zero mentions anywhere in the skill. The AzAPI provider lets a repo write `type = "Microsoft.Devices/iotHubs@2021-07-02"` — the canonical ARM type verbatim, no table needed. Today every such resource is reported untranslated. This is a rule, not a row |
+| **`config.tf_file` is unpopulated** | `extract-terraform.md:69` mandates it; the golden has it as the empty string on **24 of 29** entries. Nothing asserts it, so it drifted silently — the §15.4 class again. It is the provenance a migration guide needs, so it matters at step 5e |
+| **Missing pairing check** | Every `azure_id` referenced in `azure-resource-clusters.json` must exist in `azure-resource-inventory.json`. Unguarded today, and the only check that would have caught the cluster-staleness obligation in §16.3 |
+| **The canonical-staleness shape** | A file promoted to `skills/shared/ai/` as a pure ADD does not receive later upstream edits that reach its vendored twin via the rename. `ai-migration-guardrails.md` kept a stale "shared 10,000 RPM" table while main had replaced it with GPT-5.6 TPM-only quotas. `shared:check` caught it. The failure direction is the dangerous one: `shared:sync` propagates a stale canonical **outward** |
+
+### 16.7 [DECIDED] Branch restructure — azure forked from `main`, telemetry deferred
+
+The work was stacked on `feat/telemetry-hooks`. It now sits directly on `awslabs/main`.
+
+- Only **2 of 18** commits conflicted: `940aadd` (shared AI promotion, 4 files, semantic —
+  main had since added `references/shared/openai-on-bedrock.md` and rewritten GPT-5.6
+  facts) and `317c3ac` (7 files, mechanical). Resolution rule: **main's content, azure's
+  path rewrites**, rewriting only the 8 genuinely promoted files.
+- **Telemetry is stripped and DEFERRED**, not redesigned. `hooks/telemetry/` exists only on
+  the telemetry branch, so there is no emitter to wire to: azure carries no `hooks:` block,
+  no consent step, no `SKILL_INVENTORY` entry. §3a is annotated `[DEFERRED]`. The wiring is
+  preserved as a patch and in tag `archive/azure-stacked-on-telemetry`, and must land on
+  the telemetry branch along with the two `emit.mjs` defects §3a documents.
+  **azure-to-aws currently emits no telemetry.**
+- `.cursor-plugin/marketplace.json` was created by the telemetry branch (`2d09d36`), not by
+  main, so it is a telemetry artifact and not azure's. Dropped.
+- **`drift:check` is now GREEN** — `OK (334 identical, 28 allowlisted)`. The two
+  pre-existing `gcp-to-aws` / `heroku-to-aws` SKILL.md failures that handoff §7 called a
+  four-session-old blocker were caused by telemetry landing advisor-only; `main` has no
+  telemetry in either tree, so they vanish. **That blocker is resolved, not deferred.**
+- `lint:md` and `fmt:check` remain **UNVERIFIED** — dprint and markdownlint are absent.
