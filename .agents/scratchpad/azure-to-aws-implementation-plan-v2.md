@@ -323,6 +323,14 @@ What SKILL.md keeps:
 
 ### [ADDED] 3a. Telemetry — wire it now
 
+> **[DEFERRED 2026-09-06] Not on this branch.** This branch is cut from `main`, and
+> `hooks/telemetry/` exists only on `feat/telemetry-hooks` — there is no emitter to wire
+> to, so `azure-to-aws/SKILL.md` carries no `hooks:` block and no consent step. Everything
+> below is still the intended design; it lands as a follow-up commit on the telemetry
+> branch, or after that branch merges. The two `emit.mjs` defects described below are
+> likewise unfixed here and still need fixing there.
+
+
 Rev 1 omits telemetry entirely. Both existing migration skills carry it and it is a shipping
 requirement. Backend liveness is irrelevant to the wiring.
 

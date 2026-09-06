@@ -1,31 +1,6 @@
 ---
 name: azure-to-aws
 description: "Migrate workloads from Microsoft Azure to AWS. Triggers on: migrate from Azure, Azure to AWS, move off Azure, migrate Azure app to AWS, migrate AKS to EKS, migrate App Service to AWS, migrate App Service to Elastic Beanstalk, migrate Azure VMs to EC2, migrate Azure SQL to RDS, migrate Azure Database for PostgreSQL to RDS, migrate Azure Database for MySQL to RDS, migrate Cosmos DB to DynamoDB, migrate Azure Cache for Redis to ElastiCache, migrate Blob Storage to S3, migrate Azure Functions to Lambda, migrate Service Bus to SQS, migrate Event Hubs to Kinesis or MSK, migrate Azure OpenAI to Bedrock, migrate Bicep to Terraform, migrate ARM templates to Terraform, leave Azure, estimate AWS costs for my Azure infrastructure, what-if workshop, reprice Azure migration, compare migration scenarios, workshop mode. Runs a 7-phase process: discover Azure resources from Terraform/Bicep/ARM templates, a read-only consent-gated live `az` CLI capture, an optional Resource Discovery for Azure report, application code, and optional billing exports; clarify migration requirements via an assumption sheet; design AWS architecture; estimate costs (both a 1:1 lift and a right-sized target); optionally reprice what-if scenarios in a workshop sidebar; generate migration artifacts when the user opts in; and collect optional feedback. Clarify must finish before Design, Estimate, or Generate, and Generate is opt-in — it runs only after the user chooses Execute at the post-Estimate decision gate. Uses resource-group-seeded clustering refined by typed edges from ARM resource IDs, canonical `Microsoft.*` ARM resource types as the mapping key, a deterministic fast-path table for architecture-invariant primitives, and a pattern catalog so recommendations describe workloads rather than isolated resources. Do not use for: GCP migrations (see gcp-to-aws), Heroku migrations (see heroku-to-aws), general AWS architecture advice without migration intent (see architect-for-startups), AWS-to-Azure reverse migration, on-premises-into-Azure discovery (that is Azure Migrate's job, not this skill's), or Azure-to-Azure refactoring."
-hooks:
-  PostToolUse:
-    - matcher: "Write|Edit"
-      hooks:
-        - type: command
-          command: "node"
-          args:
-            - "${CLAUDE_PLUGIN_ROOT}/hooks/telemetry/emit.mjs"
-            - "--skill"
-            - "AZURE_TO_AWS"
-          async: true
-  Stop:
-    - hooks:
-        - type: command
-          command: "node"
-          args:
-            - "${CLAUDE_PLUGIN_ROOT}/hooks/telemetry/emit.mjs"
-            - "--skill"
-            - "AZURE_TO_AWS"
-            - "--reconcile"
-          timeout: 30
-# SessionEnd is registered in the plugin's own hooks/hooks.json, not here: a
-# SessionEnd hook declared in skill frontmatter is never invoked (verified on
-# claude 2.1.251.739 — PostToolUse and Stop from this same block do fire), so the
-# abandoned-run report silently never ran. Plugin-level registration works.
 ---
 
 # Azure-to-AWS Migration Skill
@@ -101,67 +76,6 @@ This skill is driven by the interpreter loop in `INTERPRETER.md` (§ The interpr
 loop): it reads `.phase-status.json`, determines the current phase, runs each
 phase's `_preconditions` / fragments / `_assemble` / `_postconditions`, advances on
 `HANDOFF_OK` via `_advances_to`, and validates state.
-
-**Telemetry consent (cold start only, before the first `.phase-status.json` write).**
-
-**Resolving the emitter path.** `${CLAUDE_PLUGIN_ROOT}` is set by Claude Code and by
-nothing else, so a command that relies on it fails silently on any other host — the
-variable expands to empty and the path resolves to `/hooks/telemetry/emit.mjs`.
-Resolve it with the ladder below, and reuse the result for every consent command:
-
-```bash
-EMIT=""
-
-# 1. Claude Code hands the plugin root over directly.
-if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -f "${CLAUDE_PLUGIN_ROOT}/hooks/telemetry/emit.mjs" ]; then
-  EMIT="${CLAUDE_PLUGIN_ROOT}/hooks/telemetry/emit.mjs"
-fi
-
-# 2. Otherwise search where hosts actually install plugins. `-L` because a local
-#    install is commonly a symlink, and the wildcard AFTER the plugin name because
-#    a marketplace install interposes a version directory between the plugin and
-#    its contents — a pattern without it matches a clone and nothing else.
-for base in "$HOME/.cursor/plugins" "$HOME/.claude/plugins"; do
-  [ -n "$EMIT" ] && break
-  [ -d "$base" ] || continue
-  EMIT=$(find -L "$base" -maxdepth 8 -path '*aws-startup-advisor*/hooks/telemetry/emit.mjs' 2>/dev/null | head -1)
-done
-
-# 3. Last resort, for a working clone. `$HOME` is itself a symlink on some
-#    machines, and `find` does not descend into one, so resolve it before walking.
-#    Pruned so this cannot wander into node_modules or a Mac's Library tree.
-if [ -z "$EMIT" ]; then
-  HOMEDIR=$(cd -P "$HOME" 2>/dev/null && pwd)
-  EMIT=$(find "${HOMEDIR:-$HOME}" -maxdepth 10 \
-    \( -name node_modules -o -name Library -o -name .git -o -name .Trash -o -name .cache \) -prune -o \
-    -path '*aws-startup-advisor*/hooks/telemetry/emit.mjs' -print 2>/dev/null | head -1)
-fi
-```
-
-If no `emit.mjs` can be found, skip the consent step entirely and continue the
-migration — telemetry is optional and must never block the customer's work.
-
-Create `$MIGRATION_DIR` first, then resolve the emitter path as above and run
-`node "$EMIT" consent get`. Anything other than `"consent": "unset"` means this
-repo already has a decision — **do not ask again**. On `unset`, ask once, plainly:
-
-> "Before we start: may I share anonymous progress data about this migration with
-> AWS — which phases complete, the size band of your estate, and whether it
-> includes a database or AI? It never includes your code, file paths, resource
-> names, subscription IDs, or exact costs. It's optional, this migration works
-> exactly the same either way, and you can change your mind at any time."
-
-Record the answer with the CLI, **never by writing the file yourself** — the command
-writes the required shape and reuses the machine-level install identifier, whereas a
-hand-written file is likely to omit fields and read as no consent at all:
-
-- Yes → `node "$EMIT" consent grant`
-- No → `node "$EMIT" consent revoke`
-
-Acknowledge in one line and continue; do not re-ask later in the run. Consent is
-stored at `.migration/telemetry.json` and nothing is emitted without it, not even
-locally — so asking *after* Discover writes `.phase-status.json` permanently loses
-that run's first transitions. Declines are never reported, so treat "no" as final.
 
 **Cold start (entry phase).** On a cold start — no `.migration/` run with a
 `.phase-status.json` yet — begin at `references/phases/discover/discover.md`, this
