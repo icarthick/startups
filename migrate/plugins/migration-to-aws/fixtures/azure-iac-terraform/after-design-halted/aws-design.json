@@ -278,6 +278,35 @@
       "confidence": "inferred",
       "rubric_applied": "database.md",
       "rationale": "RDS PostgreSQL single-AZ. The availability override gate (database.md \u00a71) selects the family, and preferences.json records NO availability answer \u2014 so the documented default is RDS single-AZ, NOT Aurora. Inferring Aurora from silence would inflate the estimate with no way for the customer to see why. Backup retention carried across verbatim at 14 days: a stated requirement, not a sizing knob."
+    },
+    {
+      "service_id": "rt-egress",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/routeTables/rt-egress",
+      "azure_type": "Microsoft.Network/routeTables",
+      "aws_service": "VPC route table",
+      "aws_config": {
+        "associated_subnets": [
+          "snet-apps"
+        ],
+        "source_module": "module.naming \u2014 discovered from .terraform/modules/, not the root configuration"
+      },
+      "confidence": "deterministic",
+      "fast_path_row": "Microsoft.Network/routeTables",
+      "rationale": "Direct Mappings row, condition Always. Its subnet association came from an association-only Terraform resource, which produced an edge rather than an inventory entry."
+    },
+    {
+      "service_id": "ssm-session-manager",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/bastionHosts/bas-jump",
+      "azure_type": "Microsoft.Network/bastionHosts",
+      "aws_service": "Systems Manager Session Manager",
+      "aws_config": {
+        "instances_required": 0,
+        "source_sku": "Basic",
+        "source_module": "module.naming"
+      },
+      "confidence": "deterministic",
+      "fast_path_row": "Microsoft.Network/bastionHosts",
+      "rationale": "Direct Mappings row, condition Always. Azure Bastion exists to give browser-based RDP/SSH without public IPs; Session Manager is the direct analogue, needs no host at all, and is free. Emitting a bastion EC2 instance would carry a cost the target does not have."
     }
   ],
   "deferred": [],

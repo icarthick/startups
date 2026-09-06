@@ -8,7 +8,7 @@
     "subscriptions_discovered": [
       "<subscription-unknown>"
     ],
-    "total_resources": 27,
+    "total_resources": 29,
     "confidence": "inferred"
   },
   "resources": [
@@ -506,7 +506,13 @@
         ]
       },
       "tags": {},
-      "edges": [],
+      "edges": [
+        {
+          "type": "network",
+          "to": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/routeTables/rt-egress",
+          "via": "azurerm_subnet_route_table_association.apps.route_table_id"
+        }
+      ],
       "drift": []
     },
     {
@@ -638,6 +644,45 @@
       "tags": {},
       "edges": [],
       "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/routeTables/rt-egress",
+      "azure_type": "Microsoft.Network/routeTables",
+      "name": "rt-egress",
+      "resource_group": "rg-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": ".terraform/modules/naming/main.tf",
+        "tf_resource_name": "egress",
+        "tf_address": "azurerm_route_table.egress",
+        "tf_module": "module.naming",
+        "tf_module_source": "registry.terraform.io/Azure/naming/azurerm 0.4.0"
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/bastionHosts/bas-jump",
+      "azure_type": "Microsoft.Network/bastionHosts",
+      "name": "bas-jump",
+      "resource_group": "rg-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "tf_file": ".terraform/modules/naming/main.tf",
+        "tf_resource_name": "jump",
+        "tf_address": "azurerm_bastion_host.jump",
+        "tf_module": "module.naming",
+        "tf_module_source": "registry.terraform.io/Azure/naming/azurerm 0.4.0",
+        "sku": "Basic"
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
     }
   ],
   "iac_metadata": {
@@ -647,7 +692,7 @@
     "dialects_extracted": [
       "terraform"
     ],
-    "files_scanned": 5,
+    "files_scanned": 6,
     "modules_unresolved": [
       "module.cdn (source Azure/cdn/azurerm 3.1.0 \u2014 content not in workspace, its resources were NOT discovered)"
     ],

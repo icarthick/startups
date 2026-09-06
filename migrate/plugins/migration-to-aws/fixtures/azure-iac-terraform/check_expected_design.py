@@ -36,6 +36,7 @@ Exits 0 on PASS, 1 on FAIL. Stdlib only.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -427,6 +428,45 @@ def check_source_ha_finding(design: dict, id_of: dict[str, str], exp: dict) -> N
     )
 
 
+def check_canonical_type_coverage(exp: dict) -> None:
+    """Every canonical type must have a disposition. Nothing else catches this.
+
+    A coverage pass over the canonicalization table improves the INVENTORY and silently
+    degrades DESIGN: each newly-translatable type is now discovered, finds no row, matches
+    the cost-bearing namespace clause, and halts. The corpus cannot catch it — it contains
+    a dozen types out of 137 — so the check has to read both files directly.
+    """
+    spec = exp.get("canonical_type_coverage")
+    if not spec:
+        return
+    canon_path = HERE / spec["canon_relpath"]
+    index_path = HERE / spec["index_relpath"]
+    table_path = HERE / exp["fast_path_table_relpath"]
+    for pth in (canon_path, index_path, table_path):
+        if not pth.exists():
+            FAILS.append(f"cannot check canonical-type coverage: missing {pth}")
+            return
+
+    canon = {
+        m for m in re.findall(r"`(Microsoft\.[A-Za-z0-9./]+)`", canon_path.read_text())
+        if "/" in m and m not in set(spec["exempt"])
+    }
+    table = json.loads(table_path.read_text())
+    disposed: set[str] = set()
+    for section in ("direct_mappings", "skip_mappings", "specialist_gates", "hard_blockers"):
+        disposed |= {t.split("#")[0] for t in real_keys(table.get(section) or {})}
+    index_text = index_path.read_text()
+    routed = {t for t in canon if f"`{t}`" in index_text}
+
+    orphans = sorted(canon - disposed - routed)
+    check(
+        len(orphans) <= spec["max_orphans"],
+        f"{len(orphans)} canonical type(s) have NO disposition — not a fast-path row, not an "
+        f"index.md Reference row: {orphans}. {spec['_why']}",
+    )
+    NOTES.append(f"canonical-type coverage: {len(canon)} types, {len(orphans)} orphan(s)")
+
+
 def check_cluster_pattern_status(design: dict, exp: dict) -> None:
     """Assert the honest 'no pattern catalog' state, not a plausible architecture string.
 
@@ -640,6 +680,7 @@ def main() -> int:
         return 1
 
     check_table(table, exp)
+    check_canonical_type_coverage(exp)
     check_deterministic(design, table, id_of, exp)
     check_fan_in(design, inv, id_of, exp)
     check_unknown_stop(design, exp)

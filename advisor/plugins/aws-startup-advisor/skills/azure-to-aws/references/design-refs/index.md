@@ -54,6 +54,7 @@ Design runs.
 | `Microsoft.ContainerService/managedClusters/agentPools` | fast-path: skip       | EKS node-group sizing on the parent                                            |
 | `Microsoft.ContainerRegistry/registries`                | fast-path: **direct** | ECR                                                                            |
 | `Microsoft.App/containerApps`                           | `compute.md`          | {Fargate}                                                                        |
+| `Microsoft.ContainerInstance/containerGroups`            | `compute.md`          | {Fargate task} — a one-shot container group is a task, not a service               |
 | `Microsoft.App/managedEnvironments`                     | `compute.md`          | {ECS cluster + VPC}; usually a config source for its container apps instead              |
 
 **`Microsoft.Web/sites` never gets an entry of its own** — not in `services[]`, not in

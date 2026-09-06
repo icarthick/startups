@@ -34,6 +34,9 @@ are deliberately not asserted — they cost review attention and prove nothing.
 | app in `rg-app`, database in `rg-data`                   | edge dropped at the group boundary     | edge preserved so clustering can merge     |
 | a private endpoint                                       | mapped as a target                     | skipped, but its `private_link` edge read  |
 | `azurerm_iothub` (absent from the table)            | a guessed `Microsoft.Devices/IotHubs`  | reported as untranslated                   |
+| a registry module WITH its source in `.terraform/modules/` | silence, per the blanket `.terraform/` ban | its 2 resources discovered, tagged `tf_module` |
+| `azurerm_subnet_route_table_association`                  | an inventory entry, or an untranslated-type warning | no entry, no warning — one `network` edge |
+| `azurerm_bastion_host`                                    | an EC2 bastion instance                | **Session Manager** — no host, no cost     |
 | a registry `module` not in the workspace                  | silence                                | a warning naming the module                |
 | `enabled_protocol = "SMB"`                               | dropped                                | carried — it is the EFS-vs-FSx input       |
 | `kafka_enabled = true`                                   | dropped                                | carried — it is the MSK-vs-Kinesis input   |
@@ -52,10 +55,10 @@ sentinel makes the assertion unambiguous.
 
 | Path                                | Role                                                                 |
 | ----------------------------------- | -------------------------------------------------------------------- |
-| `workspace-terraform/`              | the committed INPUT — 28 resources + 1 unresolvable module           |
+| `workspace-terraform/`              | the committed INPUT — 31 resources, 1 resolvable module (source on disk under `.terraform/modules/`), 1 unresolvable module, 1 association-only resource |
 | `expected-iac-terraform.json`       | pinned Discover facts                                                |
 | `check_expected_iac_terraform.py`   | the Discover oracle                                                  |
-| `after-discover/`                   | GOLDEN Discover output — 27 resources                                |
+| `after-discover/`                   | GOLDEN Discover output — 29 resources (31 declared, minus the untranslated type, minus the association) |
 | `expected-design.json`              | pinned Design pass-1 facts                                           |
 | `check_expected_design.py`          | the Design oracle                                                    |
 | `after-design-halted/`              | GOLDEN Design output — a **halted** design, see below                |

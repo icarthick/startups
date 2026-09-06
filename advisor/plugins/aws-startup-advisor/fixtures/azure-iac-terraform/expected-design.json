@@ -23,7 +23,10 @@
       "Microsoft.ManagedIdentity/userAssignedIdentities",
       "Microsoft.ContainerService/managedClusters",
       "Microsoft.EventHub/namespaces",
-      "Microsoft.DocumentDB/databaseAccounts"
+      "Microsoft.DocumentDB/databaseAccounts",
+      "Microsoft.Network/routeTables",
+      "Microsoft.Network/bastionHosts",
+      "Microsoft.KeyVault/vaults/keys"
     ],
     "_required_direct_rows_why": "Microsoft.Network/virtualNetworks/subnets and the three storage-service children are the load-bearing entries: canonicalization emits them as their own child-typed resources, so removing a row does not merely lose a mapping \u2014 the type reaches the unknown-type policy, matches 'sits in a network/data provider namespace', and STOPS the design on every real estate.",
     "must_not_be_direct_rows": [
@@ -111,6 +114,21 @@
         "Amazon Kinesis"
       ],
       "why": "kafka_enabled is true, and protocol is the whole rubric with no throughput threshold (decision 11.4). Kinesis is the improviser's answer because Event Hubs is usually described as Azure's Kinesis; it is correct only for native AMQP/SDK consumers, and it would be a code rewrite for a Kafka client."
+    },
+    "azurerm_route_table.egress": {
+      "aws_service": "VPC route table",
+      "must_not_be": [],
+      "why": "Also proves the module fix end-to-end at Design: this resource only exists in the inventory because .terraform/modules/ was read."
+    },
+    "azurerm_bastion_host.jump": {
+      "aws_service": "Systems Manager Session Manager",
+      "must_not_be": [
+        "EC2",
+        "EC2 bastion instance",
+        "bastion host",
+        "EC2 bastion"
+      ],
+      "why": "The improviser's answer is a bastion EC2 instance, because 'bastion host' names the pattern. Session Manager needs no host and is free, so the wrong answer adds a permanent cost line the target architecture does not have."
     }
   },
   "confidence": {
@@ -193,7 +211,7 @@
   },
   "accounting": {
     "_why": "The catch-all. Every inventory resource must appear somewhere \u2014 mapped, pending, deferred, or explicitly skipped. Without this, dropping a resource is invisible: the design still parses, every other assertion still passes, and the estimate is simply missing a line.",
-    "expected_inventory_resource_count": 27
+    "expected_inventory_resource_count": 29
   },
   "forbidden_substrings": {
     "values": [
@@ -281,5 +299,20 @@
     "_why": "database.md \u00a71 requires the source's zone-redundancy to surface as a finding when the target is single-AZ. Without it the customer silently loses HA they were paying for, and nothing in the artifact says so \u2014 a shape assertion cannot catch an absent finding.",
     "tf_address": "azurerm_postgresql_flexible_server.store",
     "expected_warning_code": "availability_downgrade_from_source"
+  },
+  "canonical_type_coverage": {
+    "_why": "EVERY canonical type in arm-type-canonicalization.md must resolve to a disposition \u2014 a fast-path row or an index.md Reference row. A canonicalization row WITHOUT one makes the inventory better and Design WORSE: the type is now discovered, reaches the unknown-type policy, matches a provider-namespace clause, and STOPs. That regression really happened: a coverage pass took the table 77 -> 137 types and left 53 orphans, any one of which halted Design on a real repo. Nothing else would have caught it \u2014 the corpus contains only a handful of types, so every oracle stayed green.",
+    "canon_relpath": "../../skills/azure-to-aws/references/shared/arm-type-canonicalization.md",
+    "index_relpath": "../../skills/azure-to-aws/references/design-refs/index.md",
+    "max_orphans": 0,
+    "exempt": [
+      "Microsoft.Web/functionApps",
+      "Microsoft.Web/serverFarms",
+      "Microsoft.Cache/redis",
+      "Microsoft.CosmosDB/accounts",
+      "Microsoft.OpenAI/accounts",
+      "Microsoft.Resources/resourceGroups/rg"
+    ],
+    "_exempt_why": "These are the WRONG column of the \u00a7 Traps table \u2014 strings the file exists to warn against. They are not canonical types and must never get a disposition."
   }
 }

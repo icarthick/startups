@@ -5,8 +5,8 @@
     "terraform"
   ],
   "resource_counts": {
-    "declared_in_corpus": 28,
-    "expected_in_inventory": 27,
+    "declared_in_corpus": 31,
+    "expected_in_inventory": 29,
     "_comment": "28 resource blocks; azurerm_dev_test_lab is untranslated and therefore skipped, not guessed. Note that 5 local names collide across types (core, storefront, reporting, data, store), which is why identity is the full address."
   },
   "canonical_types": {
@@ -37,7 +37,9 @@
     "azurerm_subnet.data": "Microsoft.Network/virtualNetworks/subnets",
     "azurerm_network_interface.reporting": "Microsoft.Network/networkInterfaces",
     "azurerm_private_endpoint.store": "Microsoft.Network/privateEndpoints",
-    "azurerm_application_insights.storefront": "Microsoft.Insights/components"
+    "azurerm_application_insights.storefront": "Microsoft.Insights/components",
+    "azurerm_route_table.egress": "Microsoft.Network/routeTables",
+    "azurerm_bastion_host.jump": "Microsoft.Network/bastionHosts"
   },
   "forbidden_types": {
     "_comment": "Plausible guesses that are not real ARM type strings, or are the wrong casing. None may appear as any resource's azure_type.",
@@ -263,5 +265,26 @@
     "Microsoft.Network/privateEndpoints": [
       "subresource_names"
     ]
+  },
+  "downloaded_module": {
+    "_why": "The single highest-value inventory fix, and it is invisible to every other assertion. `.terraform/modules/` holds downloaded module SOURCE, so it is readable; the old blanket `.terraform/` ban was written for state files and over-reached. Modern Azure Terraform leans hard on Azure Verified Modules, so under the ban a repo could declare almost its whole estate through registry modules and return a nearly empty inventory plus one warning \u2014 with every downstream phase then reasoning confidently about a fraction of the estate.",
+    "tf_addresses": [
+      "azurerm_route_table.egress",
+      "azurerm_bastion_host.jump"
+    ],
+    "expected_tf_module": "module.naming",
+    "must_not_be_warned_as": "module_not_resolved",
+    "_must_not_be_warned_why": "module.cdn in unsupported.tf is NOT on disk and MUST warn. module.naming IS on disk and must NOT \u2014 conflating them is how the fix silently reverts."
+  },
+  "association_only_resource": {
+    "_why": "An association has no ARM type at all. Reporting it as untranslated claims a gap in this skill and buries the real gaps, because associations outnumber genuinely-missing types on an IaC-heavy repo. Emitting an inventory entry for it would invent a resource that does not exist.",
+    "tf_address": "azurerm_subnet_route_table_association.apps",
+    "must_not_be_in_inventory": true,
+    "must_not_be_untranslated": true,
+    "expected_edge": {
+      "from_tf_address": "azurerm_subnet.apps",
+      "to_tf_address": "azurerm_route_table.egress",
+      "type": "network"
+    }
   }
 }

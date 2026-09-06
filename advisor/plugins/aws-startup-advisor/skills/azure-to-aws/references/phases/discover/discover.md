@@ -45,7 +45,7 @@ _postconditions:
     _on_failure: _halt_and_inform
   - _assert: "every edges[] entry's type appears in schema-discover-azure.md § Typed edges — a per-dialect ref may map new syntax onto an existing type but may not invent one"
     _on_failure: _halt_and_inform
-  - _assert: "azure-resource-clusters.json has one entry per cluster, each with cluster_id, tier, member azure_ids, and a justification; any cluster justified by edges, a split, or a merge has a non-empty edges[] carrying them, while a cluster justified by the resource-group seed alone has an empty edges[]; every inventory resource is either a cluster member or listed in unclustered[]"
+  - _assert: "azure-resource-clusters.json has one entry per cluster, each with cluster_id, tier, member azure_ids, and a justification; any cluster justified by edges or by a merge has a non-empty edges[] carrying them, while a cluster justified by the resource-group seed or by a SPLIT legitimately has an empty edges[] — a split is justified by the ABSENCE of a relationship, so there is nothing to show; every inventory resource is either a cluster member or listed in unclustered[]"
     _on_failure: _halt_and_inform
 _forbids_files:
   - README.md
@@ -83,16 +83,16 @@ Two facts the frontmatter cannot express:
    subscription and resource group — one field supplies the cluster seed key, the
    environment scope, and uniqueness with no derivation.
 
-## Status — skeleton (build step 1)
+## Status — build steps 2 and 4 (partial)
 
-Wiring only. Today the phase runs one fragment (`discover-iac.md`, Terraform only)
-and an assembler that writes both artifacts.
+Terraform discovery is real and clustering is real. One fragment (`discover-iac.md`,
+Terraform only) plus an assembler that writes both artifacts.
 
 | Lands in | What                                                                                   |
 | -------- | -------------------------------------------------------------------------------------- |
 | step 2   | Bicep + ARM inside `discover-iac.md`; the `billing` and `app-code` fragments           |
 | step 2   | The `rdfa` fragment, then the live `az` path — security contract, capture pre-work, parsing fragment, in that order |
-| step 4   | Real clustering (resource-group seed, split/merge on typed edges, tiering) and the pattern catalog in `azure-resource-clusters.json` |
+| step 4   | `patterns.md` — pattern RECOGNITION only. Seed / split / merge / tier / primary / roles are implemented in `references/clustering/`; every cluster carries `pattern_status: "catalog_absent"` until the catalog exists |
 
 The live `az` path will NOT be a plain fragment. This phase runs under
 `_exec: { _agent: rw }` with `_interactive: false`, and a dispatched worker is

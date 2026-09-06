@@ -39,22 +39,35 @@ member list disagree with the inventory, which the phase's accounting assert cat
 
 ### Step 2 — Split a seed with no internal edges
 
-For each candidate, build the subgraph of edges **between its own members** (ignore edges
-leaving the cluster). If that subgraph has more than one connected component, the
-candidate is not one workload — split it into one cluster per component.
+For each candidate, build the subgraph of relationships **between its own members** and
+find the connected components. Two things count as connectivity here:
 
-Set `justification: "split:no_internal_edges"` on each resulting cluster, and put the
-crossing evidence in `edges[]`.
+1. every `edges[]` entry, **treated as undirected** — an app referencing a database and a
+   database being referenced are the same relationship. Direction matters for tiering and
+   for the report's phrasing, never for connectivity;
+2. **containment**, derived from the `azure_id` prefix. A VNet and its subnets, a storage
+   account and its share, a plan and its slots are connected. Containment is deliberately
+   not an *edge* (`schema-discover-azure.md` says why) but it is unquestionably a
+   relationship, and omitting it here is what over-fragments a seed.
 
-**A component of one resource is legal**, and common: a lone storage account in a shared
-group has no edges because nothing references it. Do not merge singletons together just
-to avoid small clusters — "these two resources share a filing folder and nothing else" is
-exactly the false grouping this step exists to break.
+**Split only when TWO OR MORE components each contain a primary-eligible resource** —
+ranks 1–7 in `classification-rules.md`. A component with nothing primary-eligible in it is
+not a workload, it is a fragment: attach it to the largest component of the same seed
+rather than promoting it to a cluster of its own.
 
-> **Direction is ignored for connectivity.** An app referencing a database and a database
-> being referenced by an app are the same relationship. Treat every edge as undirected
-> when computing components; direction matters only for tiering and for the report's
-> phrasing.
+Set `justification: "split:no_internal_edges"` on each resulting cluster.
+
+> **A `split:*` cluster legitimately has an EMPTY `edges[]`.** Its justification is the
+> *absence* of a relationship, and there is nothing to show. Only `merge:*` and the bare
+> `edges` justification require a non-empty `edges[]` — see `schema-discover-azure.md`.
+
+**Both guards exist because the first draft of this file over-fragmented badly, and its
+own worked example proved it.** With containment excluded and singleton components
+promoted, a capability run over the corpus below produced **16 clusters** where the example
+predicted 3: a VNet separated from its subnets, a storage account from its share, and every
+edgeless observability resource elevated to a workload of its own. The example was written
+by hand rather than by tracing the algorithm, so the two disagreed and the algorithm was
+what shipped. If you change this step, re-trace the example.
 
 ### Step 3 — Merge candidates joined by crossing edges
 
@@ -102,26 +115,34 @@ and never from iteration order or an incrementing counter.
 
 - Every inventory resource is a member of exactly one cluster, or is in `unclustered[]`.
 - No resource appears in two clusters (merging must union members, not duplicate them).
-- Every `justification` of `edges`, `split:*`, or `merge:*` has a non-empty `edges[]`.
+- Every `justification` of `edges` or `merge:*` has a non-empty `edges[]`; a `split:*` may be empty.
 - Every `azure_id` in `edges[]` and `members[]` exists in the inventory.
 
 ## Worked example
 
-Given: `rg-app` {plan, 5 web apps, storage, vault, vnet, 2 subnets}, `rg-data`
-{postgres, redis, cosmos, eventhub, private endpoint}, `rg-shared` {idle plan, Windows
-VM, NIC}.
+Given `rg-app` {vnet, 2 subnets, storage account, its SMB share, key vault, Log Analytics
+workspace, App Insights, plan-web + 5 web apps, plan-func + 1 function app}, `rg-data`
+{postgres, redis, cosmos, event hub namespace, private endpoint}, `rg-shared` {idle plan,
+Windows VM, its NIC}.
 
 1. **Seed** → 3 candidates.
-2. **Split** — `rg-shared`'s VM+NIC are joined by a `network` edge; the idle plan has no
-   edges at all. Two components → **split** into `{VM, NIC}` and `{idle plan}`.
-3. **Merge** — a web app has a `data_ref` to the postgres server, and the private endpoint
-   has a `private_link` to it. `rg-app` and `rg-data` **merge**. The subnet `network`
-   edges do not merge anything (they are ambient) but are recorded.
-4. Result: **3 clusters** — the merged app+data workload, the VM, and the idle plan.
+2. **Split.** `rg-app`'s components, once containment counts: {plan-web + 5 apps + vault
+   via `secret_ref`}, {plan-func + function app + storage + share via `hosted_on` and
+   `data_ref` and containment}, {vnet + both subnets}, {Log Analytics}, {App Insights}.
+   Only the first two contain a primary-eligible resource (a `serverfarms` plan, rank 2),
+   so **only those two are promoted**; the vnet/subnet, Log Analytics, and App Insights
+   fragments attach to the largest component. `rg-shared` splits into {VM + NIC} (rank 3)
+   and {idle plan} (rank 2) — two primary-eligible components, so a real split.
+3. **Merge.** A web app has a `data_ref` to the postgres server and the private endpoint a
+   `private_link` to it, so `rg-app`'s first component merges with `rg-data`. The subnet
+   `network` edges are ambient and merge nothing, though they are recorded.
+4. **Result: 4 clusters** — the merged app+data workload, the function workload, the
+   reporting VM, and the idle plan.
 
-Note what each step bought: the split stopped the idle plan being reported as part of a
-reporting-VM workload, and the merge stopped the app being costed without its database.
-Neither is visible from resource groups alone.
+Note what each step bought. The split stopped the idle plan being reported as part of a
+reporting-VM workload. The merge stopped the app being costed without its database. The
+primary-eligible guard stopped an orphan Log Analytics workspace being presented as a
+workload. None of the three is visible from resource groups alone.
 
 ## Status — build step 4
 

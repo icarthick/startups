@@ -165,11 +165,15 @@ evaluated.
 | ----------------------- | ----------------------------------------------------------------------------- |
 | `seed:resource_group`   | the unrefined seed — every member shares one resource group, `edges[]` is empty |
 | `edges`                 | refinement ran; `edges[]` is non-empty and is the actual justification          |
-| `split:no_internal_edges` | carved out of a seed whose contents had no edges between them                 |
-| `merge:cross_group_edges` | merged across resource groups because edges crossed the boundary — `edges[]` MUST contain those crossing edges |
+| `split:no_internal_edges` | carved out of a seed whose contents had no relationship between them — `edges[]` is legitimately EMPTY, because the justification is an ABSENCE and there is nothing to show |
+| `merge:cross_group_edges` | merged across resource groups because a non-ambient edge crossed the boundary — `edges[]` MUST contain those crossing edges |
 
-`justification: "edges"`, `"split:…"`, or `"merge:…"` with an empty `edges[]` is a
-contradiction and must fail validation.
+`justification: "edges"` or `"merge:…"` with an empty `edges[]` is a contradiction and must
+fail validation. **`split:…` is exempt**, and getting this wrong is not hypothetical: an
+earlier draft required a non-empty `edges[]` for every non-seed justification, which made
+a correct split unrepresentable — a capability run had to mislabel nine clusters
+`seed:resource_group` to pass the gate, destroying the very information the field exists
+to carry.
 
 `tier` is a fixed classification, not a computed topological depth. Fixed tiers are
 what Generate's cutover sequencing actually wants, and they are stable under partial
@@ -190,7 +194,7 @@ discovery in a way a depth calculation is not.
 - [ ] `primary` is a member of its own cluster, and is never a `Microsoft.Web/sites` resource.
 - [ ] `member_roles` has an entry for every member except the primary.
 - [ ] No resource is a member of two clusters.
-- [ ] Any cluster whose `justification` is `edges`, `split:*`, or `merge:*` has a non-empty `edges[]`.
+- [ ] Any cluster whose `justification` is `edges` or `merge:*` has a non-empty `edges[]`. A `split:*` cluster may legitimately have an empty one.
 
 ## Status — skeleton (build step 1)
 

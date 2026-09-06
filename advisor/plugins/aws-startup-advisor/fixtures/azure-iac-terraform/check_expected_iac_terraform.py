@@ -430,6 +430,72 @@ def check_discriminators(index: dict[str, dict], exp: dict) -> None:
         )
 
 
+def check_downloaded_module(index: dict[str, dict], exp: dict) -> None:
+    spec = exp.get("downloaded_module")
+    if not spec:
+        return
+    warn_blob = json.dumps(exp) and ""  # placeholder to keep the linter honest
+    for addr in spec["tf_addresses"]:
+        res = index.get(addr)
+        if res is None:
+            FAILS.append(
+                f"{addr!r} is absent from the inventory. It lives in a DOWNLOADED registry module "
+                f"under .terraform/modules/, which is readable. {spec['_why']}"
+            )
+            continue
+        cfg = res.get("config") or {}
+        check(
+            cfg.get("tf_module") == spec["expected_tf_module"],
+            f"{addr!r}: config.tf_module is {cfg.get('tf_module')!r}, expected "
+            f"{spec['expected_tf_module']!r} — without it the report cannot say the resources came "
+            f"from a module rather than the root configuration",
+        )
+
+
+def check_module_not_over_warned(inv: dict, exp: dict) -> None:
+    spec = exp.get("downloaded_module")
+    if not spec:
+        return
+    for w in inv.get("warnings") or []:
+        if w.get("code") == spec["must_not_be_warned_as"]:
+            blob = json.dumps(w)
+            check(
+                spec["expected_tf_module"] not in blob and "naming" not in blob,
+                f"module.naming is warned as {spec['must_not_be_warned_as']!r}, but its source IS on "
+                f"disk under .terraform/modules/. {spec['_must_not_be_warned_why']}",
+            )
+
+
+def check_association_only(index: dict[str, dict], inv: dict, exp: dict) -> None:
+    spec = exp.get("association_only_resource")
+    if not spec:
+        return
+    addr = spec["tf_address"]
+    if spec["must_not_be_in_inventory"]:
+        check(
+            addr not in index,
+            f"{addr!r} has an inventory entry. It is an ASSOCIATION and has no ARM type at all, so "
+            f"an entry invents a resource that does not exist. {spec['_why']}",
+        )
+    if spec["must_not_be_untranslated"]:
+        blob = json.dumps(inv.get("warnings") or []) + json.dumps(inv.get("iac_metadata") or {})
+        check(
+            "subnet_route_table_association" not in blob,
+            f"{addr!r} is reported as an untranslated type. {spec['_why']}",
+        )
+    e = spec["expected_edge"]
+    src, dst = index.get(e["from_tf_address"]), index.get(e["to_tf_address"])
+    if src is None or dst is None:
+        FAILS.append(f"cannot check the association edge: missing {e['from_tf_address']!r} or {e['to_tf_address']!r}")
+        return
+    check(
+        any(x.get("type") == e["type"] and x.get("to") == dst.get("azure_id") for x in edges_of(src)),
+        f"no {e['type']!r} edge from {e['from_tf_address']!r} to {e['to_tf_address']!r}. The "
+        f"association's whole contribution is that edge — drop it and the association was read for "
+        f"nothing.",
+    )
+
+
 def check_contract_vocabulary(inv: dict, exp: dict) -> None:
     """Enforce the parts of the contract a correct-by-the-ref run can still get wrong.
 
@@ -546,6 +612,9 @@ def main() -> int:
     check_child_rg_inheritance(index, exp)
     check_warnings(inv, exp)
     check_discriminators(index, exp)
+    check_downloaded_module(index, exp)
+    check_module_not_over_warned(inv, exp)
+    check_association_only(index, inv, exp)
     check_contract_vocabulary(inv, exp)
     check_required_config_fields(resources, exp)
     check_no_terraform_leakage(inv, exp)
