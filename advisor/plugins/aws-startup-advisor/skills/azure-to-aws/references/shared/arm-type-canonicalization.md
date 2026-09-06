@@ -61,6 +61,13 @@ and `Microsoft.CognitiveServices/accounts` entry.
 | `azurerm_container_registry`                                                                                              | `Microsoft.ContainerRegistry/registries`           |
 | `azurerm_container_app`                                                                                                   | `Microsoft.App/containerApps`                      |
 | `azurerm_container_app_environment`                                                                                       | `Microsoft.App/managedEnvironments`                |
+| `azurerm_container_group`                                                                                                 | `Microsoft.ContainerInstance/containerGroups`      |
+| `azurerm_virtual_machine_extension`                                                                                       | `Microsoft.Compute/virtualMachines/extensions`     |
+| `azurerm_snapshot`                                                                                                        | `Microsoft.Compute/snapshots`                      |
+| `azurerm_image`                                                                                                           | `Microsoft.Compute/images`                         |
+| `azurerm_shared_image_gallery`                                                                                            | `Microsoft.Compute/galleries`                      |
+| `azurerm_shared_image`                                                                                                    | `Microsoft.Compute/galleries/images`               |
+| `azurerm_proximity_placement_group`                                                                                       | `Microsoft.Compute/proximityPlacementGroups`       |
 
 ## Data
 
@@ -82,6 +89,18 @@ and `Microsoft.CognitiveServices/accounts` entry.
 | `azurerm_storage_share`                                           | `Microsoft.Storage/storageAccounts/fileServices/shares` |
 | `azurerm_storage_queue`                                           | `Microsoft.Storage/storageAccounts/queueServices/queues` |
 | `azurerm_storage_table`                                           | `Microsoft.Storage/storageAccounts/tableServices/tables` |
+| `azurerm_storage_management_policy`                               | `Microsoft.Storage/storageAccounts/managementPolicies` |
+| `azurerm_postgresql_flexible_server_database`                     | `Microsoft.DBforPostgreSQL/flexibleServers/databases` |
+| `azurerm_postgresql_flexible_server_firewall_rule`                | `Microsoft.DBforPostgreSQL/flexibleServers/firewallRules` |
+| `azurerm_mysql_flexible_database`                                 | `Microsoft.DBforMySQL/flexibleServers/databases` |
+| `azurerm_mssql_firewall_rule`                                     | `Microsoft.Sql/servers/firewallRules`         |
+| `azurerm_cosmosdb_sql_database`                                   | `Microsoft.DocumentDB/databaseAccounts/sqlDatabases` |
+| `azurerm_cosmosdb_sql_container`                                  | `Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers` |
+| `azurerm_cosmosdb_mongo_database`                                 | `Microsoft.DocumentDB/databaseAccounts/mongodbDatabases` |
+| `azurerm_cosmosdb_cassandra_keyspace`                             | `Microsoft.DocumentDB/databaseAccounts/cassandraKeyspaces` |
+| `azurerm_app_configuration`                                       | `Microsoft.AppConfiguration/configurationStores` |
+| `azurerm_recovery_services_vault`                                 | `Microsoft.RecoveryServices/vaults`           |
+| `azurerm_backup_policy_vm`                                        | `Microsoft.RecoveryServices/vaults/backupPolicies` |
 
 Note that `azurerm_storage_share` is what makes the Azure Files → EFS-or-FSx routing
 decision reachable: its `enabled_protocol` (`SMB` or `NFS`) is the discriminator, so
@@ -104,6 +123,23 @@ carry it into `config.enabled_protocol`.
 | `azurerm_private_endpoint`        | `Microsoft.Network/privateEndpoints`         |
 | `azurerm_cdn_frontdoor_profile`   | `Microsoft.Cdn/profiles`                     |
 | `azurerm_frontdoor` (deprecated)  | `Microsoft.Network/frontDoors`               |
+| `azurerm_route_table`             | `Microsoft.Network/routeTables`               |
+| `azurerm_route`                   | `Microsoft.Network/routeTables/routes`       |
+| `azurerm_virtual_network_peering` | `Microsoft.Network/virtualNetworks/virtualNetworkPeerings` |
+| `azurerm_firewall`                | `Microsoft.Network/azureFirewalls`           |
+| `azurerm_firewall_policy`         | `Microsoft.Network/firewallPolicies`         |
+| `azurerm_bastion_host`            | `Microsoft.Network/bastionHosts`             |
+| `azurerm_network_security_rule`   | `Microsoft.Network/networkSecurityGroups/securityRules` |
+| `azurerm_lb_backend_address_pool` | `Microsoft.Network/loadBalancers/backendAddressPools` |
+| `azurerm_lb_probe`                | `Microsoft.Network/loadBalancers/probes`     |
+| `azurerm_lb_rule`                 | `Microsoft.Network/loadBalancers/loadBalancingRules` |
+| `azurerm_private_dns_zone_virtual_network_link` | `Microsoft.Network/privateDnsZones/virtualNetworkLinks` |
+| `azurerm_dns_a_record`, `azurerm_dns_cname_record`, and the other `azurerm_dns_*_record` types | `Microsoft.Network/dnsZones/<RECORDTYPE>` — the record type is UPPERCASE in the ARM type (`/A`, `/CNAME`, `/TXT`) |
+| `azurerm_cdn_endpoint`            | `Microsoft.Cdn/profiles/endpoints`           |
+| `azurerm_cdn_frontdoor_endpoint`  | `Microsoft.Cdn/profiles/afdEndpoints`        |
+| `azurerm_web_application_firewall_policy` | `Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies` — capital A on the leading segment |
+| `azurerm_traffic_manager_profile` | `Microsoft.Network/trafficManagerProfiles`   |
+| `azurerm_nat_gateway_public_ip_association`, `azurerm_subnet_route_table_association`, and every other `*_association` | **no type of its own** — see § Association-only resources |
 
 ## Identity, secrets, messaging
 
@@ -120,6 +156,18 @@ carry it into `config.enabled_protocol`.
 | `azurerm_eventhub`                   | `Microsoft.EventHub/namespaces/eventhubs`             |
 | `azurerm_api_management`             | `Microsoft.ApiManagement/service`                     |
 | `azurerm_signalr_service`            | `Microsoft.SignalRService/SignalR`                    |
+| `azurerm_key_vault_key`              | `Microsoft.KeyVault/vaults/keys`                      |
+| `azurerm_key_vault_certificate`      | `Microsoft.KeyVault/vaults/certificates`              |
+| `azurerm_federated_identity_credential` | `Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials` |
+| `azurerm_servicebus_subscription`    | `Microsoft.ServiceBus/namespaces/topics/subscriptions` |
+| `azurerm_eventhub_consumer_group`    | `Microsoft.EventHub/namespaces/eventhubs/consumergroups` — all-lowercase `consumergroups` |
+| `azurerm_eventhub_authorization_rule`| `Microsoft.EventHub/namespaces/eventhubs/authorizationRules` |
+| `azurerm_eventgrid_topic`            | `Microsoft.EventGrid/topics`                          |
+| `azurerm_eventgrid_system_topic`     | `Microsoft.EventGrid/systemTopics`                    |
+| `azurerm_eventgrid_event_subscription` | `Microsoft.EventGrid/eventSubscriptions`            |
+| `azurerm_logic_app_workflow`         | `Microsoft.Logic/workflows`                           |
+| `azurerm_management_lock`            | `Microsoft.Authorization/locks`                       |
+| `azurerm_policy_assignment`, `azurerm_resource_group_policy_assignment`, `azurerm_subscription_policy_assignment` | `Microsoft.Authorization/policyAssignments` |
 
 `azurerm_eventhub_namespace`'s `kafka_enabled` attribute is what the Event Hubs
 rubric keys off (Kafka-protocol consumers → MSK, native AMQP/SDK → Kinesis), so carry
@@ -140,6 +188,14 @@ it into `config.kafka_enabled`.
 | `azurerm_data_factory`                  | `Microsoft.DataFactory/factories`                      |
 | `azurerm_synapse_workspace`             | `Microsoft.Synapse/workspaces`                         |
 | `azurerm_databricks_workspace`          | `Microsoft.Databricks/workspaces`                      |
+| `azurerm_monitor_autoscale_setting`     | `Microsoft.Insights/autoscaleSettings`                 |
+| `azurerm_application_insights_web_test`  | `Microsoft.Insights/webtests` — all-lowercase `webtests` |
+| `azurerm_monitor_data_collection_rule`  | `Microsoft.Insights/dataCollectionRules`               |
+| `azurerm_monitor_diagnostic_categories` | (data source, not a resource — no entry)               |
+| `azurerm_batch_account`                 | `Microsoft.Batch/batchAccounts`                        |
+| `azurerm_machine_learning_workspace`    | `Microsoft.MachineLearningServices/workspaces`         |
+| `azurerm_stream_analytics_job`          | `Microsoft.StreamAnalytics/streamingjobs` — all-lowercase `streamingjobs` |
+| `azurerm_dev_test_lab`                  | `Microsoft.DevTestLab/labs`                            |
 
 Everything in the observability block lands in Skip Mappings — observability is
 re-established on the target rather than migrated, with a CloudWatch fallback note.
@@ -152,6 +208,49 @@ and because a resource absent from the inventory cannot be reported as skipped.
 | Terraform type            | Canonical ARM type                     |
 | ------------------------- | -------------------------------------- |
 | `azurerm_resource_group`  | `Microsoft.Resources/resourceGroups`   |
+
+## Association-only resources
+
+A whole class of `azurerm_*` resources exists **only in Terraform** and has no ARM type
+at all. They set one property on one of the two resources they join, because Terraform
+needs a separate addressable resource where ARM has a field:
+
+`azurerm_subnet_network_security_group_association` · `azurerm_subnet_route_table_association` ·
+`azurerm_network_interface_security_group_association` ·
+`azurerm_network_interface_backend_address_pool_association` ·
+`azurerm_nat_gateway_public_ip_association` · `azurerm_subnet_nat_gateway_association` ·
+`azurerm_app_service_virtual_network_swift_connection` ·
+`azurerm_key_vault_access_policy` · `azurerm_role_assignment` (see note)
+
+**Rule: emit no inventory entry. Emit an EDGE.** Read the two IDs the association joins
+and record the relationship on the appropriate resource per
+`schema-discover-azure.md` § Typed edges — an NSG association is a `network` edge, a
+Key Vault access policy is a `secret_ref` or `identity_grant`.
+
+**Do NOT report these as untranslated types.** That is the trap: the untranslated
+warning means "this skill has a gap", and an association is not a gap — it is a
+Terraform-shaped thing that correctly has no ARM type. Filing them as untranslated
+would bury the real gaps in noise, and on an IaC-heavy repo the associations outnumber
+the genuinely-missing types. `azurerm_role_assignment` is the one borderline case: it
+*does* have an ARM type (`Microsoft.Authorization/roleAssignments`, a Skip Mapping), so
+it gets an entry AND contributes its `identity_grant` edge.
+
+## Coverage is not completeness
+
+This table carries the ~137 `azurerm_*` types that appear in real startup estates. It
+is **not** the full provider surface, which runs past a thousand types. A real repo will
+contain something absent here, and that is expected and handled: the resource is
+recorded as `untranslated_terraform_type` and skipped, never guessed.
+
+Two consequences worth being explicit about, because they are easy to misread as bugs:
+
+1. **An untranslated type STOPs Design** (`design-infra.md` § Unknown types), by design.
+   The skill cannot show that a resource it could not name is free, so it asks for the
+   row rather than quietly under-reporting the estate.
+2. **The fix is one table row, and the halt message names it.** When a run stops on an
+   untranslated type, add its row here and re-run — do not work around it by mapping
+   the resource by hand somewhere downstream, because the next run will make the same
+   omission.
 
 ## Reconstructing `azure_id`
 

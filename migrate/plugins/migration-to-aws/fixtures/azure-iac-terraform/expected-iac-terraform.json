@@ -123,7 +123,7 @@
   "untranslated_types": {
     "_comment": "azurerm_dev_test_lab is deliberately absent from arm-type-canonicalization.md. It must be reported, not guessed: a guessed type fails silently against every downstream mapping table.",
     "expected": [
-      "azurerm_dev_test_lab"
+      "azurerm_iothub"
     ]
   },
   "unresolved_modules": {

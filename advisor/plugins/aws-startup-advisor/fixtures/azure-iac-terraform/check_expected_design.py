@@ -315,42 +315,115 @@ def check_unknown_stop(design: dict, exp: dict) -> None:
 
 
 def check_pending_rubric(design: dict, id_of: dict[str, str], exp: dict) -> None:
-    spec = exp["missing_rubric_halt"]
-    pending = {e.get("azure_id"): e for e in (design.get("pending_rubric") or []) if isinstance(e, dict)}
-    services = {e.get("azure_id") for e in (design.get("services") or []) if isinstance(e, dict)}
+    """Pass 2 exists now, so pending_rubric[] must be EMPTY.
 
-    for tf_addr in spec["expected_pending_rubric_tf_addresses"]:
+    This is the inverse of what it checked at build step 3. Then, a resource mapped past a
+    missing rubric file was improvisation. Now, a resource still PARKED as pending is a run
+    that did not load rubric files that are on disk — the same defect from the other side.
+    """
+    spec = exp["missing_rubric_halt"]
+    pending = design.get("pending_rubric") or []
+    check(
+        len(pending) == spec["expected_pending_rubric_count"],
+        f"pending_rubric[] has {len(pending)} entr(ies), expected "
+        f"{spec['expected_pending_rubric_count']}: "
+        f"{[e.get('azure_type') for e in pending]}. {spec['_why']}",
+    )
+    for b in (design.get("halt") or {}).get("blocking") or []:
+        check(
+            b.get("kind") != spec["forbidden_halt_kind"],
+            f"halt.blocking still carries a {spec['forbidden_halt_kind']!r} entry "
+            f"({b.get('identifier')!r}), but that file is on disk. {spec['_why']}",
+        )
+
+
+def check_rubric_mappings(design: dict, id_of: dict[str, str], exp: dict) -> None:
+    spec = exp.get("rubric_mappings")
+    if not spec:
+        return
+    services = {e.get("azure_id"): e for e in (design.get("services") or []) if isinstance(e, dict)}
+    want_conf = spec["expected_confidence"]
+    for tf_addr, row in spec.items():
+        if tf_addr.startswith("_") or not isinstance(row, dict) or "aws_service" not in row:
+            continue
         aid = id_of.get(tf_addr)
         if aid is None:
             FAILS.append(f"no inventory resource with Terraform address {tf_addr!r}")
             continue
-        e = pending.get(aid)
+        e = services.get(aid)
         if e is None:
             FAILS.append(
-                f"{tf_addr!r} is not in pending_rubric[]. index.md routes it to a category file "
-                f"that does not exist yet, so it must be recorded as pending, not mapped. "
-                f"{spec['_why']}"
+                f"{tf_addr!r}: no services[] entry. Its rubric file is on disk, so it must be "
+                f"MAPPED — not pending, not deferred. {row['why']}"
             )
             continue
+        got = e.get("aws_service")
         check(
-            bool(e.get("ref_file")),
-            f"{tf_addr!r}: pending_rubric entry names no ref_file, so a reader cannot tell which "
-            f"rubric is missing",
+            got == row["aws_service"],
+            f"{tf_addr!r}: aws_service is {got!r}, expected {row['aws_service']!r}. {row['why']}",
+        )
+        for bad in row.get("must_not_be", []):
+            check(
+                got != bad,
+                f"{tf_addr!r}: aws_service is {bad!r}, the plausible-but-wrong answer. {row['why']}",
+            )
+        check(
+            e.get("confidence") == want_conf,
+            f"{tf_addr!r}: confidence is {e.get('confidence')!r}, expected {want_conf!r} — a rubric "
+            f"ran, so it is not deterministic; that tier is only for fast-path rows.",
+        )
+        check(
+            bool(e.get("rubric_applied")),
+            f"{tf_addr!r}: no rubric_applied field, so which rubric produced this target is unauditable.",
         )
 
-    for tf_addr in spec["must_not_be_in_services"]:
-        aid = id_of.get(tf_addr)
-        check(
-            aid not in services,
-            f"{tf_addr!r} has a services[] entry, but its rubric file does not exist on disk. "
-            f"That mapping was improvised. {spec['_why']}",
-        )
 
-    halt = design.get("halt") or {}
+def check_architecture_default(design: dict, id_of: dict[str, str], exp: dict) -> None:
+    spec = exp.get("architecture_default")
+    if not spec:
+        return
+    services = {e.get("azure_id"): e for e in (design.get("services") or []) if isinstance(e, dict)}
+    for tf_addr in spec["tf_addresses"]:
+        e = services.get(id_of.get(tf_addr))
+        if e is None:
+            FAILS.append(f"no services[] entry for {tf_addr!r} — cannot check its architecture")
+            continue
+        cfg = e.get("aws_config") or {}
+        # Scan only the architecture-bearing KEYS, not the whole config blob. A rationale
+        # or a `graviton_reason` field that explains why Graviton was NOT chosen
+        # legitimately contains the word, and a blunt substring check over the whole
+        # object would push authors to stop explaining themselves — which is backwards,
+        # because that explanation is the thing that stops the x86 default reading as a bug.
+        arch_keys = [k for k in cfg if "architecture" in k.lower() or k.lower() in ("arch", "cpu")]
+        arch_values = " ".join(str(cfg[k]) for k in arch_keys)
+        check(
+            bool(arch_keys),
+            f"{tf_addr!r}: aws_config has no architecture field at all, so the x86_64 default "
+            f"is unrecorded and unverifiable. {spec['_why']}",
+        )
+        check(
+            spec["expected_value"] in arch_values,
+            f"{tf_addr!r}: architecture field(s) {arch_keys} say {arch_values!r}, expected "
+            f"{spec['expected_value']!r}. {spec['_why']}",
+        )
+        for bad in spec["forbidden_values"]:
+            check(
+                bad not in arch_values,
+                f"{tf_addr!r}: an architecture field is set to {bad!r}. {spec['_why']}",
+            )
+
+
+def check_source_ha_finding(design: dict, id_of: dict[str, str], exp: dict) -> None:
+    spec = exp.get("source_ha_finding")
+    if not spec:
+        return
+    aid = id_of.get(spec["tf_address"])
     check(
-        any(b.get("kind") == spec["expected_halt_kind"] for b in (halt.get("blocking") or [])),
-        f"halt.blocking has no {spec['expected_halt_kind']!r} entry, yet pass-2 rubric files are "
-        f"absent. A design that quietly maps around a missing rubric reads as complete.",
+        any(
+            w.get("code") == spec["expected_warning_code"] and w.get("azure_id") == aid
+            for w in (design.get("warnings") or [])
+        ),
+        f"no {spec['expected_warning_code']!r} warning for {spec['tf_address']!r}. {spec['_why']}",
     )
 
 
@@ -571,6 +644,9 @@ def main() -> int:
     check_fan_in(design, inv, id_of, exp)
     check_unknown_stop(design, exp)
     check_pending_rubric(design, id_of, exp)
+    check_rubric_mappings(design, id_of, exp)
+    check_architecture_default(design, id_of, exp)
+    check_source_ha_finding(design, id_of, exp)
     check_halt_covers_pending(design, exp)
     check_cluster_pattern_status(design, exp)
     check_compute_unit_fields(design, exp)

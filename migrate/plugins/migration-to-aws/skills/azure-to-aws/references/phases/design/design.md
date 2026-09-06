@@ -108,29 +108,29 @@ a *service* and never touch capacity; adding a seventh would break "apply in ord
 first match wins". Each rubric file gets an additive `## Right-Sizing` section,
 structurally parallel to `## CPU Architecture`.
 
-## Status — build step 3 (pass 1 only)
+## Status — build step 5 (both passes, partial)
 
-**Pass 1 is real.** `knowledge/design/fast-path-services.json` carries the Direct
-Mappings, Skip Mappings, and specialist-gate rows; `design-refs/fast-path.md` is their
-contract; `design-refs/index.md` routes everything else. **Pass 2 — the category rubric
-files — does not exist yet**, so on any estate carrying compute or a relational
-database this phase **halts** rather than improvising a target. See `index.md`'s halt
-guard, which is the same guard and the same reasoning as `discover-iac.md` Step 2.
+**Pass 1 and pass 2 both run.** `knowledge/design/fast-path-services.json` carries the
+disposition table; `design-refs/compute.md` and `database.md` carry the two rubrics the
+corpus exercises. A resource routed by `index.md` to a category file that is **not** on
+disk still halts rather than being improvised — `analytics.md`, `messaging.md`,
+`networking.md`, `storage.md`, `identity.md`, `licensing.md`, `gpu-hpc.md`, and `ai.md`
+are still to come.
 
 | Lands in | What                                                                                                     |
 | -------- | -------------------------------------------------------------------------------------------------------- |
-| step 4   | Pattern consumption at cluster level; the cluster-level `data-pipeline` gate                               |
-| step 5   | The per-category rubric files named by `index.md`, and the `knowledge/*.json` sizing tables wired through `_knowledge` `_when` guards |
+| step 4   | `patterns.md` and the cluster-level `data-pipeline` gate. Clustering itself is real; only pattern RECOGNITION is outstanding, so every cluster carries `pattern_status: "catalog_absent"` |
+| step 5   | The remaining eight category files, and the `knowledge/design/*.json` sizing tables wired through `_knowledge` `_when` guards |
 | step 6   | The AI design route                                                                                       |
 
-Step 3 came before the rubric content deliberately: the precedence order and the
-admission test decide what each rubric file has to cover, and getting the Direct
-Mappings row set wrong makes every downstream confidence label wrong.
+**A missing SIZING table is treated more softly than a missing RUBRIC file, on purpose.**
+Without `appservice-eb-sizing.json` the design still names Elastic Beanstalk and states a
+dev-tier instance size as a default; without `compute.md` it would have to invent the
+service choice. The first degrades a number's precision, the second fabricates the answer.
 
-The `_postconditions` above encode the FINISHED contract, so several of them fail today
-by construction — a halted design does not account for every resource, and it may carry
-a non-empty `pending_rubric[]`. That is the intended behaviour: the gate reports the
-skill's gap loudly instead of letting a plausible mapping pass for a real one.
+The `_postconditions` encode the FINISHED contract, so some still fail by construction —
+a halted design does not account for every resource. That is intended: the gate reports
+the skill's gap loudly rather than letting a plausible mapping pass for a real one.
 
 ## Step: Run the phase
 

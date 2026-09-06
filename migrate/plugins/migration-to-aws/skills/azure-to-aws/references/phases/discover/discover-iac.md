@@ -109,8 +109,13 @@ because a redaction placeholder still discloses that the field existed and rough
 long it was. A Key Vault *reference* is kept as a `secret_ref` edge, because the
 reference is architecture and the secret is not.
 
-Do not read `terraform.tfstate`, `*.tfstate.backup`, or `.terraform/` under any
+Do not read `terraform.tfstate`, `*.tfstate.backup`, or any `*.tfstate` under any
 circumstance. State carries resolved values the configuration only references.
+
+**`.terraform/modules/` is the one readable path inside `.terraform/`** — it holds
+downloaded module SOURCE, which is exactly as safe as a local module path and carries no
+resolved values. Reading it is what stops a repo built on Azure Verified Modules from
+producing a nearly empty inventory. See `extract-terraform.md` Step 3.
 
 ## Status — build step 2 (partial)
 

@@ -1,29 +1,17 @@
 {
-  "_what_this_is": "The GOLDEN aws-design.json for build step 3 (pass 1 only), produced by applying knowledge/design/fast-path-services.json to after-discover/azure-resource-inventory.json. It is a HALTED design on purpose, and the directory name says so: the corpus contains an untranslated cost-bearing type and the category rubric files do not exist yet, so the design phase emits GATE_FAIL. Both blockers are recorded in `halt`. This is NOT a completed phase run and does not satisfy design.md's _postconditions \u2014 see ../README.md \u00a7 The Design oracle.",
-  "_absent_on_purpose": "clusters[] now carries pattern_status: 'catalog_absent' rather than being omitted \u2014 schema-design-aws.md gives that state a defined home, so recording it is honest where fabricating a target_architecture would not be. The MEMBER lists and tiers are still step 4's (real clustering is not built), so the asserter checks only pattern_status and the target_architecture-is-null rule.",
+  "_what_this_is": "The GOLDEN aws-design.json for the azure-iac-terraform corpus. Pass 1 (the disposition table) AND pass 2 (compute.md + database.md) both applied. It is STILL a halted design, and the directory name says so: the corpus carries an untranslated cost-bearing type (azurerm_iothub), which STOPs Design unconditionally. That is now the ONLY blocker \u2014 the missing-rubric blockers are gone as of build step 5.",
+  "_absent_on_purpose": "clusters[] carries pattern_status 'catalog_absent' because design-refs/patterns.md does not exist yet; the asserter checks only pattern_status and the target_architecture-is-null rule. Sizing numbers are dev-tier defaults stated as such: the knowledge/design/*-sizing.json tables are not on disk, and a missing SIZING table degrades a number's precision whereas a missing RUBRIC file would cost the service choice, which is why only the latter halts.",
   "phase": "design",
   "timestamp": "2026-09-04T19:00:00Z",
   "source_inventory": "azure-resource-inventory.json",
   "halt": {
-    "reason": "unknown_type, missing_rubric_file",
+    "reason": "unknown_type",
     "blocking": [
       {
         "kind": "untranslated_terraform_type",
-        "identifier": "azurerm_dev_test_lab (local name: sandbox)",
-        "why": "Discover could not name this type, so it is absent from resources[] and has no SKU, no consumption row, and no provider namespace to test. The skill cannot demonstrate it is free, so it is treated as cost-bearing and STOPs.",
+        "identifier": "azurerm_iothub (local name: telemetry_ingest)",
+        "why": "Discover could not name this type, so it is absent from resources[]. It is treated as cost-bearing by default because the skill cannot demonstrate that a resource it could not identify is free \u2014 and here it independently satisfies the SKU test as well.",
         "action": "add a row to references/shared/arm-type-canonicalization.md, then re-run Design"
-      },
-      {
-        "kind": "missing_rubric_file",
-        "identifier": "references/design-refs/compute.md",
-        "why": "design-refs/index.md routes Microsoft.Web/serverfarms and Microsoft.Compute/virtualMachines here. The file does not exist (build step 5).",
-        "action": "land build step 5, or map these resources by hand \u2014 never improvise the rubric"
-      },
-      {
-        "kind": "missing_rubric_file",
-        "identifier": "references/design-refs/database.md",
-        "why": "design-refs/index.md routes Microsoft.DBforPostgreSQL/flexibleServers here. The file does not exist (build step 5).",
-        "action": "land build step 5"
       }
     ]
   },
@@ -174,24 +162,30 @@
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.EventHub/namespaces",
       "rationale": "Direct Mappings row, kafka_enabled == true branch. Protocol is the whole rubric with no throughput threshold (owner decision 11.4): a Kafka-protocol consumer changes a broker endpoint, while Kinesis would be a code rewrite. NOT Kinesis."
-    }
-  ],
-  "deferred": [],
-  "pending_rubric": [
+    },
     {
+      "service_id": "eb-web",
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web",
       "azure_type": "Microsoft.Web/serverfarms",
-      "ref_file": "references/design-refs/compute.md",
-      "candidates": [
-        "Elastic Beanstalk",
-        "Fargate",
-        "EKS"
-      ],
-      "is_compute_unit": true,
-      "sizing_source": {
-        "sku_name": "S1",
-        "worker_count": 2
+      "aws_service": "Elastic Beanstalk",
+      "aws_config": {
+        "environment_count": 1,
+        "platform": "Node.js on Amazon Linux 2023",
+        "instance_type": "t3.medium",
+        "instance_count": 2,
+        "cpu_architecture": "x86_64",
+        "sizing_basis": "plan sku_name S1 + worker_count 2 \u2014 never the app count",
+        "sizing_table_absent": "knowledge/design/appservice-eb-sizing.json is not on disk yet (build step 5), so this is the dev-tier default stated as such rather than a number derived from a table. A missing SIZING table costs precision on a number; a missing RUBRIC file would cost the service choice itself, which is why only the latter halts.",
+        "deployed_apps": [
+          "storefront (node 20-lts)",
+          "admin",
+          "checkout",
+          "docs",
+          "webhooks"
+        ]
       },
+      "confidence": "inferred",
+      "rubric_applied": "compute.md",
       "hosted_app_azure_ids": [
         "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:storefront",
         "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:admin",
@@ -199,72 +193,95 @@
         "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:docs",
         "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:webhooks"
       ],
-      "note": "FIVE apps fan IN to this ONE plan. The plan is the compute unit; sizing comes from sku_name + worker_count and never from the app count. Exactly one compute unit here whichever candidate wins."
+      "sizing_source": {
+        "sku_name": "S1",
+        "worker_count": 2
+      },
+      "rationale": "Elastic Beanstalk, because criterion 2.2 (operational model) fired: the source is a Microsoft.Web/serverfarms plan hosting web apps, and App Service is a managed platform the customer already pays for. No compute_target preference was recorded, so criterion 2.3 did not override. ONE environment for all five apps \u2014 the plan is the compute unit and its S1 x2 capacity is what is being paid for; five environments would be a 5x error. x86_64 per the Azure default."
     },
     {
+      "service_id": "lambda-func",
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:func",
       "azure_type": "Microsoft.Web/serverfarms",
-      "ref_file": "references/design-refs/compute.md",
-      "candidates": [
-        "Lambda",
-        "Fargate"
+      "aws_service": "Lambda",
+      "aws_config": {
+        "function_count": 1,
+        "runtime": "nodejs (from the site's runtime_stack)",
+        "architecture": "x86_64",
+        "billing": "per-invocation; the Y1 plan has no worker capacity to size",
+        "no_eliminator_fired": "not a Durable Function, no always_on, no writable local filesystem beyond /tmp"
+      },
+      "confidence": "inferred",
+      "rubric_applied": "compute.md",
+      "hosted_app_azure_ids": [
+        "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:imageresize"
       ],
-      "is_compute_unit": true,
       "sizing_source": {
         "sku_name": "Y1",
         "worker_count": 1
       },
-      "hosted_app_azure_ids": [
-        "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:imageresize"
-      ],
-      "note": "Y1 is the consumption plan. Its one site has kind containing functionapp, so the candidate set is the function set \u2014 but the target is still a rubric decision, because a function inside an otherwise containerized workload may belong on Fargate."
+      "rationale": "Lambda, because criterion 2.2 fired on the consumption-plan branch: sku_name Y1 with every hosted site's kind containing functionapp. The mapping is emitted against the PLAN, not the function app \u2014 a Microsoft.Web/sites resource never gets its own entry. No Lambda eliminator applies."
     },
     {
+      "service_id": "eb-legacy-idle",
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Web/serverfarms/tf:legacy",
       "azure_type": "Microsoft.Web/serverfarms",
-      "ref_file": "references/design-refs/compute.md",
-      "candidates": [
-        "Elastic Beanstalk",
-        "Fargate"
-      ],
-      "is_compute_unit": true,
+      "aws_service": "Elastic Beanstalk",
+      "aws_config": {
+        "environment_count": 0,
+        "recommendation": "do not migrate \u2014 decommission",
+        "platform": "Windows Server (source os_type Windows)",
+        "cpu_architecture": "x86_64",
+        "sizing_basis": "plan sku_name P1v3 + worker_count 1"
+      },
+      "confidence": "inferred",
+      "rubric_applied": "compute.md",
+      "hosted_app_azure_ids": [],
       "sizing_source": {
         "sku_name": "P1v3",
         "worker_count": 1
       },
-      "hosted_app_azure_ids": [],
-      "note": "ZERO apps. Idle purchased capacity, still mapped and still flagged as a cost-optimization finding \u2014 omitting it would hide money the customer is already spending."
+      "rationale": "Mapped for completeness and flagged as idle: this P1v3 plan hosts ZERO apps, so it is purchased capacity with no workload behind it. Criterion 2.2 would give Elastic Beanstalk, but the recommendation is to decommission rather than migrate \u2014 see the idle_app_service_plan finding."
     },
     {
+      "service_id": "ec2-reporting",
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Compute/virtualMachines/tf:reporting",
       "azure_type": "Microsoft.Compute/virtualMachines",
-      "ref_file": "references/design-refs/compute.md",
-      "candidates": [
-        "EC2"
-      ],
-      "is_compute_unit": true,
-      "sizing_source": {
-        "size": "Standard_D4s_v5",
-        "os_type": "Windows"
+      "aws_service": "EC2",
+      "aws_config": {
+        "instance_type": "m6i.xlarge",
+        "cpu_architecture": "x86_64",
+        "os": "Windows Server 2022",
+        "cutover": "AWS Application Migration Service (MGN)",
+        "sizing_basis": "source size Standard_D4s_v5 (4 vCPU / 16 GiB) mapped like-for-like; no utilization data",
+        "graviton_offered": false,
+        "graviton_reason": "Windows \u2014 graviton.md's escape path applies, so x86_64 is not merely the default here but required"
       },
-      "note": "Windows, so the x86_64 default applies rather than Graviton. Its image additionally trips the Azure Edition hard blocker \u2014 see warnings[]. It does NOT trip the SQL-on-VM specialist gate: the publisher is MicrosoftWindowsServer, not MicrosoftSQLServer."
+      "confidence": "inferred",
+      "rubric_applied": "compute.md",
+      "rationale": "EC2, because criterion 2.2 fired: a Microsoft.Compute/virtualMachines resource lifts to EC2 via MGN. x86_64 is mandatory rather than defaulted because the guest is Windows. NOTE: the image is Azure Edition, which MGN refuses \u2014 see the blocker in warnings[]. It does NOT hit the SQL-on-VM specialist gate: the publisher is MicrosoftWindowsServer, not MicrosoftSQLServer."
     },
     {
+      "service_id": "rds-store",
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.DBforPostgreSQL/flexibleServers/tf:store",
       "azure_type": "Microsoft.DBforPostgreSQL/flexibleServers",
-      "ref_file": "references/design-refs/database.md",
-      "candidates": [
-        "RDS PostgreSQL",
-        "Aurora PostgreSQL"
-      ],
-      "sizing_source": {
-        "sku_name": "GP_Standard_D2s_v3",
-        "storage_mb": 65536,
-        "version": "16"
+      "aws_service": "RDS PostgreSQL",
+      "aws_config": {
+        "engine_version": "16",
+        "multi_az": false,
+        "instance_class": "db.t4g.medium",
+        "allocated_storage_gib": 64,
+        "backup_retention_days": 14,
+        "sizing_basis": "source sku_name GP_Standard_D2s_v3, storage_mb 65536; no utilization data",
+        "availability_answer_absent": true
       },
-      "note": "The family is selected by the availability answer from Clarify, not by the rubric \u2014 a post-rubric override gate. high_availability.mode is ZoneRedundant on the source, which is a signal but not the answer: availability is never inferable from IaC."
+      "confidence": "inferred",
+      "rubric_applied": "database.md",
+      "rationale": "RDS PostgreSQL single-AZ. The availability override gate (database.md \u00a71) selects the family, and preferences.json records NO availability answer \u2014 so the documented default is RDS single-AZ, NOT Aurora. Inferring Aurora from silence would inflate the estimate with no way for the customer to see why. Backup retention carried across verbatim at 14 days: a stated requirement, not a sizing knob."
     }
   ],
+  "deferred": [],
+  "pending_rubric": [],
   "warnings": [
     {
       "code": "skipped_no_aws_equivalent",
@@ -357,6 +374,12 @@
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Compute/virtualMachines/tf:reporting",
       "severity": "blocker",
       "detail": "image_sku 2022-datacenter-azure-edition. AWS Application Migration Service refuses an Azure Edition Windows Server image \u2014 it carries Azure-specific platform integration and must be re-imaged to a standard Windows Server edition before replication can start. Stated, not asked: there is no option to weigh."
+    },
+    {
+      "code": "availability_downgrade_from_source",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.DBforPostgreSQL/flexibleServers/tf:store",
+      "severity": "review",
+      "detail": "the source Postgres server is high_availability { mode = ZoneRedundant } with a standby in zone 2, but no availability answer was recorded, so the target is RDS single-AZ. That is a deliberate downgrade if intended and a gap if not \u2014 Clarify's availability question decides it."
     }
   ]
 }

@@ -8,6 +8,10 @@ _produces:
   - azure-resource-clusters.json
 _knowledge:
   - { file: references/shared/schema-discover-azure.md }
+  - { file: references/clustering/clustering-algorithm.md }
+  - { file: references/clustering/typed-edges-strategy.md }
+  - { file: references/clustering/classification-rules.md }
+  - { file: references/clustering/tiering.md }
 ---
 
 # Discover — Assemble Inventory and Clusters
@@ -44,7 +48,12 @@ the validation checklist.
    comes from the closed vocabulary in `schema-discover-azure.md` § Warnings — do not
    invent one, because an invented code makes the report's grouping unstable and any
    fixture assertion on a code unreliable.
-7. Derive `azure-resource-clusters.json`.
+7. Derive `azure-resource-clusters.json` per `references/clustering/`: seed one
+   candidate per resource group, **split** a candidate whose members have no edges
+   between them, **merge** candidates joined by a non-ambient crossing edge, then assign
+   `tier`, `primary`, member roles, and `justification`. `clustering-algorithm.md` is the
+   procedure; `typed-edges-strategy.md` says which edge types may merge and which are
+   ambient; `classification-rules.md` picks the primary; `tiering.md` assigns the tier.
 
 ## Confidence vocabulary
 
@@ -61,24 +70,23 @@ Four tiers, set per resource and per mapping decision:
 mean the live path could never earn the tier even when it supplies the same
 evidence. User-facing label: **"Measured from your actual usage."**
 
-## Status — skeleton (build step 1)
+## Status — build step 4 (clustering real)
 
-Writes both artifacts from the single IaC fragment. `azure-resource-clusters.json`
-is emitted with one cluster per resource group, `justification: "seed:resource_group"`,
-and an empty `edges[]` — a seed with no refinement.
+Writes both artifacts from the single IaC fragment. Clustering is **real** as of build
+step 4: seed, split, merge, tier, primary, roles.
 
-**`justification` is what makes that empty `edges[]` legitimate rather than a silent
-gap.** An unrefined cluster has a real reason — its members share a resource group —
-and it is not an edge. Without the field, "grouped by the seed" and "grouped for no
-recorded reason" produce identical output, and the phase's postcondition on the
-justifying edge set could only pass by not being evaluated. Set it on every cluster;
-`split:*` and `merge:*` become reachable with step 4, and those values require a
-non-empty `edges[]`.
+`justification` records WHICH of those produced each cluster, and it is what makes an
+empty `edges[]` legitimate rather than a silent gap. A cluster that survived seeding
+untouched has a real reason — its members share a resource group — and that reason is not
+an edge. Without the field, "grouped by the seed" and "grouped for no recorded reason"
+produce identical output, and the phase's postcondition on the justifying edge set could
+only pass by not being evaluated. `split:*` and `merge:*` require a non-empty `edges[]`
+carrying the evidence.
 
 | Lands in | What                                                                                                    |
 | -------- | ------------------------------------------------------------------------------------------------------- |
 | step 2   | The merge-and-drift rules above, exercised once more than one source can contribute                     |
-| step 4   | Real clustering: resource-group seed, then split candidates with no internal edges and merge candidates whose edges cross group boundaries; fixed tiering; `pattern_id` + `pattern_confidence` |
+| step 4   | `patterns.md` and the cluster-level `data-pipeline` gate. Until it exists every cluster carries `pattern_status: "catalog_absent"` — a defined state, not a gap |
 
 **Resource group is a good seed and a bad final answer.** It works when there is one
 app per group; it splits nothing when there is one group per environment; it actively

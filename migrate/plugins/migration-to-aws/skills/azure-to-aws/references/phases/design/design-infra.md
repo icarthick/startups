@@ -134,6 +134,7 @@ be read; these describe what was decided.
 | `app_consumed_by_plan`        | one per `Microsoft.Web/sites` folded into its plan, with `plan_azure_id`             |
 | `idle_app_service_plan`       | a plan with zero apps; `severity: "cost_optimization"`                               |
 | `benign_unknown_type`         | an unmapped canonical type that cleared the cost-bearing test                        |
+| `availability_downgrade_from_source` | the source database is zone-redundant / HA but the target is single-AZ, because no availability answer was recorded. `severity: "review"` — the customer silently loses HA they were paying for unless this is said out loud (`database.md` §1) |
 | `<hard_blocker key>`          | a `hard_blockers` row, e.g. `azure_edition_windows_server`; `severity: "blocker"`     |
 
 A cost-bearing unknown and an untranslated type produce a `halt` entry, **not** a
@@ -191,13 +192,15 @@ the compute rubric is still pending: the count of compute units is one per plan 
 that plan resolves to Elastic Beanstalk, Fargate, or EKS. A plan sitting in
 `pending_rubric[]` still accounts for its apps.
 
-## Status — build step 3
+## Status — build step 5 (both passes, partial)
 
-Pass 1 is implemented: the disposition table, its contract, the routing index, the gate
-table, the split unknown-type policy, and the fan-in rule. Pass 2 lands in step 5, and
-until it does this fragment halts on any estate carrying compute or a relational
-database rather than improvising a target.
+Pass 1 is complete: the disposition table, its contract, the routing index, the gate
+table, the split unknown-type policy, and the fan-in rule. Pass 2 covers **compute and
+database** (`design-refs/compute.md`, `design-refs/database.md`); the other eight category
+files are still to land, and a resource routed to one of them halts per § Missing rubric
+file rather than being mapped from model priors.
 
 Exercised by the `azure-iac-terraform` fixture's Design asserter
-(`check_expected_design.py`), which pins the fan-in count, the untranslated-type STOP,
-and the three protocol/API-conditioned rows.
+(`check_expected_design.py`), which pins the fan-in count, the untranslated-type STOP, the
+three protocol/API-conditioned fast-path rows, the four pass-2 outcomes, the x86_64
+architecture default, and the source-HA downgrade finding.

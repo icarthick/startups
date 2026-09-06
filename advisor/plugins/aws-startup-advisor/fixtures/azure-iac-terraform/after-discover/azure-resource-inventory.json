@@ -652,15 +652,15 @@
       "module.cdn (source Azure/cdn/azurerm 3.1.0 \u2014 content not in workspace, its resources were NOT discovered)"
     ],
     "untranslated_types": [
-      "azurerm_dev_test_lab (local name: sandbox)"
+      "azurerm_iothub (local name: telemetry_ingest)"
     ],
     "subscription_id_source": "unresolved"
   },
   "warnings": [
     {
       "code": "untranslated_terraform_type",
-      "identifier": "azurerm_dev_test_lab.sandbox",
-      "detail": "absent from arm-type-canonicalization.md; skipped rather than guessed, so it is NOT in resources[] \u2014 Design reads iac_metadata.untranslated_types and STOPs on it"
+      "identifier": "azurerm_iothub.telemetry_ingest",
+      "detail": "absent from arm-type-canonicalization.md; skipped rather than guessed, so it is NOT in resources[] \u2014 Design reads iac_metadata.untranslated_types and STOPs on it. It carries sku { name = \"S1\" }, so it is cost-bearing on the three-part test too."
     },
     {
       "code": "module_not_resolved",

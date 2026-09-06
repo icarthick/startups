@@ -33,7 +33,7 @@ are deliberately not asserted — they cost review attention and prove nothing.
 | a plan with **zero** apps                                | omitted as uninteresting               | inventoried, 0 inbound edges, idle finding |
 | app in `rg-app`, database in `rg-data`                   | edge dropped at the group boundary     | edge preserved so clustering can merge     |
 | a private endpoint                                       | mapped as a target                     | skipped, but its `private_link` edge read  |
-| `azurerm_dev_test_lab` (absent from the table)            | a guessed `Microsoft.DevTestLab/labs`  | reported as untranslated                   |
+| `azurerm_iothub` (absent from the table)            | a guessed `Microsoft.Devices/IotHubs`  | reported as untranslated                   |
 | a registry `module` not in the workspace                  | silence                                | a warning naming the module                |
 | `enabled_protocol = "SMB"`                               | dropped                                | carried — it is the EFS-vs-FSx input       |
 | `kafka_enabled = true`                                   | dropped                                | carried — it is the MSK-vs-Kinesis input   |
@@ -81,39 +81,63 @@ Kinesis is the signal that `knowledge/design/fast-path-services.json` was not.
 
 ## The Design oracle
 
-`after-design-halted/aws-design.json` is a **halted** design, and the directory name
-says so. Two things block it, both deliberately:
+`after-design-halted/aws-design.json` is a **halted** design, and the directory name says
+so. As of build step 5 there is exactly **one** blocker left: the corpus carries an
+untranslated cost-bearing type (`azurerm_iothub`), which STOPs Design unconditionally —
+the skill could not name the resource, so it cannot show the resource is free. The
+missing-rubric blockers are gone; `compute.md` and `database.md` are on disk and
+`pending_rubric[]` is now asserted **empty**.
 
-1. the corpus carries an **untranslated** cost-bearing type (`azurerm_dev_test_lab`),
-   which STOPs the design — the skill could not name the resource, so it cannot show
-   the resource is free;
-2. the pass-2 category rubric files (`compute.md`, `database.md`) do not exist yet
-   (build step 5), so every compute and relational-database resource lands in
-   `pending_rubric[]` rather than being mapped from model priors.
+That assertion inverted deliberately when the rubrics landed. At step 3 a resource *mapped
+past* a missing rubric file was improvisation; now a resource still *parked as pending* is
+a run that did not load rubric files that exist. Same defect, opposite side.
 
-So the tree does **not** satisfy `design.md`'s `_postconditions`, and it is not
-supposed to. What it pins is the **table's application**, which is what build step 3
-delivers. `clusters[]` is absent for the same reason: cluster-level fields land in
-build step 4, and fabricating them here would put unverifiable data in a committed
-golden tree.
+`clusters[]` carries `pattern_status: "catalog_absent"` because `design-refs/patterns.md`
+does not exist yet, so the asserter checks only that field and the
+`target_architecture`-is-null rule. Sizing numbers are dev-tier defaults **stated as
+such**: the `knowledge/design/*-sizing.json` tables are not on disk. Note the deliberate
+asymmetry — a missing SIZING table degrades a number's precision, while a missing RUBRIC
+file would cost the service choice itself, which is why only the latter halts.
 
-The Design asserter additionally validates the **table itself** —
-`knowledge/design/fast-path-services.json` — for its required rows, the
-precedence invariant (a canonical type resolves to at most one disposition), and the
-App Runner ban. A design is only as trustworthy as the rows it claims to have read,
-and the `deterministic` label is checked in **both** directions: every expected row
-carries it, and every entry carrying it names a type that really is in the table with
-a target that row allows. The second direction is what catches an improvised label.
+### Why `azurerm_iothub` and not something more obvious
 
-Three rows exist because a single mechanical discriminator fully determines the
-target, so there is no rubric left to run — and each has a famous wrong answer that a
-capable improviser reaches for:
+The untranslated-type case needs a type that is **durably** absent from
+`arm-type-canonicalization.md`. An earlier draft used `azurerm_dev_test_lab`, which turned
+out to be fragile: the first coverage pass over the canonicalization table added
+DevTest Labs, and this fixture silently stopped testing anything. IoT is out of this
+skill's scope by design — neither startup-weighted nor specialist-gated — so a coverage
+pass will not absorb it. It also carries a real `sku` block, which makes it cost-bearing on
+the three-part test as well as by the untranslated-type rule, so the corpus comment is now
+literally true.
 
-| Corpus construct                             | The improviser's answer | The table's answer          |
-| -------------------------------------------- | ----------------------- | --------------------------- |
-| Cosmos account, `kind: MongoDB`              | DynamoDB                | **DocumentDB**              |
+### What the Design oracle checks
+
+- **The table itself** — `knowledge/design/fast-path-services.json` for its required rows,
+  the precedence invariant (a canonical type resolves to at most one disposition), and the
+  App Runner ban. A design is only as trustworthy as the rows it claims to have read.
+- **The `deterministic` label in BOTH directions** — every expected row carries it, and
+  every entry carrying it names a type that really is in `direct_mappings` with a target
+  that row allows. The second direction is what catches an improvised label.
+- **Pass-2 outcomes**, each with its plausible-but-wrong answer recorded so the failure
+  message names it.
+
+Three fast-path rows exist because a single mechanical discriminator fully determines the
+target, so there is no rubric left to run — and each has a famous wrong answer:
+
+| Corpus construct                             | The improviser's answer | The table's answer              |
+| -------------------------------------------- | ----------------------- | ------------------------------- |
+| Cosmos account, `kind: MongoDB`              | DynamoDB                | **DocumentDB**                  |
 | storage share, `enabled_protocol = "SMB"`    | EFS                     | **FSx for Windows File Server** |
-| Event Hubs namespace, `kafka_enabled = true` | Kinesis                 | **MSK**                     |
+| Event Hubs namespace, `kafka_enabled = true` | Kinesis                 | **MSK**                         |
+
+And four rubric outcomes where the wrong answer is the *tempting* one:
+
+| Corpus construct                              | The tempting answer | The rubric's answer | Why the tempting one is wrong |
+| --------------------------------------------- | ------------------- | ------------------- | ----------------------------- |
+| S1 plan hosting 5 web apps                     | Fargate             | **Elastic Beanstalk** | App Service is a managed platform; containers change two variables at once mid-migration |
+| Y1 consumption plan hosting a function app     | Elastic Beanstalk   | **Lambda**            | Y1 is consumption — there is no worker capacity to size |
+| Windows VM                                     | Fargate             | **EC2**               | containerising a Windows VM is a re-architecture nobody asked for |
+| Postgres with `ZoneRedundant` HA on the source | Aurora              | **RDS single-AZ**     | **the most valuable assertion here.** No availability answer was recorded. The source says what they *bought*, not what they *need*; inferring Aurora from silence inflates the estimate with no visible cause. The source HA posture surfaces as a FINDING instead |
 
 ## Scope
 

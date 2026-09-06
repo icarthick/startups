@@ -8,16 +8,24 @@ present. One of three per-dialect refs; the others are `extract-bicep.md` and
 
 ## Step 1: Find the files
 
-Glob `**/*.tf` and `**/*.tf.json`, excluding `.terraform/`, `**/node_modules/`, and
-any path under `$MIGRATION_DIR`. Read each file. A `.tf` file with no `azurerm_`
+Glob `**/*.tf` and `**/*.tf.json`, excluding `**/node_modules/` and any path under
+`$MIGRATION_DIR`. Exclude `.terraform/` too on this first pass — its `modules/`
+subtree is walked deliberately in Step 3, per module, so that each module's resources
+carry the right `config.tf_module` provenance rather than appearing as loose root
+resources. Read each file. A `.tf` file with no `azurerm_`
 resource block contributes nothing and is not an error — many repos carry provider,
 backend, and variable files with no resources at all.
 
-**Do not read `terraform.tfstate`, `*.tfstate.backup`, or `.terraform/`.** State files
+**Do not read `terraform.tfstate`, `*.tfstate.backup`, or any `*.tfstate`.** State files
 contain resolved attribute values including secrets that the configuration only
 references. They are a credential-disclosure surface, and the declared configuration
 is what this fragment is for. If a state file is the only thing present, say so and
 recommend a live `az` capture instead — state is not a supported input.
+
+**One exception inside `.terraform/`: `.terraform/modules/` IS read** — it holds
+downloaded module source and nothing else, so it is exactly as safe as a local module
+path. See Step 3, which explains why the blanket ban was over-broad and what it cost.
+Everything else under `.terraform/` stays out of scope.
 
 ## Step 2: Extract each `resource` block
 
@@ -83,13 +91,42 @@ where the estimate is otherwise five times wrong in the other direction.
 
 ## Step 3: Modules are boundaries, not resources
 
-A `module` block is not a resource and gets no inventory entry. If the module source
-is a local path, recurse into it and extract its resources, recording the module
-address in `config.tf_module`. If the source is a registry or git address whose
-content is not in the workspace, add one `module_not_resolved` warning naming the
-module and stating that its resources were not discovered — a silently missing module is a
-silently missing third of the estate, and this is the single most common reason a
-Terraform-only inventory is incomplete.
+A `module` block is not a resource and gets no inventory entry. Resolve its source in
+this order, and stop at the first that works:
+
+1. **Local path** (`./modules/network`, `../shared`) — recurse into it and extract its
+   resources, recording the module address in `config.tf_module`.
+2. **Already downloaded** — a registry or git module that has been `terraform init`-ed
+   is on disk under `.terraform/modules/<key>/`. **Read it.** Resolve the key via
+   `.terraform/modules/modules.json`, which maps each module's `Key` and `Source` to its
+   `Dir`. Recurse exactly as for a local path, and set `config.tf_module_source` to the
+   registry address so the report can say where the resources came from.
+3. **Not on disk** — add one `module_not_resolved` warning naming the module and stating
+   that its resources were not discovered.
+
+> **Reading `.terraform/modules/` is explicitly ALLOWED, and it is the single highest-value
+> exception in this file.** Step 1 bans `.terraform/` wholesale to keep state files out,
+> and that ban is correct for state — but `.terraform/modules/` holds nothing except
+> *downloaded module source code*, which is exactly as safe to read as the local module
+> source in case 1 and carries no resolved values at all. The blanket ban was
+> over-broad.
+>
+> The cost of getting this wrong is large and silent. Modern Azure Terraform leans hard
+> on registry modules — Azure Verified Modules (`Azure/avm-*`), `Azure/naming`,
+> `Azure/vnet` — so a repo can declare almost its entire estate through modules. Under
+> the blanket ban such a repo yields a nearly empty inventory plus a handful of warnings,
+> and every downstream phase then reasons confidently about a fraction of the estate.
+> `module_not_resolved` is still the honest fallback, but it should be the LAST resort
+> rather than the normal outcome.
+>
+> Still banned, for the original reason: `.terraform/terraform.tfstate`,
+> `.terraform.lock.hcl` (no resources in it), and any `*.tfstate` anywhere. If a module
+> directory somehow contains a state file, skip that file, not the directory.
+
+A silently missing module is a silently missing third of the estate, and it remains the
+most common reason a Terraform-only inventory is incomplete — which is why
+`iac_metadata.modules_unresolved` and the warning both name the module rather than
+reporting a count.
 
 ## Per-type attributes
 
@@ -192,6 +229,8 @@ merges them. Never drop an edge because it crosses a group boundary.
 - [ ] Every site with a `service_plan_id` has a `hosted_on` edge.
 - [ ] `config.app_setting_names` contains only strings; no `app_settings` values appear anywhere in the contribution.
 - [ ] No `tfstate` file was read.
+- [ ] Every `module` block resolved to a local path, to `.terraform/modules/`, or to a `module_not_resolved` warning — none silently ignored.
+- [ ] No `*_association` resource produced an inventory entry, and none was reported as an untranslated type.
 - [ ] Every unresolvable module and every untranslated type has a `warnings[]` entry.
 - [ ] Every warning's `code` is from the closed vocabulary in `schema-discover-azure.md` § Warnings.
 - [ ] No `config` key holds `null` — an attribute the configuration does not set is omitted.

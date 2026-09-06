@@ -147,7 +147,7 @@
     "_why": "Owner decision: an UNTRANSLATED type is treated as cost-bearing by default and STOPs. It has no SKU, no consumption row, and no provider namespace, so the three-part cost-bearing test cannot clear it \u2014 and the skill cannot demonstrate that a resource it could not name is free. Warn-and-skip here would understate the estate with nothing to signal it.",
     "halt_required": true,
     "expected_halt_kind": "untranslated_terraform_type",
-    "expected_identifier_substring": "azurerm_dev_test_lab",
+    "expected_identifier_substring": "azurerm_iothub",
     "must_not_appear_as_benign_skip_codes": [
       "skipped_no_aws_equivalent",
       "skipped_config_source",
@@ -157,24 +157,11 @@
     "_must_not_appear_why": "The failure this pins is the SILENT one: recording the type as an ordinary skip satisfies every shape assertion, lets the phase emit HANDOFF_OK, and produces an estimate that is quietly missing a resource."
   },
   "missing_rubric_halt": {
-    "_why": "Same guard and same reasoning as discover-iac.md Step 2. 'No rubric is needed' and 'the rubric has not been written yet' are otherwise indistinguishable, and improvising past the second yields a mapping that satisfies every shape assertion and carries a confidence label it did not earn.",
-    "expected_halt_kind": "missing_rubric_file",
-    "expected_pending_rubric_tf_addresses": [
-      "azurerm_service_plan.web",
-      "azurerm_service_plan.func",
-      "azurerm_service_plan.legacy",
-      "azurerm_windows_virtual_machine.reporting",
-      "azurerm_postgresql_flexible_server.store"
-    ],
-    "must_not_be_in_services": [
-      "azurerm_service_plan.web",
-      "azurerm_service_plan.func",
-      "azurerm_service_plan.legacy",
-      "azurerm_windows_virtual_machine.reporting",
-      "azurerm_postgresql_flexible_server.store"
-    ],
+    "_why": "compute.md and database.md landed in build step 5, so pending_rubric[] must now be EMPTY and no missing_rubric_file blocker may remain. This block guards the REVERSE direction from before: a run that still parks these five resources as pending is one that did not load the rubric files that are now on disk.",
+    "expected_pending_rubric_count": 0,
+    "forbidden_halt_kind": "missing_rubric_file",
     "require_halt_entry_per_ref_file": true,
-    "_require_halt_entry_why": "pending_rubric[] records WHICH resources are affected; halt records that the phase is not finished. A design carrying pending_rubric[] and no halt reads as complete to anything that only inspects services[], which is most report code. A capability run produced exactly that artifact."
+    "_require_halt_entry_why": "Retained for the case where a rubric IS missing: pending_rubric[] records which resources are affected, halt records that the phase is unfinished. A design carrying pending_rubric[] and no halt reads as complete to anything that only inspects services[]."
   },
   "skips": {
     "_why": "A skipped resource must be RECORDED, never silently absent: a resource with no warnings[] entry is indistinguishable from one the design forgot. Conversely it must produce no services[] entry \u2014 an observability resource given a CloudWatch target would be a mapping claim there is no import path for.",
@@ -232,5 +219,67 @@
       "hosted_app_azure_ids",
       "sizing_source"
     ]
+  },
+  "rubric_mappings": {
+    "_why": "Pass-2 outcomes. Each is a target a plausible improviser gets wrong in a SPECIFIC way, and the wrong answer is recorded so the failure message names it. All are confidence 'inferred', never 'deterministic' \u2014 no compute or availability-dependent database decision is architecture-invariant.",
+    "expected_confidence": "inferred",
+    "azurerm_service_plan.web": {
+      "aws_service": "Elastic Beanstalk",
+      "must_not_be": [
+        "Fargate",
+        "AWS App Runner",
+        "App Runner",
+        "EKS",
+        "Lambda"
+      ],
+      "why": "Criterion 2.2: App Service is a managed platform, so EB preserves the posture the customer already pays for. Fargate is the improviser's answer because containers feel more modern, but it hands them a container lifecycle they did not own and changes two variables at once mid-migration."
+    },
+    "azurerm_service_plan.func": {
+      "aws_service": "Lambda",
+      "must_not_be": [
+        "Elastic Beanstalk",
+        "Fargate",
+        "EKS"
+      ],
+      "why": "sku_name Y1 is a CONSUMPTION plan and every hosted site is a function app, so criterion 2.2 takes the consumption branch. The entry is on the PLAN, not the function app."
+    },
+    "azurerm_windows_virtual_machine.reporting": {
+      "aws_service": "EC2",
+      "must_not_be": [
+        "Fargate",
+        "Elastic Beanstalk",
+        "Lightsail"
+      ],
+      "why": "A VM lifts to EC2 via MGN. Fargate would require containerising a Windows VM, which is a re-architecture the customer did not ask for."
+    },
+    "azurerm_postgresql_flexible_server.store": {
+      "aws_service": "RDS PostgreSQL",
+      "must_not_be": [
+        "Aurora PostgreSQL",
+        "Aurora Serverless v2",
+        "Aurora PostgreSQL Multi-AZ",
+        "RDS PostgreSQL Multi-AZ"
+      ],
+      "why": "THE most valuable assertion in this block. No availability answer was recorded, so the documented default is RDS single-AZ. Aurora is the improviser's answer because the SOURCE is high_availability { mode = ZoneRedundant } \u2014 but the source says what they bought, not what they need, and inferring Aurora from silence inflates the estimate with no visible cause. The source HA posture must surface as a FINDING instead."
+    }
+  },
+  "architecture_default": {
+    "_why": "x86_64 is the Azure default and it diverges from the rest of the repo on purpose. It will look like a bug to anyone who knows the gcp/heroku skills, so it is pinned. On the Windows VM it is not merely the default but required by graviton.md's escape path.",
+    "expected_value": "x86_64",
+    "tf_addresses": [
+      "azurerm_service_plan.web",
+      "azurerm_windows_virtual_machine.reporting"
+    ],
+    "forbidden_values": [
+      "arm64",
+      "aarch64",
+      "Graviton",
+      "graviton"
+    ]
+  },
+  "source_ha_finding": {
+    "_why": "database.md \u00a71 requires the source's zone-redundancy to surface as a finding when the target is single-AZ. Without it the customer silently loses HA they were paying for, and nothing in the artifact says so \u2014 a shape assertion cannot catch an absent finding.",
+    "tf_address": "azurerm_postgresql_flexible_server.store",
+    "expected_warning_code": "availability_downgrade_from_source"
   }
 }

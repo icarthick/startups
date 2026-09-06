@@ -137,7 +137,8 @@ Design writes its own `warnings[]` with a separate vocabulary; see
       "seed_resource_group": "<rg>",     // the seed, not the answer
       "tier": "compute",                  // network_identity_secrets | data | compute | edge
       "members": ["<azure_id>"],
-      "primary": "<azure_id>",            // the resource the cluster is named for
+      "member_roles": {},                 // azure_id -> deployment | data | configuration | network | observability | identity | idle
+      "primary": "<azure_id>",            // the resource the cluster is named for; see clustering/classification-rules.md
       "justification": "seed:resource_group",  // REQUIRED — see below
       "edges": [],                        // the edge set that JUSTIFIED this grouping
       "pattern_id": "unclassified",
@@ -185,7 +186,10 @@ discovery in a way a depth calculation is not.
 - [ ] `warnings[]` is present (possibly empty), and every entry has a `code` from the closed vocabulary, a `detail`, and an `azure_id` or an `identifier`.
 - [ ] Every `edges[]` entry's `type` appears in the § Typed edges table.
 - [ ] Every inventory resource is either a cluster member or listed in `unclustered[]`.
-- [ ] Every cluster has `cluster_id`, `tier`, `members`, and a `justification`.
+- [ ] Every cluster has `cluster_id`, `tier`, `members`, `primary`, `member_roles`, and a `justification`.
+- [ ] `primary` is a member of its own cluster, and is never a `Microsoft.Web/sites` resource.
+- [ ] `member_roles` has an entry for every member except the primary.
+- [ ] No resource is a member of two clusters.
 - [ ] Any cluster whose `justification` is `edges`, `split:*`, or `merge:*` has a non-empty `edges[]`.
 
 ## Status — skeleton (build step 1)
@@ -195,5 +199,6 @@ Per-type `config` schemas land with each dialect and source (step 2); the reserv
 and utilization profiles land with the RDfA fragment (step 2); `pattern_id`'s value set
 lands with the pattern catalog (step 4).
 
-Today every cluster carries `justification: "seed:resource_group"` and an empty
-`edges[]`. `split:*` and `merge:*` become reachable with step 4.
+`split:*` and `merge:*` are reachable as of build step 4. A cluster still carrying
+`seed:resource_group` is one that survived both refinement steps untouched — a genuine
+outcome for a single-workload resource group, not a sign that refinement did not run.
