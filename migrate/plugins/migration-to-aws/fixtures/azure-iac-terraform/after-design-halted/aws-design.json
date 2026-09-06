@@ -17,27 +17,35 @@
   },
   "clusters": [
     {
-      "cluster_id": "rg-app",
+      "cluster_id": "rg-app-tf-web",
       "pattern_id": "unclassified",
       "pattern_status": "catalog_absent",
       "target_architecture": null,
-      "rationale": "No architecture can be stated for rg-app. design-refs/patterns.md is not on disk (build step 4), so no pattern recognition was attempted \u2014 this is NOT 'nothing matched'. The cluster is also unrefined: it is the resource-group seed, carried from Discover with justification 'seed:resource_group'.",
+      "rationale": "No architecture can be stated for rg-app-tf-web. design-refs/patterns.md is not on disk (build step 4), so no pattern recognition was attempted \u2014 that is NOT 'nothing matched'. The cluster itself is refined: justification merge:cross_group_edges.",
       "constraints_imposed": []
     },
     {
-      "cluster_id": "rg-data",
+      "cluster_id": "rg-app-tf-func",
       "pattern_id": "unclassified",
       "pattern_status": "catalog_absent",
       "target_architecture": null,
-      "rationale": "No architecture can be stated for rg-data. design-refs/patterns.md is not on disk (build step 4), so no pattern recognition was attempted \u2014 this is NOT 'nothing matched'. The cluster is also unrefined: it is the resource-group seed, carried from Discover with justification 'seed:resource_group'.",
+      "rationale": "No architecture can be stated for rg-app-tf-func. design-refs/patterns.md is not on disk (build step 4), so no pattern recognition was attempted \u2014 that is NOT 'nothing matched'. The cluster itself is refined: justification split:no_internal_edges.",
       "constraints_imposed": []
     },
     {
-      "cluster_id": "rg-shared",
+      "cluster_id": "rg-shared-tf-reporting",
       "pattern_id": "unclassified",
       "pattern_status": "catalog_absent",
       "target_architecture": null,
-      "rationale": "No architecture can be stated for rg-shared. design-refs/patterns.md is not on disk (build step 4), so no pattern recognition was attempted \u2014 this is NOT 'nothing matched'. The cluster is also unrefined: it is the resource-group seed, carried from Discover with justification 'seed:resource_group'.",
+      "rationale": "No architecture can be stated for rg-shared-tf-reporting. design-refs/patterns.md is not on disk (build step 4), so no pattern recognition was attempted \u2014 that is NOT 'nothing matched'. The cluster itself is refined: justification split:no_internal_edges.",
+      "constraints_imposed": []
+    },
+    {
+      "cluster_id": "rg-shared-tf-legacy",
+      "pattern_id": "unclassified",
+      "pattern_status": "catalog_absent",
+      "target_architecture": null,
+      "rationale": "No architecture can be stated for rg-shared-tf-legacy. design-refs/patterns.md is not on disk (build step 4), so no pattern recognition was attempted \u2014 that is NOT 'nothing matched'. The cluster itself is refined: justification split:no_internal_edges.",
       "constraints_imposed": []
     }
   ],

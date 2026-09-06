@@ -225,9 +225,10 @@
     "expected_status": "catalog_absent",
     "target_architecture_must_be_null": true,
     "expected_cluster_ids": [
-      "rg-app",
-      "rg-data",
-      "rg-shared"
+      "rg-app-tf-web",
+      "rg-app-tf-func",
+      "rg-shared-tf-reporting",
+      "rg-shared-tf-legacy"
     ]
   },
   "compute_unit_required_fields": {

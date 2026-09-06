@@ -22,14 +22,82 @@ fleets carry Windows and .NET routinely, which is exactly the escape path in
 recommendation that has to be walked back on a large fraction of real estates.
 Graviton is offered as an optimization with its own savings line.
 
-## Status — skeleton (build step 1)
+## Step: Return rows
 
-Wiring only; the question set and its defaults land in step 5.
+> **This fragment asks nothing.** `clarify-assemble.md` owns the conversation — see
+> `clarify.md` § Step: Run the phase for why presentation is centralised.
 
-## Step: Ask
+### Q-A1 — Target AWS region
 
-1. Present the global section of the assumption sheet, batching to at most five
-   rows at a time, each with its disposition and default.
-2. Accept "use the defaults for the rest" at any point and record the documented
-   defaults for the remainder — the phase completes either way.
-3. Write the `global` section of `preferences.json`.
+**Disposition:** DETECTED when every resource shares one Azure region and the map resolves
+it; **ESSENTIAL** when the estate spans regions (there is no defensible way to pick one for
+someone). **Default when DETECTED:** the mapped region.
+
+Map from the estate's Azure regions via `knowledge/design/azure-region-map.json` — do not
+assume `us-east-1` when the estate is plainly European. `westeurope` → `eu-west-1`.
+
+### Q-A2 — Environment scope
+
+**Disposition:** DETECTED from the resource groups and name patterns present.
+**Default:** every environment found.
+
+Under an obfuscated RDfA report the `prod_` / `nonprod_` prefixes give this directly. From
+Terraform it is a name-pattern heuristic (`-dev`, `-prod`, `d-`, `t-`, `s-`), so treat it as
+a strong hint and show what was inferred rather than asserting it.
+
+### Q-A3 — Migration window
+
+**Disposition:** PROPOSED. **Default:** `null` — unstated.
+
+Left null rather than guessed. It shapes the timeline in the report and nothing in the
+design, so an invented window would add false precision to the one output people quote.
+
+### Q-A4 — Cost optimization appetite
+
+**Disposition:** PROPOSED. **Default:** `balanced`.
+
+```
+[A] Conservative — like-for-like capacity, lowest risk
+[B] Balanced — right-size where measured data supports it     (default)
+[C] Aggressive — smallest defensible footprint
+```
+
+**Consequence line:** *Balanced right-sizes only where measurement supports it. Aggressive
+can cut the estimate materially and needs load testing before cutover.*
+
+Feeds the aggressiveness slider in `knowledge/estimate/rightsizing-thresholds.json`. With no
+utilization data it changes nothing — say so on the row rather than implying it will.
+
+### Q-A5 — Azure baseline spend
+
+**Disposition:** DETECTED when a billing export was discovered; **ESSENTIAL** otherwise —
+there is no way to infer what someone pays.
+
+Anchors the migrate-versus-stay comparison. With no billing source the whole comparison is
+absent from the report, which is worth stating rather than leaving the reader to notice.
+
+## Rows returned
+
+```jsonc
+"global": {
+  "target_region":     { "disposition": "DETECTED", "value": "eu-west-1", "default": "eu-west-1" },
+  "environment_scope": { "disposition": "DETECTED", "value": ["prod"],   "default": ["prod"] },
+  "migration_window":  { "disposition": "PROPOSED", "value": null,       "default": null }
+},
+"design_constraints": {
+  "cost_optimization": { "disposition": "PROPOSED", "value": null, "default": "balanced" }
+},
+"baseline": {
+  "azure_monthly_spend": { "disposition": "ESSENTIAL", "value": null, "default": null }
+}
+```
+
+`cpu_architecture` is **not** here — it belongs to `clarify-compute.md`, because whether it
+is a question at all depends on whether Windows is present.
+
+## Status — build step 5
+
+Implemented. `knowledge/design/azure-region-map.json` does not exist yet, so Q-A1 currently
+states the mapped region as a best-effort and flags that the table is absent — the same
+softer treatment sizing tables get, and for the same reason: a missing table degrades a
+value's precision, where a missing rubric would fabricate a choice.

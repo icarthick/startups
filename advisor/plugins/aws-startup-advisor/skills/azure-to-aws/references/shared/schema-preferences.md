@@ -23,38 +23,89 @@ licensing exposure and found none" is a different statement from silence.
 {
   "phase": "clarify",
   "global": {
-    "target_region": { "disposition": "PROPOSED", "value": "us-east-1", "default": "us-east-1" },
-    "migration_window": { "disposition": "PROPOSED", "value": null, "default": null },
-    "environment_scope": { "disposition": "DETECTED", "value": [], "default": [] }
+    "target_region":     { "disposition": "DETECTED", "value": "eu-west-1", "default": "eu-west-1" },
+    "environment_scope": { "disposition": "DETECTED", "value": ["prod"],   "default": ["prod"] },
+    "migration_window":  { "disposition": "PROPOSED", "value": null,       "default": null }
   },
   "design_constraints": {
-    "cpu_architecture": { "disposition": "PROPOSED", "value": "x86_64", "default": "x86_64" },
-    "compute_target": { "disposition": "PROPOSED", "value": null, "default": "elastic_beanstalk" },
-    "cost_optimization": { "disposition": "PROPOSED", "value": null, "default": "balanced" }
+    "cpu_architecture":        { "disposition": "PROPOSED", "value": "x86_64", "default": "x86_64" },
+    "compute_target":          { "disposition": "PROPOSED", "value": null, "default": "elastic_beanstalk" },
+    "cost_optimization":       { "disposition": "PROPOSED", "value": null, "default": "balanced" },
+    "traffic_pattern":         { "disposition": "PROPOSED", "value": null, "default": "steady" },
+    "long_lived_connections":  { "disposition": "PROPOSED", "value": null, "default": false },
+    "vm_cutover":              { "disposition": "ESSENTIAL", "value": "mgn", "default": null }
   },
-  "data": {},
-  "identity": { "disposition": "PROPOSED", "value": "identity_center_reinvite", "default": "identity_center_reinvite" },
-  "licensing": { "disposition": "N/A", "value": null, "default": null },
+  "data": {
+    "availability":    { "disposition": "ESSENTIAL", "value": "single-az", "default": null,
+                         "source_ha_context": "pg-contoso-store: ZoneRedundant, standby zone 2" },
+    "db_cutover":      { "disposition": "ESSENTIAL", "value": "dms", "default": null },
+    "traffic_pattern": { "disposition": "PROPOSED",  "value": null, "default": "steady" },
+    "storage_io":      { "disposition": "PROPOSED",  "value": null, "default": "medium" },
+    "cosmos_rw_split": { "disposition": "N/A",       "value": null, "default": null },
+    "redis_modules":   { "disposition": "DETECTED",  "value": false, "default": false }
+  },
+  "baseline": {
+    "azure_monthly_spend": { "disposition": "ESSENTIAL", "value": null, "default": null }
+  },
+  "identity": { "disposition": "PROPOSED", "value": "identity_center_reinvite",
+                "default": "identity_center_reinvite" },
+  "licensing": {
+    "windows_model": { "disposition": "ESSENTIAL", "value": "license_included", "default": null,
+                       "context": "4 Windows VMs, 14 vCPUs total" },
+    "sql_model":     { "disposition": "N/A", "value": null, "default": null },
+    "ahub_in_use":   { "disposition": "DETECTED", "value": false, "default": false },
+    "blockers":      [ { "azure_id": "<azure_id>", "code": "azure_edition_windows_server" } ]
+  },
   "app_service_plans": [
-    { "plan_azure_id": "<azure_id>", "isolation_split": { "disposition": "PROPOSED", "value": false, "default": false } }
+    { "plan_azure_id": "<azure_id>", "hosted_app_count": 5,
+      "isolation_split": { "disposition": "PROPOSED", "value": false, "default": false } }
   ],
   "clusters": [
-    { "cluster_id": "<slug>", "pattern_id": { "disposition": "DETECTED", "value": "unclassified", "default": "unclassified" } }
+    { "cluster_id": "<slug>", "pattern_id": { "disposition": "DETECTED", "value": "unclassified",
+                                              "default": "unclassified" } }
   ],
   "workshop": {}
 }
 ```
 
-Notes on the non-obvious defaults:
+Which fragment owns which section:
 
-- **`cpu_architecture` defaults to `x86_64`**, which diverges from the repo-wide
-  Graviton default on purpose. See SKILL.md § Philosophy.
-- **`identity` always has a row** (the identity category always fires), defaulting to
-  a fresh IAM Identity Center re-invite rather than full Entra ID federation.
-- **`isolation_split` defaults to `false`.** A split is only ever a stated isolation
-  requirement, because splitting multiplies compute cost.
+| Section | Fragment |
+| ------- | -------- |
+| `global`, `design_constraints.cost_optimization`, `baseline` | `clarify-global.md` |
+| the rest of `design_constraints`, `app_service_plans[]` | `clarify-compute.md` |
+| `data` | `clarify-database.md` |
+| `licensing` | `clarify-licensing.md` (or an N/A stub from the assembler when it does not fire) |
+| `identity` | `clarify-identity.md` |
+| `clusters[]` | the assembler, from `azure-resource-clusters.json` |
 
-## Status — skeleton (build step 1)
+## The two rules that carry the most weight
 
-The disposition vocabulary and the shape are the real contract. The per-category
-question sets that populate `data`, `licensing`, and the AI keys land in step 5.
+**`ESSENTIAL` + `value: null` is the completion gate.** An essential row has no default *on
+purpose*, and the phase must not complete while one is unanswered. This is the only place
+the contract can express "shown and not answered", and the assembler's checklist asserts it.
+
+**A value taken from its default stays `PROPOSED`.** Never promote it to `DETECTED`, which
+means *read from the estate*, and never to a user decision. Design's rationale prints "you
+chose Elastic Beanstalk" differently from "we assumed Elastic Beanstalk", and the report
+distinguishes them — but only if this file recorded which happened.
+
+## Non-obvious defaults
+
+- **`cpu_architecture` defaults to `x86_64`**, diverging from the repo-wide Graviton default
+  on purpose. See SKILL.md § Philosophy. When Windows is present the row is DETECTED rather
+  than proposed, because it is not a choice.
+- **`data.availability` defaults to `single-az`, explicitly not Aurora** — and becomes
+  ESSENTIAL when the source is zone-redundant, because silently downgrading resilience
+  someone pays for today is the expensive mistake in both directions.
+- **`identity` defaults to a fresh IAM Identity Center re-invite**, not Entra ID federation:
+  defaulting to federation would leave the migration depending on the cloud being left.
+- **`isolation_split` defaults to `false`**, because splitting multiplies compute cost.
+- **`vm_cutover` and `db_cutover` have no defaults at all.** They select entirely different
+  runbooks, not different numbers.
+
+## Status — build step 5 (infra categories)
+
+The shape above is the real contract and Design is written against it. The AI keys land with
+the AI route in step 6; the `clusters[]` pattern confirmation fills in when `patterns.md`
+lands.

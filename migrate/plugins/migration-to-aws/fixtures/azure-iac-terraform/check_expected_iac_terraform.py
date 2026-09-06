@@ -496,6 +496,70 @@ def check_association_only(index: dict[str, dict], inv: dict, exp: dict) -> None
     )
 
 
+def check_clustering(inv: dict, index: dict[str, dict], exp: dict, run_dir: Path) -> None:
+    """Assert the clusters artifact. Clustering shipped ungated; this is that gap closed."""
+    spec = exp.get("clustering")
+    if not spec:
+        return
+    path = run_dir / exp["clusters_file"]
+    if not path.exists():
+        FAILS.append(f"missing {exp['clusters_file']} — clustering is a declared phase output. {spec['_why']}")
+        return
+    try:
+        doc = json.loads(path.read_text())
+    except json.JSONDecodeError as e:
+        FAILS.append(f"{exp['clusters_file']} is not valid JSON: {e}")
+        return
+    clusters = doc.get("clusters") or []
+    check(
+        len(clusters) == spec["expected_cluster_count"],
+        f"{len(clusters)} cluster(s), expected {spec['expected_cluster_count']}: "
+        f"{[c.get('cluster_id') for c in clusters]}. {spec['_expected_cluster_count_why']}",
+    )
+    byid = {c.get("cluster_id"): c for c in clusters}
+    id_of = {a: r.get("azure_id") for a, r in index.items()}
+
+    for cid, want in spec["expected_clusters"].items():
+        c = byid.get(cid)
+        if c is None:
+            FAILS.append(f"no cluster {cid!r}. {want['why']}")
+            continue
+        check(c.get("justification") == want["justification"],
+              f"{cid}: justification is {c.get('justification')!r}, expected "
+              f"{want['justification']!r}. {want['why']}")
+        check(len(c.get("members") or []) == want["member_count"],
+              f"{cid}: {len(c.get('members') or [])} members, expected {want['member_count']}. {want['why']}")
+        check(c.get("primary") == id_of.get(want["primary_tf_address"]),
+              f"{cid}: primary is not {want['primary_tf_address']!r}. See classification-rules.md ranks.")
+        for a in want.get("must_contain_tf_addresses", []):
+            check(id_of.get(a) in (c.get("members") or []),
+                  f"{cid}: does not contain {a!r}. {want['why']}")
+
+    for c in clusters:
+        j = c.get("justification") or ""
+        if j.startswith("merge:") and spec["merge_must_have_edges"]:
+            check(bool(c.get("edges")),
+                  f"{c.get('cluster_id')}: justification {j!r} with an EMPTY edges[]. A merge must show "
+                  f"the crossing edges that caused it, or the user cannot validate it on the sheet.")
+        if j.startswith("split:") and spec["split_may_have_empty_edges"]:
+            NOTES.append(f"{c.get('cluster_id')}: split with empty edges[] (correct) — {spec['_split_edges_why'][:60]}…")
+        prim = c.get("primary")
+        for r in inv.get("resources") or []:
+            if r.get("azure_id") == prim:
+                check(r.get("azure_type") != spec["forbidden_primary_type"],
+                      f"{c.get('cluster_id')}: primary is a {spec['forbidden_primary_type']}. "
+                      f"{spec['_forbidden_primary_why']}")
+
+    members = [m for c in clusters for m in (c.get("members") or [])]
+    check(len(members) == len(set(members)),
+          "a resource is a member of two clusters — merging must union members, not duplicate them")
+    allids = {r.get("azure_id") for r in inv.get("resources") or []}
+    missing = allids - set(members) - set(doc.get("unclustered") or [])
+    check(not missing,
+          f"{len(missing)} inventory resource(s) are in no cluster and not in unclustered[] — "
+          f"clustering must account for every resource")
+
+
 def check_contract_vocabulary(inv: dict, exp: dict) -> None:
     """Enforce the parts of the contract a correct-by-the-ref run can still get wrong.
 
@@ -612,6 +676,7 @@ def main() -> int:
     check_child_rg_inheritance(index, exp)
     check_warnings(inv, exp)
     check_discriminators(index, exp)
+    check_clustering(inv, index, exp, run_dir)
     check_downloaded_module(index, exp)
     check_module_not_over_warned(inv, exp)
     check_association_only(index, inv, exp)

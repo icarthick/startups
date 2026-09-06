@@ -9,6 +9,18 @@ _fragments:
   - _id: global
     _trigger: { _always: true }
     _file: phases/clarify/clarify-global.md
+  - _id: compute
+    _trigger: { _when: "the inventory contains a compute resource — Microsoft.Web/serverfarms, Microsoft.Compute/virtualMachines, Microsoft.Compute/virtualMachineScaleSets, Microsoft.ContainerService/managedClusters, Microsoft.App/containerApps, or Microsoft.ContainerInstance/containerGroups" }
+    _file: phases/clarify/clarify-compute.md
+  - _id: database
+    _trigger: { _when: "the inventory contains a relational database, cache, or Cosmos account — any Microsoft.DBforPostgreSQL/*, Microsoft.DBforMySQL/*, Microsoft.Sql/*, Microsoft.DocumentDB/databaseAccounts, or Microsoft.Cache/* resource" }
+    _file: phases/clarify/clarify-database.md
+  - _id: licensing
+    _trigger: { _when: "the inventory contains a Windows VM image, any Microsoft.Sql/* resource, or a SQL-Server-on-VM image signature — otherwise licensing is N/A and this fragment does not load" }
+    _file: phases/clarify/clarify-licensing.md
+  - _id: identity
+    _trigger: { _always: true }
+    _file: phases/clarify/clarify-identity.md
 _assemble:
   _file: phases/clarify/clarify-assemble.md
 _produces:
@@ -94,22 +106,28 @@ the estimate by multiples:
   user-validated before Design commits, at the cost of one sheet section and no new
   interaction model.
 
-## Status — skeleton (build step 1)
+## Status — build step 5 (infra categories)
 
-Wiring only: one fragment gathers global answers, the assembler writes
-`preferences.json`.
-
-| Lands in | What                                                                                             |
-| -------- | ------------------------------------------------------------------------------------------------ |
-| step 4   | The pattern-confirmation sheet section                                                            |
-| step 5   | The per-category fragments — compute, database (with the availability selector), licensing (conditional), identity, AI, and the AI-only entry path |
-
-The `_postconditions` above already assert the finished contract, so a category
-landing later cannot land silently: its assert fails until the fragment exists.
+Five fragments: global, compute, database, licensing (conditional), identity. The AI
+categories (`clarify-ai.md`, `clarify-ai-only.md`) land with the AI route in step 6, and
+the pattern-confirmation section fills in when `patterns.md` lands — until then every
+cluster's `pattern_id` is `unclassified` and its row is DETECTED with nothing to correct.
 
 ## Step: Run the phase
 
-1. Run each fragment whose `_trigger` holds, presenting its sheet section.
-2. Run `clarify-assemble.md`.
+**Fragments do not talk to the user. The assembler does.** This is the one phase where
+that split matters, so it is stated here rather than left to each unit:
+
+1. Run each fragment whose `_trigger` holds. A fragment **reads the inventory, resolves
+   what it can, assigns a disposition per row, and returns rows** — it asks nothing.
+2. Run `clarify-assemble.md`, which owns the whole conversation: **one** consolidated
+   assumption sheet (DETECTED and PROPOSED rows, batched at five at a time), then the
+   ESSENTIAL questions, then the answer recap, then it writes `preferences.json`.
 3. Evaluate `_postconditions`. On all-pass emit `HANDOFF_OK`; on any failure emit
    `GATE_FAIL` and stop.
+
+Why presentation sits in the assembler: with five fragments each presenting its own
+section the user would face five sheets and five rounds of essentials, interleaved. gcp
+runs **one** sheet as a single mandatory gate and then batches the essentials, and this
+phase's own postcondition says *"every assumption-sheet row the user was shown"* —
+singular. One gate, one recap, one place that knows the full row set.
