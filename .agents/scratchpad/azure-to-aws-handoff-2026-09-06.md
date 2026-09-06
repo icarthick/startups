@@ -4,7 +4,7 @@
 
 **Authoritative plan:** `.agents/scratchpad/azure-to-aws-implementation-plan-v2.md` (1,484 lines). **Read §13, §14 and §15 first** — they are this session's decisions, the sequencing change, and how the skill is actually tested. The Pippin artifact *Implementation Plan (rev 2)* is a **mirror** published from that file; edit the repo file and re-publish, never the mirror.
 
-> **Read this if you read nothing else.** The goal is **Terraform-sourced Azure estates migrated end to end**. Live `az`, RDfA, billing, app-code, Bicep and ARM are all deliberately deferred (§14). Discover, Clarify and Design pass 1+2 are real and gated by three Python oracles in CI. **Next task: `networking.md` + `messaging.md`** — 12 types between them, and the last thing standing between a Terraform repo and a Design that completes. Two pre-existing `drift:check` failures are NOT yours.
+> **Read this if you read nothing else.** The goal is **Terraform-sourced Azure estates migrated end to end**. Live `az`, RDfA, billing, app-code, Bicep and ARM are all deliberately deferred (§14). Discover, Clarify and Design pass 1+2 are real and gated by three Python oracles in CI. **The gate on everything now is ONE owner decision** — Design halts on the corpus's untranslated type, and `estimate.md` requires Design completed, so nothing downstream can run until that is resolved (§8). Then **Estimate**, then Generate. `networking.md`/`messaging.md` are NOT next — see the correction in §8. Two pre-existing `drift:check` failures are NOT yours.
 
 ***
 
@@ -19,7 +19,7 @@
 | generate | skeleton | wiring only |
 | workshop / feedback | skeleton | sidebars; `workshop` carries `_gates: generate` |
 
-**A run today** gets through Discover and Clarify, then Design halts — on the corpus's untranslated type, and on any resource routed to one of the 7 missing rubric files.
+**A run today** gets through Discover and Clarify, then Design halts. On the CORPUS the only blocker is the untranslated `azurerm_iothub` — `pending_rubric[]` is empty and 16 `services[]` are mapped. On an arbitrary REAL repo it would additionally halt on anything routed to one of the 7 missing rubric files.
 
 Counts: `references/design-refs/` 5 of ~14 · `knowledge/design/` 1 of ~10 · `references/clustering/` 4 of 4 · `references/shared/` 7 files.
 
