@@ -198,8 +198,23 @@ report should mention. There is no target and no import path for retained teleme
 | `Microsoft.Resources/deployments`     | fast-path: skip — deployment history, not infrastructure |
 | `Microsoft.Web/certificates`          | fast-path: skip — ACM issues for the target's hostnames  |
 
-A canonical type that appears in **neither** this file nor
-`fast-path-services.json` falls to the unknown-type policy in
-`phases/design/design-infra.md`. That policy is deliberately split: benign unknowns warn
-and continue, cost-bearing unknowns STOP. Do not add a speculative row here to avoid a
-STOP — the STOP is the signal that the type needs filing.
+A canonical type that appears in **neither** this file nor `fast-path-services.json` does
+**not** go straight to a STOP. Two derived rules run first, both defined as data in
+`fast-path-services.json` and both described in `phases/design/design-infra.md` § 2:
+
+1. **`child_type_rule`** — a child type (two or more segments after the provider) whose
+   parent has a disposition becomes a `config_source` of that parent.
+2. **`namespace_routing`** — 54 provider-namespace rules route to a category rubric, a
+   skip, or a gate.
+
+Only if both miss does the unknown-type policy apply, and that policy is deliberately
+split: benign unknowns warn and continue, cost-bearing unknowns STOP.
+
+**Do not add a speculative row here to avoid a STOP.** Two reasons, and the second is the
+one that bites: a speculative row asserts a category nobody chose, and it also **shadows
+the namespace rule**, which would have routed the type correctly and recorded
+`routing_provenance: "namespace_rule"` so a reviewer could see the decision was derived.
+An authored row always wins over a derived rule, so a bad row is worse than no row.
+
+A type that reaches the STOP now has a namespace this skill does not recognise, which is
+a much stronger signal than "no row exists" ever was.

@@ -566,6 +566,68 @@ def check_sizing_provenance(design: dict, exp: dict) -> None:
     )
 
 
+def check_routing_provenance(design: dict, exp: dict) -> None:
+    """Every disposition must say how it was reached, and a DERIVED route is not deterministic.
+
+    namespace_routing and child_type_rule exist so coverage can grow without an authored row
+    per type. The risk is that a derived mapping looks identical to a curated one in the
+    artifact. This makes the difference explicit and stops a derived route claiming the
+    deterministic tier, which requires a direct_mappings row it does not have.
+    """
+    spec = exp.get("routing_provenance")
+    if not spec:
+        return
+    allowed = set(spec["allowed"])
+    derived = set(spec["derived"])
+    counts: dict[str, int] = {}
+    for entry in design.get("services") or []:
+        sid = entry.get("service_id")
+        prov = entry.get("routing_provenance")
+        check(prov in allowed, f"{sid}: routing_provenance is {prov!r}, not one of {sorted(allowed)}. {spec['_why']}")
+        counts[prov] = counts.get(prov, 0) + 1
+        if prov in derived:
+            check(
+                entry.get("confidence") != "deterministic",
+                f"{sid}: routing_provenance is {prov!r} (DERIVED) but confidence is "
+                f"'deterministic'. That tier requires an authored direct_mappings row and a "
+                f"fast_path_row naming it; a derived route cannot earn it.",
+            )
+    NOTES.append(f"routing_provenance: {counts}")
+
+
+def check_namespace_routing_targets(exp: dict) -> None:
+    """Every rubric file namespace_routing names must exist, or be declared pending.
+
+    Same guard as check_index_reference_files_exist, for the second thing that can route a
+    resource to a rubric. Adding a namespace rule that points at an unwritten file turns a
+    STOP into a HALT and moves the failure rather than fixing it.
+    """
+    spec = exp.get("routing_provenance")
+    pending_spec = exp.get("index_reference_files")
+    if not spec or not pending_spec:
+        return
+    tbl_path = HERE / spec["namespace_routing_relpath"]
+    refs_dir = HERE / spec["design_refs_relpath"]
+    if not tbl_path.exists() or not refs_dir.is_dir():
+        FAILS.append("cannot check namespace_routing targets: table or design-refs/ missing")
+        return
+    table = json.loads(tbl_path.read_text())
+    rules = (table.get("namespace_routing") or {}).get("rules") or {}
+    on_disk = {p.name for p in refs_dir.glob("*.md")}
+    pending = set(pending_spec["known_pending"])
+    missing = sorted({
+        v["route"] for v in rules.values()
+        if v.get("route") and v["route"] not in on_disk and v["route"] not in pending
+    })
+    check(
+        not missing,
+        f"namespace_routing routes to {missing}, which are NOT on disk and NOT in "
+        f"known_pending. A namespace rule pointing at an unwritten rubric converts the "
+        f"unknown-type STOP into a missing-rubric HALT -- it moves the failure, it does not fix it.",
+    )
+    NOTES.append(f"namespace_routing: {len(rules)} namespaces, all routes resolvable")
+
+
 def check_cluster_pattern_status(design: dict, exp: dict) -> None:
     """Assert the honest 'no pattern catalog' state, not a plausible architecture string.
 
@@ -782,6 +844,8 @@ def main() -> int:
     check_canonical_type_coverage(exp)
     check_index_reference_files_exist(exp)
     check_sizing_provenance(design, exp)
+    check_routing_provenance(design, exp)
+    check_namespace_routing_targets(exp)
     check_deterministic(design, table, id_of, exp)
     check_fan_in(design, inv, id_of, exp)
     check_unknown_stop(design, exp)

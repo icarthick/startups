@@ -60,7 +60,8 @@
       },
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.Network/virtualNetworks",
-      "rationale": "Direct Mappings row, condition Always. A VNet is a VPC regardless of what runs in it; the address space is preserved."
+      "rationale": "Direct Mappings row, condition Always. A VNet is a VPC regardless of what runs in it; the address space is preserved.",
+      "routing_provenance": "table"
     },
     {
       "service_id": "subnet-apps",
@@ -72,7 +73,8 @@
       },
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.Network/virtualNetworks/subnets",
-      "rationale": "Direct Mappings row, condition Always."
+      "rationale": "Direct Mappings row, condition Always.",
+      "routing_provenance": "table"
     },
     {
       "service_id": "subnet-data",
@@ -84,7 +86,8 @@
       },
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.Network/virtualNetworks/subnets",
-      "rationale": "Direct Mappings row, condition Always."
+      "rationale": "Direct Mappings row, condition Always.",
+      "routing_provenance": "table"
     },
     {
       "service_id": "elasticache-session",
@@ -98,7 +101,8 @@
       },
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.Cache/Redis",
-      "rationale": "Direct Mappings row, condition Always. Node sizing is post-selection and does not revisit the service choice."
+      "rationale": "Direct Mappings row, condition Always. Node sizing is post-selection and does not revisit the service choice.",
+      "routing_provenance": "table"
     },
     {
       "service_id": "secrets-main",
@@ -111,7 +115,8 @@
       },
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.KeyVault/vaults",
-      "rationale": "Direct Mappings row, condition Always. KMS is added only when the vault holds keys; ACM for certificates. Additive company does not change the row's target."
+      "rationale": "Direct Mappings row, condition Always. KMS is added only when the vault holds keys; ACM for certificates. Additive company does not change the row's target.",
+      "routing_provenance": "table"
     },
     {
       "service_id": "s3-assets",
@@ -126,7 +131,8 @@
       },
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.Storage/storageAccounts",
-      "rationale": "Direct Mappings row. The condition holds because account_kind is StorageV2, not FileStorage, so the account has a blob surface. Its fileServices/shares child is mapped separately and does NOT inherit S3."
+      "rationale": "Direct Mappings row. The condition holds because account_kind is StorageV2, not FileStorage, so the account has a blob surface. Its fileServices/shares child is mapped separately and does NOT inherit S3.",
+      "routing_provenance": "table"
     },
     {
       "service_id": "fsx-reports",
@@ -139,7 +145,8 @@
       },
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.Storage/storageAccounts/fileServices/shares",
-      "rationale": "Direct Mappings row, condition enabled_protocol == SMB. Protocol is the whole rubric (owner decision 11.5); an SMB share is usually AD-joined, which is why FSx for Windows File Server and not EFS. This is a SEPARATE resource from its parent storage account and does not inherit the account's S3 target."
+      "rationale": "Direct Mappings row, condition enabled_protocol == SMB. Protocol is the whole rubric (owner decision 11.5); an SMB share is usually AD-joined, which is why FSx for Windows File Server and not EFS. This is a SEPARATE resource from its parent storage account and does not inherit the account's S3 target.",
+      "routing_provenance": "table"
     },
     {
       "service_id": "documentdb-catalog",
@@ -155,7 +162,8 @@
       },
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.DocumentDB/databaseAccounts",
-      "rationale": "Direct Mappings row, Mongo-API branch (kind MongoDB, capability EnableMongo). DocumentDB is the wire-protocol drop-in. NOT DynamoDB \u2014 that is the Core (SQL) API branch, which is the only Cosmos surface that routes to the rubric."
+      "rationale": "Direct Mappings row, Mongo-API branch (kind MongoDB, capability EnableMongo). DocumentDB is the wire-protocol drop-in. NOT DynamoDB \u2014 that is the Core (SQL) API branch, which is the only Cosmos surface that routes to the rubric.",
+      "routing_provenance": "table"
     },
     {
       "service_id": "msk-telemetry",
@@ -169,7 +177,8 @@
       },
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.EventHub/namespaces",
-      "rationale": "Direct Mappings row, kafka_enabled == true branch. Protocol is the whole rubric with no throughput threshold (owner decision 11.4): a Kafka-protocol consumer changes a broker endpoint, while Kinesis would be a code rewrite. NOT Kinesis."
+      "rationale": "Direct Mappings row, kafka_enabled == true branch. Protocol is the whole rubric with no throughput threshold (owner decision 11.4): a Kafka-protocol consumer changes a broker endpoint, while Kinesis would be a code rewrite. NOT Kinesis.",
+      "routing_provenance": "table"
     },
     {
       "service_id": "eb-web",
@@ -206,7 +215,8 @@
         "worker_count": 2
       },
       "rationale": "Elastic Beanstalk, because criterion 2.2 (operational model) fired: the source is a Microsoft.Web/serverfarms plan hosting web apps, and App Service is a managed platform the customer already pays for. No compute_target preference was recorded, so criterion 2.3 did not override. ONE environment for all five apps \u2014 the plan is the compute unit and its S1 x2 capacity is what is being paid for; five environments would be a 5x error. x86_64 per the Azure default.",
-      "sizing_provenance": "table"
+      "sizing_provenance": "table",
+      "routing_provenance": "index_md"
     },
     {
       "service_id": "lambda-func",
@@ -229,7 +239,8 @@
         "sku_name": "Y1",
         "worker_count": 1
       },
-      "rationale": "Lambda, because criterion 2.2 fired on the consumption-plan branch: sku_name Y1 with every hosted site's kind containing functionapp. The mapping is emitted against the PLAN, not the function app \u2014 a Microsoft.Web/sites resource never gets its own entry. No Lambda eliminator applies."
+      "rationale": "Lambda, because criterion 2.2 fired on the consumption-plan branch: sku_name Y1 with every hosted site's kind containing functionapp. The mapping is emitted against the PLAN, not the function app \u2014 a Microsoft.Web/sites resource never gets its own entry. No Lambda eliminator applies.",
+      "routing_provenance": "index_md"
     },
     {
       "service_id": "eb-legacy-idle",
@@ -250,7 +261,8 @@
         "sku_name": "P1v3",
         "worker_count": 1
       },
-      "rationale": "Mapped for completeness and flagged as idle: this P1v3 plan hosts ZERO apps, so it is purchased capacity with no workload behind it. Criterion 2.2 would give Elastic Beanstalk, but the recommendation is to decommission rather than migrate \u2014 see the idle_app_service_plan finding."
+      "rationale": "Mapped for completeness and flagged as idle: this P1v3 plan hosts ZERO apps, so it is purchased capacity with no workload behind it. Criterion 2.2 would give Elastic Beanstalk, but the recommendation is to decommission rather than migrate \u2014 see the idle_app_service_plan finding.",
+      "routing_provenance": "index_md"
     },
     {
       "service_id": "ec2-reporting",
@@ -269,7 +281,8 @@
       "confidence": "inferred",
       "rubric_applied": "compute.md",
       "rationale": "EC2, because criterion 2.2 fired: a Microsoft.Compute/virtualMachines resource lifts to EC2 via MGN. x86_64 is mandatory rather than defaulted because the guest is Windows. NOTE: the image is Azure Edition, which MGN refuses \u2014 see the blocker in warnings[]. It does NOT hit the SQL-on-VM specialist gate: the publisher is MicrosoftWindowsServer, not MicrosoftSQLServer.",
-      "sizing_provenance": "table"
+      "sizing_provenance": "table",
+      "routing_provenance": "index_md"
     },
     {
       "service_id": "rds-store",
@@ -288,7 +301,8 @@
       "confidence": "inferred",
       "rubric_applied": "database.md",
       "rationale": "RDS PostgreSQL single-AZ. The availability override gate (database.md \u00a71) selects the family, and preferences.json records NO availability answer \u2014 so the documented default is RDS single-AZ, NOT Aurora. Inferring Aurora from silence would inflate the estimate with no way for the customer to see why. Backup retention carried across verbatim at 14 days: a stated requirement, not a sizing knob.",
-      "sizing_provenance": "table"
+      "sizing_provenance": "table",
+      "routing_provenance": "index_md"
     },
     {
       "service_id": "rt-egress",
@@ -303,7 +317,8 @@
       },
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.Network/routeTables",
-      "rationale": "Direct Mappings row, condition Always. Its subnet association came from an association-only Terraform resource, which produced an edge rather than an inventory entry."
+      "rationale": "Direct Mappings row, condition Always. Its subnet association came from an association-only Terraform resource, which produced an edge rather than an inventory entry.",
+      "routing_provenance": "table"
     },
     {
       "service_id": "ssm-session-manager",
@@ -317,7 +332,8 @@
       },
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.Network/bastionHosts",
-      "rationale": "Direct Mappings row, condition Always. Azure Bastion exists to give browser-based RDP/SSH without public IPs; Session Manager is the direct analogue, needs no host at all, and is free. Emitting a bastion EC2 instance would carry a cost the target does not have."
+      "rationale": "Direct Mappings row, condition Always. Azure Bastion exists to give browser-based RDP/SSH without public IPs; Session Manager is the direct analogue, needs no host at all, and is free. Emitting a bastion EC2 instance would carry a cost the target does not have.",
+      "routing_provenance": "table"
     }
   ],
   "deferred": [],

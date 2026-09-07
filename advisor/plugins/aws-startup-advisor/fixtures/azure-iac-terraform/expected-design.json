@@ -357,5 +357,22 @@
         "_why": "Standard_D4s_v5 is 4 vCPU / 16 GiB, and m6i.xlarge is 4/16. This one the prior got right, which is exactly why an unasserted number is not the same as a correct one."
       }
     }
+  },
+  "routing_provenance": {
+    "_comment": "Every services[] entry must say HOW its disposition was reached, and a DERIVED route may never claim confidence: deterministic.",
+    "_why": "namespace_routing and child_type_rule let coverage grow without an authored row per type - the fix for coverage being O(n) in judgement. The risk they introduce is that a derived mapping becomes indistinguishable from a curated one in the artifact. This field makes the difference visible, and the deterministic guard stops a derived route inheriting a tier it did not earn.",
+    "allowed": [
+      "table",
+      "index_md",
+      "child_type_rule",
+      "namespace_rule"
+    ],
+    "derived": [
+      "child_type_rule",
+      "namespace_rule"
+    ],
+    "namespace_routing_relpath": "../../skills/azure-to-aws/knowledge/design/fast-path-services.json",
+    "design_refs_relpath": "../../skills/azure-to-aws/references/design-refs",
+    "_corpus_expectation": "This corpus routes NOTHING through a derived rule - every type has an authored row or an index.md row. So the derived counts are expected to be ZERO here, and the check is guarding the contract rather than exercising it. Extending the corpus with a type that only a namespace rule can place is the follow-up."
   }
 }

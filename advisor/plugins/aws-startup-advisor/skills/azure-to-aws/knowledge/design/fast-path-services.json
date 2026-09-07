@@ -1,9 +1,9 @@
 {
   "_comment": "Pass-1 disposition table for Design, keyed by CANONICAL ARM resource type. Three dispositions live in one file on purpose: they are all lookups on the same key, and the precedence invariant (a type resolves to AT MOST ONE of them) is only mechanically checkable when they sit together. The rubric rules live in references/design-refs/*.md; only the lookup data lives here.",
   "_match": "EXACT full-string match of a resource's azure_type against a key, with case FOLDED on both sides. Never substring-match. ARM compares type strings case-insensitively and Microsoft's own sources disagree on display casing, so a case-only difference must NEVER fall through to the unknown-type policy \u2014 see references/shared/arm-type-canonicalization.md section 'Casing is a convention, not a fact'. Keys here use that file's spelling as a convention, because azure_id strings are joined by exact match.",
-  "_precedence": "Evaluated in this order, per design-refs/fast-path.md: skip_mappings, then specialist_gates, then eliminators (in the category rubric), then direct_mappings. A type present in more than one of the three tables here is a DEFECT in this file, not a runtime choice.",
+  "_precedence": "Evaluated in this order, per design-refs/fast-path.md: skip_mappings, then specialist_gates, then eliminators (in the category rubric), then direct_mappings. A type present in more than one of those three tables here is a DEFECT in this file, not a runtime choice. If none matched, route via design-refs/index.md. If index.md has no row either, apply child_type_rule, then namespace_routing, and only then the unknown-type policy. An explicit row ALWAYS beats a derived rule, and a derived rule always beats a STOP.",
   "_invariant": "A pattern constraint may narrow the candidate set for a rubric decision. It may NEVER change the aws_service of a direct_mappings row. A genuine pattern/fast-path conflict means the row does not belong here \u2014 demote the row, never let the pattern win.",
-  "_on_not_found": "The type is not in this file. Route via references/design-refs/index.md to its category rubric. If index.md has no row either, apply the unknown-type policy in references/phases/design/design-infra.md (benign -> warn and skip; cost-bearing -> STOP).",
+  "_on_not_found": "The type is not in this file. Route via references/design-refs/index.md. If index.md has no row either, apply child_type_rule and then namespace_routing -- both record routing_provenance so a derived disposition is visible in review. Only if all of those miss does the unknown-type policy in references/phases/design/design-infra.md apply (benign -> warn and skip; cost-bearing -> STOP).",
   "direct_mappings": {
     "_comment": "confidence: deterministic. Admission test: is this target correct REGARDLESS of the surrounding architecture? All rows are infrastructure primitives; there is deliberately NO compute here. A row may carry a mechanical condition on a single config field (a protocol, an API, an account kind) and still be architecture-invariant, because the condition reads a property of the resource itself and not of its neighbours.",
     "_add_ons_do_not_break_determinism": "A deterministic row's target may be ACCOMPANIED by additional AWS services contributed by other resources or by the pattern layer (S3 + CloudFront for a static website; EBS + an ASG). Additive company is not a target change, so the row stays deterministic. Only a substituted aws_service would violate the invariant.",
@@ -494,5 +494,315 @@
       "why_not_a_question": "There is no option to weigh. Presenting it as a choice implies one of the answers works."
     }
   },
-  "_coverage_contract": "EVERY canonical type in references/shared/arm-type-canonicalization.md must resolve to a disposition \u2014 a row here, or a Reference row in design-refs/index.md. Adding a canonicalization row WITHOUT one makes the inventory better and Design worse: the type is now discovered, reaches the unknown-type policy, and STOPs. That regression happened once (a coverage pass took the table from 77 to 137 types and left 53 orphans, any one of which halted Design on a real repo), so check_expected_design.py now asserts zero orphans."
+  "_coverage_contract": "EVERY canonical type in references/shared/arm-type-canonicalization.md must resolve to a disposition \u2014 a row here, or a Reference row in design-refs/index.md. Adding a canonicalization row WITHOUT one makes the inventory better and Design worse: the type is now discovered, reaches the unknown-type policy, and STOPs. That regression happened once (a coverage pass took the table from 77 to 137 types and left 53 orphans, any one of which halted Design on a real repo), so check_expected_design.py now asserts zero orphans. REVISED 2026-09-07: the contract is now that every canonical type resolves to a disposition by a row here, a Reference row in index.md, child_type_rule, OR namespace_routing. Requiring a per-type row made coverage growth O(n) in authored judgement -- 143 types today against a provider surface past 1000 -- so the two derived rules carry the tail and the authored rows carry the opinions.",
+  "namespace_routing": {
+    "_what_this_is": "Category routing by PROVIDER NAMESPACE, for a canonical type that has no row of its own. The namespace is a structural, authoritative segment of an ARM type string, so this is a rule rather than a per-type table -- 39 namespaces cover a provider surface of 1000+ types.",
+    "_when": "Consulted ONLY after a type has missed skip_mappings, specialist_gates, direct_mappings AND has no Reference row in design-refs/index.md. Never before. An explicit row ALWAYS wins over a namespace rule.",
+    "_why_this_exists": "gcp-to-aws routes an unknown type to a category by substring-matching its NAME ('log' -> monitoring), which also matches google_diaLOGflow_agent. Azure has a better signal for free: the namespace. Before this rule, azure went straight from 'no row' to the cost-bearing STOP, which made it stricter than gcp on a smaller-coverage basis -- a type we could name, in a namespace we understand, still halted the design.",
+    "_provenance": "A resource routed here records routing_provenance: \"namespace_rule\" on its services[] entry. It is visible in review rather than indistinguishable from a curated row.",
+    "_invariant": "A namespace-routed resource can NEVER carry confidence: deterministic. That tier requires a direct_mappings row and a fast_path_row naming it. Namespace routing produces confidence: inferred at best, because the rubric decided.",
+    "_still_stops": "A cost-bearing type whose NAMESPACE is also unrecognised still STOPs with halt.kind unmapped_canonical_type. That is now a genuinely rare case rather than the common one.",
+    "rules": {
+      "Microsoft.Network": {
+        "route": "networking.md",
+        "kind": "rubric",
+        "reason": "Load balancers, gateways, NAT, firewalls, DNS, peerings, endpoints."
+      },
+      "Microsoft.Cdn": {
+        "route": "networking.md",
+        "kind": "rubric",
+        "reason": "CDN and Front Door profiles are edge delivery."
+      },
+      "Microsoft.ApiManagement": {
+        "route": "networking.md",
+        "kind": "rubric",
+        "reason": "API gateway surface."
+      },
+      "Microsoft.Compute": {
+        "route": "compute.md",
+        "kind": "rubric",
+        "reason": "VMs, scale sets, disks, images, galleries."
+      },
+      "Microsoft.Web": {
+        "route": "compute.md",
+        "kind": "rubric",
+        "reason": "App Service plans and sites. NOTE: Microsoft.Web/sites still never gets its own entry -- the plan is the compute unit (7a.6)."
+      },
+      "Microsoft.App": {
+        "route": "compute.md",
+        "kind": "rubric",
+        "reason": "Container Apps and managed environments."
+      },
+      "Microsoft.ContainerService": {
+        "route": "compute.md",
+        "kind": "rubric",
+        "reason": "AKS and its node pools."
+      },
+      "Microsoft.ContainerInstance": {
+        "route": "compute.md",
+        "kind": "rubric",
+        "reason": "One-shot container groups."
+      },
+      "Microsoft.ContainerRegistry": {
+        "route": "compute.md",
+        "kind": "rubric",
+        "reason": "ECR sits with the container platform."
+      },
+      "Microsoft.Sql": {
+        "route": "database.md",
+        "kind": "rubric",
+        "reason": "Azure SQL. MI and elastic pools have explicit gate rows that win over this."
+      },
+      "Microsoft.DBforPostgreSQL": {
+        "route": "database.md",
+        "kind": "rubric",
+        "reason": "Flexible and Single Server."
+      },
+      "Microsoft.DBforMySQL": {
+        "route": "database.md",
+        "kind": "rubric",
+        "reason": "Flexible and Single Server."
+      },
+      "Microsoft.DBforMariaDB": {
+        "route": "database.md",
+        "kind": "rubric",
+        "reason": "Retired Azure service; still appears in older IaC."
+      },
+      "Microsoft.DocumentDB": {
+        "route": "database.md",
+        "kind": "rubric",
+        "reason": "Cosmos, all APIs. The per-API routing is inside database.md."
+      },
+      "Microsoft.Cache": {
+        "route": "database.md",
+        "kind": "rubric",
+        "reason": "Redis and Redis Enterprise."
+      },
+      "Microsoft.Storage": {
+        "route": "storage.md",
+        "kind": "rubric",
+        "reason": "Accounts and their four service children."
+      },
+      "Microsoft.NetApp": {
+        "route": "storage.md",
+        "kind": "rubric",
+        "reason": "NetApp Files -> FSx for NetApp ONTAP."
+      },
+      "Microsoft.ServiceBus": {
+        "route": "messaging.md",
+        "kind": "rubric",
+        "reason": "Namespaces, queues, topics, subscriptions."
+      },
+      "Microsoft.EventHub": {
+        "route": "messaging.md",
+        "kind": "rubric",
+        "reason": "Namespaces and hubs. The namespace itself has a direct row that wins."
+      },
+      "Microsoft.EventGrid": {
+        "route": "messaging.md",
+        "kind": "rubric",
+        "reason": "Topics and subscriptions. Topics have direct rows that win."
+      },
+      "Microsoft.SignalRService": {
+        "route": "messaging.md",
+        "kind": "rubric",
+        "reason": "Real-time messaging."
+      },
+      "Microsoft.Relay": {
+        "route": "messaging.md",
+        "kind": "rubric",
+        "reason": "Hybrid Connections and WCF Relay."
+      },
+      "Microsoft.NotificationHubs": {
+        "route": "messaging.md",
+        "kind": "rubric",
+        "reason": "Push notification fan-out -> SNS mobile push."
+      },
+      "Microsoft.Search": {
+        "route": "analytics.md",
+        "kind": "rubric",
+        "reason": "AI Search."
+      },
+      "Microsoft.Databricks": {
+        "route": "analytics.md",
+        "kind": "rubric",
+        "reason": "Databricks workspaces."
+      },
+      "Microsoft.Kusto": {
+        "route": "analytics.md",
+        "kind": "rubric",
+        "reason": "Data Explorer. Likely a gate once analytics.md covers it -- KQL is a query rewrite."
+      },
+      "Microsoft.HDInsight": {
+        "route": "analytics.md",
+        "kind": "rubric",
+        "reason": "Managed Hadoop/Spark -> EMR."
+      },
+      "Microsoft.KeyVault": {
+        "route": "identity.md",
+        "kind": "rubric",
+        "reason": "Vaults, secrets, keys, certificates. The vault itself has a direct row that wins."
+      },
+      "Microsoft.ManagedIdentity": {
+        "route": "identity.md",
+        "kind": "rubric",
+        "reason": "Managed identities -> IAM roles."
+      },
+      "Microsoft.CognitiveServices": {
+        "route": "ai.md",
+        "kind": "rubric",
+        "reason": "Cognitive Services accounts. kind=OpenAI routes to the shared Bedrock guide instead; see index.md."
+      },
+      "Microsoft.Insights": {
+        "route": null,
+        "kind": "skip",
+        "reason": "Observability is RE-ESTABLISHED on the target, not migrated (owner decision 11.6).",
+        "skip_kind": "config_source",
+        "report_note": "cloudwatch_fallback"
+      },
+      "Microsoft.OperationalInsights": {
+        "route": null,
+        "kind": "skip",
+        "reason": "Log Analytics workspaces. Same as Microsoft.Insights.",
+        "skip_kind": "config_source",
+        "report_note": "cloudwatch_fallback"
+      },
+      "Microsoft.AlertsManagement": {
+        "route": null,
+        "kind": "skip",
+        "reason": "Alert processing rules and smart groups. CloudWatch alarms are authored on the target.",
+        "skip_kind": "noise",
+        "report_note": "cloudwatch_fallback"
+      },
+      "Microsoft.Monitor": {
+        "route": null,
+        "kind": "skip",
+        "reason": "Azure Monitor workspaces (Prometheus). Amazon Managed Prometheus is the counterpart but is authored, not translated.",
+        "skip_kind": "noise",
+        "report_note": "cloudwatch_fallback"
+      },
+      "Microsoft.Authorization": {
+        "route": null,
+        "kind": "skip",
+        "reason": "Role assignments, definitions, locks and policy. IAM is AUTHORED on the target from intent, never translated from Azure RBAC.",
+        "skip_kind": "config_source"
+      },
+      "Microsoft.PolicyInsights": {
+        "route": null,
+        "kind": "skip",
+        "reason": "Policy evaluation records -- state, not infrastructure.",
+        "skip_kind": "noise"
+      },
+      "Microsoft.Resources": {
+        "route": null,
+        "kind": "skip",
+        "reason": "Resource groups and deployment records. AWS has no resource-group equivalent; it becomes account structure and tags.",
+        "skip_kind": "noise"
+      },
+      "Microsoft.Consumption": {
+        "route": null,
+        "kind": "skip",
+        "reason": "Budgets and usage details. AWS Budgets is authored on the target; a source budget is not infrastructure.",
+        "skip_kind": "noise"
+      },
+      "Microsoft.CostManagement": {
+        "route": null,
+        "kind": "skip",
+        "reason": "Exports and views. Cost Explorer is configured, not migrated.",
+        "skip_kind": "noise"
+      },
+      "Microsoft.Advisor": {
+        "route": null,
+        "kind": "skip",
+        "reason": "Recommendations and suppressions -- advice about the source estate, with no target meaning.",
+        "skip_kind": "noise"
+      },
+      "Microsoft.Portal": {
+        "route": null,
+        "kind": "skip",
+        "reason": "Dashboards. CloudWatch dashboards are authored.",
+        "skip_kind": "noise"
+      },
+      "Microsoft.Maintenance": {
+        "route": null,
+        "kind": "skip",
+        "reason": "Maintenance configurations -> Systems Manager patch baselines, authored.",
+        "skip_kind": "noise"
+      },
+      "Microsoft.Security": {
+        "route": null,
+        "kind": "skip",
+        "reason": "Defender for Cloud settings -> Security Hub / GuardDuty, enabled not translated.",
+        "skip_kind": "noise"
+      },
+      "Microsoft.SecurityInsights": {
+        "route": null,
+        "kind": "skip",
+        "reason": "Sentinel -> Security Lake / a SIEM decision. Out of a per-resource mapping's scope.",
+        "skip_kind": "noise"
+      },
+      "Microsoft.RecoveryServices": {
+        "route": null,
+        "kind": "skip",
+        "reason": "Vaults and backup policies -> AWS Backup, authored from the retention intent.",
+        "skip_kind": "config_source"
+      },
+      "Microsoft.AppConfiguration": {
+        "route": null,
+        "kind": "skip",
+        "reason": "Configuration stores -> AppConfig or Parameter Store. Values are not read (secret boundary).",
+        "skip_kind": "config_source"
+      },
+      "Microsoft.DataFactory": {
+        "route": null,
+        "kind": "gate",
+        "reason": "Pipeline orchestration is a rewrite the resource does not describe."
+      },
+      "Microsoft.Synapse": {
+        "route": null,
+        "kind": "gate",
+        "reason": "Warehouse plus Spark plus pipelines in one workspace."
+      },
+      "Microsoft.StreamAnalytics": {
+        "route": null,
+        "kind": "gate",
+        "reason": "The migration cost IS the streaming-query rewrite."
+      },
+      "Microsoft.MachineLearningServices": {
+        "route": null,
+        "kind": "gate",
+        "reason": "Workspace, compute, pipelines and registries -- a SageMaker engagement."
+      },
+      "Microsoft.Logic": {
+        "route": null,
+        "kind": "gate",
+        "reason": "Logic App workflows are a Step Functions rewrite, connector by connector."
+      },
+      "Microsoft.Batch": {
+        "route": null,
+        "kind": "gate",
+        "reason": "Pool, job and task model differs enough from AWS Batch to need design."
+      },
+      "Microsoft.Devices": {
+        "route": null,
+        "kind": "gate",
+        "reason": "IoT Hub / DPS -> AWS IoT Core. Device provisioning and fleet identity are their own project, and IoT is out of this skill's stated scope."
+      },
+      "Microsoft.Purview": {
+        "route": null,
+        "kind": "gate",
+        "reason": "Data governance and catalog -- a DataZone / Glue Catalog engagement."
+      }
+    },
+    "_unrecognised_namespace": "If the namespace is not listed above, fall through to the unknown-type policy in design-infra.md: benign -> warn and continue; cost-bearing -> STOP. Do NOT guess a category from the type NAME -- that is the gcp heuristic this rule replaces, and it is what produces a confidently wrong rubric."
+  },
+  "child_type_rule": {
+    "_what_this_is": "A canonical type with two or more segments after the provider (Microsoft.Sql/servers/databases) is a CHILD of the type formed by dropping its last segment (Microsoft.Sql/servers).",
+    "_rule": "If a child type has no row of its own anywhere AND its parent type resolves to a disposition, the child is a config_source of that parent: emit no target of its own, contribute its attributes to the parent's aws_config, and emit one skipped_config_source warning whose detail names what it contributed.",
+    "_evidence": "27 of the 33 config_source rows in skip_mappings are child types, and 0 of the 19 noise rows are. The disposition was always derivable from the type path; only the description of WHAT it contributes needed authoring.",
+    "_exceptions": "An explicit row always wins. Eight child types have their own direct_mappings row (a storage container is its own bucket or prefix) and one has its own gate row (elasticPools). Those are not covered by this rule.",
+    "_does_not_apply_when": "The PARENT has no disposition either. Then the child inherits nothing and falls through to namespace_routing, and then to the unknown-type policy.",
+    "_provenance": "routing_provenance: \"child_type_rule\".",
+    "_why_it_matters": "Child types are a large fraction of the provider surface -- every firewall rule, database, container, route, probe, consumer group and subscription. Without this rule each one needs an authored row, which is what left 53 orphans after a coverage pass and made growing coverage O(n) in judgement."
+  }
 }

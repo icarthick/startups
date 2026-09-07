@@ -130,6 +130,7 @@ halt guard's record. Never a place to put a resource you could have mapped.
   "is_compute_unit": true,
   "sizing_source": {},                  // REQUIRED when is_compute_unit — see below
   "sizing_provenance": "table",         // REQUIRED whenever aws_config carries a size — see below
+  "routing_provenance": "table",        // REQUIRED on every entry — how the disposition was reached
   "hosted_app_azure_ids": [],           // REQUIRED on a Microsoft.Web/serverfarms entry
   "note": "<what a reader needs to know before the rubric lands>"
 }
@@ -143,6 +144,27 @@ SKU rather than from the app count. Without them, "five apps correctly fanned in
 plan" and "four apps fanned in and one silently dropped" produce identical artifacts.
 
 Every `azure_id` in `hosted_app_azure_ids` must exist in the inventory.
+
+## `routing_provenance`
+
+**REQUIRED on every `services[]` entry.** How this resource's disposition was reached:
+
+| Value | Means |
+| ----- | ----- |
+| `table` | An authored row in `fast-path-services.json` — `direct_mappings`, `skip_mappings` or `specialist_gates` |
+| `index_md` | A Reference row in `design-refs/index.md` routed it to a category rubric |
+| `child_type_rule` | Derived: a child type folded into its parent, per `fast-path-services.json` → `child_type_rule` |
+| `namespace_rule` | Derived: routed by provider namespace, per `fast-path-services.json` → `namespace_routing` |
+
+**`confidence: "deterministic"` requires `routing_provenance: "table"`.** A derived route
+can never earn that tier — it has no `fast_path_row` to name, and the rubric made the
+decision. An entry claiming `deterministic` with a derived provenance is the specific
+failure this field detects.
+
+The two derived values exist so coverage can grow without an authored row per type, while
+staying **visible**: a reviewer can see at a glance which mappings came from curated
+judgement and which from a structural rule. Without the field they are indistinguishable
+in the artifact, which is how 53 orphans and a confidently-wrong category both hide.
 
 ## `sizing_provenance`
 
@@ -230,6 +252,7 @@ halt untestable by an external asserter.
 - [ ] Every `pending_rubric[]` entry has a `ref_file`, and every distinct `ref_file` has a `missing_rubric_file` entry in `halt.blocking`.
 - [ ] `warnings[]` is present, and every entry has a `code` from the design vocabulary, a `detail`, and an `azure_id` or `identifier`.
 - [ ] `halt` is present iff the phase is failing its gate.
+- [ ] Every `services[]` entry has `routing_provenance` from {`table`, `index_md`, `child_type_rule`, `namespace_rule`}, and no entry with a derived provenance claims `confidence: "deterministic"`.
 - [ ] Every `services[]` entry whose `aws_config` carries a size has `sizing_provenance` set to one of `table`, `measured`, `user_stated`, `model_prior` — and `table` only when a `knowledge/` row actually covered it.
 - [ ] "App Runner" appears nowhere in the artifact.
 

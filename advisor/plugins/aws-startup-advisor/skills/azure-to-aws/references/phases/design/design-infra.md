@@ -61,7 +61,57 @@ is not evidence of no cost, and the failure is asymmetric: wrongly stopping cost
 round trip to add a table row, while wrongly skipping understates the estate and the
 estimate with nothing to signal it.
 
-### 2. Unmapped canonical type (a Design-level unknown) → split
+### 2. No row anywhere → try the two DERIVED rules before stopping
+
+A type that missed `fast-path-services.json` and has no `index.md` row is not yet an
+unknown. Two structural rules resolve most of them, and both are in
+`fast-path-services.json` as data:
+
+**2a. `child_type_rule`.** A canonical type with two or more segments after the provider
+(`Microsoft.Sql/servers/databases`) is a CHILD of the type formed by dropping its last
+segment. If the child has no row of its own and its **parent** resolves to a disposition,
+the child is a `config_source` of that parent: emit no target, contribute its attributes to
+the parent's `aws_config`, and emit one `skipped_config_source` warning naming what it
+contributed.
+
+Twenty-seven of the 33 `config_source` rows in `skip_mappings` are child types, and none of
+the 19 `noise` rows are. The disposition was always derivable from the type path; only the
+description of what it contributes needed authoring.
+
+**2b. `namespace_routing`.** The provider namespace (`Microsoft.Network`) is a structural,
+authoritative segment of an ARM type string. 54 namespace rules route to a category rubric,
+a skip, or a gate — covering a provider surface past a thousand types with rules rather
+than rows.
+
+> **Why this exists.** `gcp-to-aws` routes an unknown type to a category by
+> substring-matching its NAME — `"log" → monitoring`, which also matches
+> `google_dia`**`log`**`flow_agent`. Azure has a better signal for free. Before these
+> rules, azure went from "no row" straight to the cost-bearing STOP, which made it
+> **stricter than gcp on less than half the per-type coverage**: a type we could name, in a
+> namespace we understood, still halted the design.
+
+Three constraints on both rules:
+
+1. **An explicit row always wins.** These are consulted only after every table and
+   `index.md` have missed.
+2. **Record `routing_provenance`** — `table`, `index_md`, `child_type_rule`, or
+   `namespace_rule` — on the `services[]` entry. A derived disposition must be visible in
+   review, not indistinguishable from a curated one.
+3. **A derived route can never produce `confidence: deterministic`.** That tier requires a
+   `direct_mappings` row and a `fast_path_row` naming it. Namespace routing yields
+   `inferred` at best, because the rubric decided.
+
+If the rule routes to a rubric file that is not on disk, the missing-rubric HALT applies
+exactly as it does for an `index.md` row. Deriving the category does not license
+improvising the answer.
+
+### 3. Still no disposition → the unknown-type split
+
+The type IS canonical and present in `resources[]`, matched no row, and **neither derived
+rule resolved it** — so its namespace is one this skill does not recognise. Halting on
+every one of these would once have stopped Design at roughly the third resource of a real
+inventory; with the derived rules in front, it is now a genuinely rare case. So:
+
 
 The type IS canonical and present in `resources[]`, but matched no row in
 `fast-path-services.json` and has no row in `index.md`. Halting on every one of these
@@ -134,6 +184,8 @@ be read; these describe what was decided.
 | `app_consumed_by_plan`        | one per `Microsoft.Web/sites` folded into its plan, with `plan_azure_id`             |
 | `idle_app_service_plan`       | a plan with zero apps; `severity: "cost_optimization"`                               |
 | `benign_unknown_type`         | an unmapped canonical type that cleared the cost-bearing test                        |
+| `routed_by_namespace_rule`    | a type resolved by `namespace_routing` rather than an authored row. `detail` MUST name the namespace and the rubric it routed to, so the derived decision is auditable |
+| `routed_by_child_type_rule`   | a child type folded into its parent by `child_type_rule`. `detail` MUST name the parent and what was contributed |
 | `availability_downgrade_from_source` | the source database is zone-redundant / HA but the target is single-AZ, because no availability answer was recorded. `severity: "review"` — the customer silently loses HA they were paying for unless this is said out loud (`database.md` §1) |
 | `<hard_blocker key>`          | a `hard_blockers` row, e.g. `azure_edition_windows_server`; `severity: "blocker"`     |
 
