@@ -520,6 +520,52 @@ def check_index_reference_files_exist(exp: dict) -> None:
     )
 
 
+def check_sizing_provenance(design: dict, exp: dict) -> None:
+    """A size with no declared origin is indistinguishable from a looked-up one.
+
+    Before the knowledge/design tables landed, every instance size in this golden was a
+    model prior: sizing_source recorded the Azure INPUT so the output looked sourced, and
+    nothing pinned the output. Two of the three were wrong -- S1 mapped to double its
+    memory and GP_Standard_D2s_v3 to half of its. This check pins the corrected values and
+    requires every sized entry to say where its number came from.
+    """
+    spec = exp.get("sizing_provenance")
+    if not spec:
+        return
+    size_keys = set(spec["size_keys"])
+    allowed = set(spec["allowed_provenance"])
+
+    for entry in design.get("services") or []:
+        cfg = entry.get("aws_config") or {}
+        sized = sorted(size_keys & {k for k, v in cfg.items() if v is not None})
+        if not sized:
+            continue
+        sid = entry.get("service_id")
+        prov = entry.get("sizing_provenance")
+        check(
+            prov in allowed,
+            f"{sid}: aws_config carries {sized} but sizing_provenance is {prov!r}, not one "
+            f"of {sorted(allowed)}. {spec['_why']}",
+        )
+
+    for sid, want in spec["pinned"].items():
+        entry = next((e for e in (design.get("services") or []) if e.get("service_id") == sid), None)
+        if entry is None:
+            FAILS.append(f"no services[] entry {sid!r} to check its pinned size")
+            continue
+        cfg = entry.get("aws_config") or {}
+        for key, expected in want.items():
+            if key.startswith("_"):
+                continue
+            check(
+                cfg.get(key) == expected,
+                f"{sid}.{key} is {cfg.get(key)!r}, expected {expected!r}. {want['_why']}",
+            )
+    NOTES.append(
+        f"sizing_provenance: {len(spec['pinned'])} size(s) pinned against the knowledge/design tables"
+    )
+
+
 def check_cluster_pattern_status(design: dict, exp: dict) -> None:
     """Assert the honest 'no pattern catalog' state, not a plausible architecture string.
 
@@ -735,6 +781,7 @@ def main() -> int:
     check_table(table, exp)
     check_canonical_type_coverage(exp)
     check_index_reference_files_exist(exp)
+    check_sizing_provenance(design, exp)
     check_deterministic(design, table, id_of, exp)
     check_fan_in(design, inv, id_of, exp)
     check_unknown_stop(design, exp)

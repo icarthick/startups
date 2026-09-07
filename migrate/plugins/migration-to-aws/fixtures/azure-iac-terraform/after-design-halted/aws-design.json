@@ -1,5 +1,5 @@
 {
-  "_what_this_is": "The GOLDEN aws-design.json for the azure-iac-terraform corpus. Pass 1 (the disposition table) AND pass 2 (compute.md + database.md) both applied. It is STILL a halted design, and the directory name says so: the corpus carries an untranslated cost-bearing type (azurerm_iothub), which STOPs Design unconditionally. That is now the ONLY blocker \u2014 the missing-rubric blockers are gone as of build step 5.",
+  "_what_this_is": "The GOLDEN aws-design.json for the azure-iac-terraform corpus. Pass 1 (the disposition table) AND pass 2 (compute.md + database.md) both applied. It is STILL a halted design, and the directory name says so: the corpus carries an untranslated cost-bearing type (azurerm_iothub), which STOPs Design unconditionally. That is now the ONLY blocker \u2014 the missing-rubric blockers are gone as of build step 5. Sizes carry sizing_provenance; two were corrected on 2026-09-07 when the knowledge/design sizing tables landed and contradicted them (S1 -> t3.small, GP_Standard_D2s_v3 -> db.m6g.large). Both had been model priors.",
   "_absent_on_purpose": "clusters[] carries pattern_status 'catalog_absent' because design-refs/patterns.md does not exist yet; the asserter checks only pattern_status and the target_architecture-is-null rule. Sizing numbers are dev-tier defaults stated as such: the knowledge/design/*-sizing.json tables are not on disk, and a missing SIZING table degrades a number's precision whereas a missing RUBRIC file would cost the service choice, which is why only the latter halts.",
   "phase": "design",
   "timestamp": "2026-09-04T19:00:00Z",
@@ -179,7 +179,7 @@
       "aws_config": {
         "environment_count": 1,
         "platform": "Node.js on Amazon Linux 2023",
-        "instance_type": "t3.medium",
+        "instance_type": "t3.small",
         "instance_count": 2,
         "cpu_architecture": "x86_64",
         "sizing_basis": "plan sku_name S1 + worker_count 2 \u2014 never the app count",
@@ -205,7 +205,8 @@
         "sku_name": "S1",
         "worker_count": 2
       },
-      "rationale": "Elastic Beanstalk, because criterion 2.2 (operational model) fired: the source is a Microsoft.Web/serverfarms plan hosting web apps, and App Service is a managed platform the customer already pays for. No compute_target preference was recorded, so criterion 2.3 did not override. ONE environment for all five apps \u2014 the plan is the compute unit and its S1 x2 capacity is what is being paid for; five environments would be a 5x error. x86_64 per the Azure default."
+      "rationale": "Elastic Beanstalk, because criterion 2.2 (operational model) fired: the source is a Microsoft.Web/serverfarms plan hosting web apps, and App Service is a managed platform the customer already pays for. No compute_target preference was recorded, so criterion 2.3 did not override. ONE environment for all five apps \u2014 the plan is the compute unit and its S1 x2 capacity is what is being paid for; five environments would be a 5x error. x86_64 per the Azure default.",
+      "sizing_provenance": "table"
     },
     {
       "service_id": "lambda-func",
@@ -267,7 +268,8 @@
       },
       "confidence": "inferred",
       "rubric_applied": "compute.md",
-      "rationale": "EC2, because criterion 2.2 fired: a Microsoft.Compute/virtualMachines resource lifts to EC2 via MGN. x86_64 is mandatory rather than defaulted because the guest is Windows. NOTE: the image is Azure Edition, which MGN refuses \u2014 see the blocker in warnings[]. It does NOT hit the SQL-on-VM specialist gate: the publisher is MicrosoftWindowsServer, not MicrosoftSQLServer."
+      "rationale": "EC2, because criterion 2.2 fired: a Microsoft.Compute/virtualMachines resource lifts to EC2 via MGN. x86_64 is mandatory rather than defaulted because the guest is Windows. NOTE: the image is Azure Edition, which MGN refuses \u2014 see the blocker in warnings[]. It does NOT hit the SQL-on-VM specialist gate: the publisher is MicrosoftWindowsServer, not MicrosoftSQLServer.",
+      "sizing_provenance": "table"
     },
     {
       "service_id": "rds-store",
@@ -277,7 +279,7 @@
       "aws_config": {
         "engine_version": "16",
         "multi_az": false,
-        "instance_class": "db.t4g.medium",
+        "instance_class": "db.m6g.large",
         "allocated_storage_gib": 64,
         "backup_retention_days": 14,
         "sizing_basis": "source sku_name GP_Standard_D2s_v3, storage_mb 65536; no utilization data",
@@ -285,7 +287,8 @@
       },
       "confidence": "inferred",
       "rubric_applied": "database.md",
-      "rationale": "RDS PostgreSQL single-AZ. The availability override gate (database.md \u00a71) selects the family, and preferences.json records NO availability answer \u2014 so the documented default is RDS single-AZ, NOT Aurora. Inferring Aurora from silence would inflate the estimate with no way for the customer to see why. Backup retention carried across verbatim at 14 days: a stated requirement, not a sizing knob."
+      "rationale": "RDS PostgreSQL single-AZ. The availability override gate (database.md \u00a71) selects the family, and preferences.json records NO availability answer \u2014 so the documented default is RDS single-AZ, NOT Aurora. Inferring Aurora from silence would inflate the estimate with no way for the customer to see why. Backup retention carried across verbatim at 14 days: a stated requirement, not a sizing knob.",
+      "sizing_provenance": "table"
     },
     {
       "service_id": "rt-egress",

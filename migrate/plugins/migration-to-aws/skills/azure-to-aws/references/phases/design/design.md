@@ -9,6 +9,14 @@ _input:
 _knowledge:
   - { file: knowledge/design/fast-path-services.json }
   - { file: references/shared/schema-design-aws.md }
+  - { file: knowledge/design/azure-region-map.json }
+  - { file: knowledge/design/appservice-eb-sizing.json, _when: "the inventory contains a Microsoft.Web/serverfarms resource" }
+  - { file: knowledge/design/vm-ec2-sizing.json, _when: "the inventory contains a Microsoft.Compute/virtualMachines or virtualMachineScaleSets resource, or an AKS node pool whose vm_size must be resolved" }
+  - { file: knowledge/design/aks-eks-sizing.json, _when: "the inventory contains a Microsoft.ContainerService/managedClusters resource" }
+  - { file: knowledge/design/flexible-server-rds-sizing.json, _when: "the inventory contains a Microsoft.DBforPostgreSQL/* or Microsoft.DBforMySQL/* resource" }
+  - { file: knowledge/design/cosmos-dynamodb-conversion.json, _when: "the inventory contains a Microsoft.DocumentDB/databaseAccounts resource whose kind is GlobalDocumentDB — the Core (SQL) API only" }
+  - { file: knowledge/design/disk-ebs-sizing.json, _when: "the inventory contains a Microsoft.Compute/disks resource" }
+  - { file: knowledge/estimate/rightsizing-thresholds.json, _when: "observed utilization exists — an RDfA rollup or az monitor metrics — so a size can be MEASURED rather than looked up" }
 _fragments:
   - _id: infra
     _trigger: { _always: true }

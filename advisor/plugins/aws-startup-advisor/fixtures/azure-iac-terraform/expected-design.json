@@ -325,5 +325,37 @@
       "ai.md"
     ],
     "_known_pending_why": "ai.md is the traditional-ML rubric for Microsoft.CognitiveServices/accounts of a non-OpenAI kind. It belongs to build step 6 (AI), which is deferred with the rest of source breadth; no Terraform-sourced infra estate routes to it."
+  },
+  "sizing_provenance": {
+    "_comment": "Every services[] entry whose aws_config carries a SIZE must declare where the number came from. Also pins the two sizes that a sizing table contradicted, because they were model priors before the tables existed.",
+    "_why": "Until 2026-09-07 no knowledge/design sizing table existed, so every instance size was a pretrained association. sizing_source recorded only the Azure INPUT, which made the output look sourced. The oracle pinned no sizes at all, so two runs could disagree on every number and both stay green. This check makes an unsourced number VISIBLE rather than indistinguishable from a looked-up one.",
+    "size_keys": [
+      "instance_type",
+      "instance_class",
+      "node_type",
+      "broker_instance_type",
+      "shard_count",
+      "volume_type"
+    ],
+    "allowed_provenance": [
+      "table",
+      "measured",
+      "user_stated",
+      "model_prior"
+    ],
+    "pinned": {
+      "eb-web": {
+        "instance_type": "t3.small",
+        "_why": "S1 plan is 1 vCPU / 1.75 GiB. appservice-eb-sizing.json gives t3.small (2/2). The golden previously said t3.medium (2/4) - double the source memory, and a pure model prior."
+      },
+      "rds-store": {
+        "instance_class": "db.m6g.large",
+        "_why": "GP_Standard_D2s_v3 is 2 vCPU / 8 GiB. flexible-server-rds-sizing.json gives db.m6g.large (2/8). The golden previously said db.t4g.medium (2/4) - HALF the source memory."
+      },
+      "ec2-reporting": {
+        "instance_type": "m6i.xlarge",
+        "_why": "Standard_D4s_v5 is 4 vCPU / 16 GiB, and m6i.xlarge is 4/16. This one the prior got right, which is exactly why an unasserted number is not the same as a correct one."
+      }
+    }
   }
 }

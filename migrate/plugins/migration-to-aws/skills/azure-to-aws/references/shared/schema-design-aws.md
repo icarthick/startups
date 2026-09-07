@@ -129,6 +129,7 @@ halt guard's record. Never a place to put a resource you could have mapped.
   "candidates": ["Elastic Beanstalk", "Fargate", "EKS"],
   "is_compute_unit": true,
   "sizing_source": {},                  // REQUIRED when is_compute_unit — see below
+  "sizing_provenance": "table",         // REQUIRED whenever aws_config carries a size — see below
   "hosted_app_azure_ids": [],           // REQUIRED on a Microsoft.Web/serverfarms entry
   "note": "<what a reader needs to know before the rubric lands>"
 }
@@ -142,6 +143,35 @@ SKU rather than from the app count. Without them, "five apps correctly fanned in
 plan" and "four apps fanned in and one silently dropped" produce identical artifacts.
 
 Every `azure_id` in `hosted_app_azure_ids` must exist in the inventory.
+
+## `sizing_provenance`
+
+**REQUIRED on every `services[]` entry whose `aws_config` carries a size** — an instance
+type, instance class, node count, shard count, capacity unit, or volume type. One of:
+
+| Value | Means |
+| ----- | ----- |
+| `table` | Looked up in a `knowledge/design/*.json` or `knowledge/estimate/*.json` table. The row exists and its two sides justify each other |
+| `measured` | Derived from observed utilization via `knowledge/estimate/rightsizing-thresholds.json`. Requires the evidence cited on the entry, per `design.md`'s postcondition |
+| `user_stated` | The customer gave the size in Clarify or a workshop |
+| `model_prior` | **No table row covered it.** The number came from the model's own knowledge |
+
+**`model_prior` is a legal value and must be used honestly.** It exists because the
+alternative is what this skill did until 2026-09-07: every size in the committed golden
+was a pretrained association, `sizing_source` recorded only the Azure *input* so the
+output looked sourced, and the oracle pinned no sizes, so two runs could disagree on every
+number and both stay green. Writing `table` when no row was consulted is the failure this
+field is here to prevent — and it is the one failure a reviewer cannot detect from the
+artifact alone.
+
+Two corollaries:
+
+- `sizing_source` records the Azure **input** (`{"sku_name": "S1", "worker_count": 2}`).
+  `sizing_provenance` records where the **output** came from. They are different claims
+  and neither substitutes for the other.
+- A `model_prior` entry SHOULD carry a `warnings[]` entry naming the type that has no
+  sizing row, so the gap is visible in the report and fixable in one place.
+
 
 ## `warnings[]`
 
@@ -200,6 +230,7 @@ halt untestable by an external asserter.
 - [ ] Every `pending_rubric[]` entry has a `ref_file`, and every distinct `ref_file` has a `missing_rubric_file` entry in `halt.blocking`.
 - [ ] `warnings[]` is present, and every entry has a `code` from the design vocabulary, a `detail`, and an `azure_id` or `identifier`.
 - [ ] `halt` is present iff the phase is failing its gate.
+- [ ] Every `services[]` entry whose `aws_config` carries a size has `sizing_provenance` set to one of `table`, `measured`, `user_stated`, `model_prior` — and `table` only when a `knowledge/` row actually covered it.
 - [ ] "App Runner" appears nowhere in the artifact.
 
 ## Status — build step 3

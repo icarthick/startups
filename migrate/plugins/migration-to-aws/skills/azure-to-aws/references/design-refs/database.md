@@ -125,6 +125,11 @@ tells the customer which of their own answers to revisit if the cost surprises t
 
 Implemented for Postgres/MySQL Flexible Server, Single Server, Azure SQL Database, Cosmos
 Core, and Redis Enterprise. `database-specialist-gate.md` content lives in
-`specialist-gates.md`; the `knowledge/design/*.json` sizing tables are still to land, and
-until they do sizing states the dev-tier default and says the table is absent rather than
-inventing a number.
+`specialist-gates.md`. The sizing tables now exist:
+`knowledge/design/flexible-server-rds-sizing.json` for Postgres and MySQL Flexible Server,
+and `knowledge/design/cosmos-dynamodb-conversion.json` for the Cosmos Core API. Look the
+SKU up and stamp `sizing_provenance: "table"`; for a SKU the table does not carry, stamp
+`model_prior`, warn, and say the number is not sourced. The Cosmos conversion additionally
+REFUSES to run without the read/write split, which is an ESSENTIAL Clarify answer with no
+default — an absent split means the conversion is unavailable, not that it should be
+guessed.

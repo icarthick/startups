@@ -145,6 +145,15 @@ recorded" is auditable. "Elastic Beanstalk is a good fit" is not.
 ## Status — build step 5
 
 Implemented for App Service Plans, VMs, VMSS, container apps, container instances, and
-static sites. `gpu-hpc.md` and the `knowledge/design/*.json` sizing tables are still to
-land; until they do, sizing states the dev-tier default and says the table is absent
-rather than inventing a number.
+static sites. The sizing tables now exist: `knowledge/design/appservice-eb-sizing.json`
+for App Service plans and `knowledge/design/vm-ec2-sizing.json` for VMs and scale sets,
+with `knowledge/estimate/rightsizing-thresholds.json` for the measured path. Look the size
+up and stamp `sizing_provenance: "table"`.
+
+If a SKU is not in the table, stamp **`sizing_provenance: "model_prior"`**, add a
+`warnings[]` entry naming the SKU, and say in the rationale that the number is not sourced.
+Do not write `table` for a row you did not find. The earlier instruction here — "state the
+dev-tier default and say the table is absent rather than inventing a number" — was
+unsatisfiable: with no table, the default WAS the invented number, and every size in the
+committed golden turned out to be a pretrained association. `gpu-hpc.md` is still to land;
+GPU sizes are decisions with named options in `vm-ec2-sizing.json`, not lookups.

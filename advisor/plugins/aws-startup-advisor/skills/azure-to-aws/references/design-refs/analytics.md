@@ -113,9 +113,15 @@ As in every rubric, the six criteria pick a service and never touch capacity.
   the inventory. Any cluster sizing is a Clarify or workshop input, and its absence is a
   stated assumption, not a gap to paper over.
 
-`knowledge/design/*.json` carries no analytics sizing table today. Per § 14, a missing
-sizing table degrades a number's precision and does **not** halt — unlike a missing rubric
-file, which fabricates the answer.
+`knowledge/design/*.json` carries **no analytics sizing table**, and unlike compute and
+database that is still true after 2026-09-07. So every OpenSearch node count and every
+Databricks or EMR cluster size from this rubric is stamped
+**`sizing_provenance: "model_prior"`** with a `warnings[]` entry, not `table`.
+
+Per § 14 a missing sizing table degrades a number's precision and does not halt, unlike a
+missing rubric file which fabricates the answer. That distinction holds — but "degrades
+precision" understates it when there is no table at all, which is exactly why the
+provenance field is required rather than optional.
 
 ## 5. Output
 
