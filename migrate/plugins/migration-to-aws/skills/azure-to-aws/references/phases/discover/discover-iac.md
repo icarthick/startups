@@ -89,19 +89,19 @@ A type absent from that table is **derived, not skipped** — see
 supply the namespace, then **cross-check the namespace against `fast-path-services.json`
 → `namespace_routing`**:
 
-- **Namespace recognised** → keep the resource with its full `config` (including `sku` /
-  `tier` / `capacity`, which Design's cost-bearing test reads), set
-  `azure_type_provenance: "derived"`, and record the Terraform type in
-  `iac_metadata.derived_types`.
-- **Namespace NOT recognised** → the type is genuinely unresolvable. Record it in
-  `iac_metadata.untranslated_types` and in `warnings[]` as
-  `untranslated_terraform_type`, and skip the resource.
+- **Namespace recognised** → `azure_type_provenance: "derived"`.
+- **Namespace NOT recognised** → `azure_type_provenance: "derived_uncorroborated"` and a
+  `type_derived_uncorroborated` warning. **Still keep the resource.** Design routes it to a
+  model-chosen category rather than halting.
 
-**Do not guess a namespace past the cross-check.** The cross-check is the whole guard: a
-namespace an independent artefact also declares is corroborated, and one nobody recognises
-is exactly where the model is inventing. What must never happen is a *silently* guessed
-type — it does not fail loudly, it fails to match every mapping table, and the report then
-blames the customer's estate for the skill's gap.
+Either way, keep the full `config` — including `sku` / `tier` / `capacity`, which Design's
+cost-bearing test reads — and record the Terraform type in `iac_metadata.derived_types`.
+
+**The cross-check is a signal, not a veto.** It records whether a second artefact agreed.
+Only record a type in `iac_metadata.untranslated_types` when you genuinely cannot say what
+the service is — a type you can NAME is never untranslated. What must never happen is a
+*silent* guess: every derived type is recorded with its provenance, so a reviewer can see
+which were looked up and which were reasoned about.
 
 ## Step 4: Write the contribution
 

@@ -130,7 +130,7 @@ halt guard's record. Never a place to put a resource you could have mapped.
   "is_compute_unit": true,
   "sizing_source": {},                  // REQUIRED when is_compute_unit — see below
   "sizing_provenance": "table",         // REQUIRED whenever aws_config carries a size — see below
-  "routing_provenance": "table",        // REQUIRED on every entry — how the disposition was reached
+  "routing_provenance": "table",        // REQUIRED — table | index_md | child_type_rule | namespace_rule | model_category
   "hosted_app_azure_ids": [],           // REQUIRED on a Microsoft.Web/serverfarms entry
   "note": "<what a reader needs to know before the rubric lands>"
 }
@@ -181,9 +181,10 @@ mentions the resource. `service_id` is for human reference within one artifact o
 | `index_md` | A Reference row in `design-refs/index.md` routed it to a category rubric |
 | `child_type_rule` | Derived: a child type folded into its parent, per `fast-path-services.json` → `child_type_rule` |
 | `namespace_rule` | Derived: routed by provider namespace, per `fast-path-services.json` → `namespace_routing` |
+| `model_category` | The namespace is not in that list, so the best-fit category was chosen from the rubrics on disk and its six criteria applied. Carries a `routed_by_model_category` warning naming the namespace and the category |
 
-**`confidence: "deterministic"` requires `routing_provenance: "table"`.** A derived route
-can never earn that tier — it has no `fast_path_row` to name, and the rubric made the
+**`confidence: "deterministic"` requires `routing_provenance: "table"`.** No derived route —
+`child_type_rule`, `namespace_rule` or `model_category` — can ever earn that tier — it has no `fast_path_row` to name, and the rubric made the
 decision. An entry claiming `deterministic` with a derived provenance is the specific
 failure this field detects.
 

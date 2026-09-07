@@ -19,7 +19,7 @@ their single creator and owns the validation checklist at the bottom.
     {
       "azure_id": "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.Web/serverfarms/<name>",
       "azure_type": "Microsoft.Web/serverfarms",   // canonical ARM type; never azurerm_*
-  "azure_type_provenance": "table",            // REQUIRED — table | derived | user_confirmed
+  "azure_type_provenance": "table",            // REQUIRED — table | derived | derived_uncorroborated | user_confirmed
       "name": "<name>",
       "resource_group": "<rg>",
       "subscription_id": "<sub>",
@@ -95,7 +95,8 @@ customer did not know they had is a deliverable, not a nuisance.
 | Value | Means |
 | ----- | ----- |
 | `table` | A row in `arm-type-canonicalization.md`. Authoritative |
-| `derived` | Not listed, so derived by that file's § Deriving a type that is not listed, with the **namespace cross-checked** against `fast-path-services.json` → `namespace_routing` |
+| `derived` | Not listed, so derived per that file's § Deriving a type that is not listed, and the namespace **is** declared in `fast-path-services.json` → `namespace_routing` — a second artefact agreed |
+| `derived_uncorroborated` | Derived the same way, but the namespace is **not** in that list. Still a valid entry: the cross-check is a signal, not a veto. Design routes it to a model-chosen category. Carries a `type_derived_uncorroborated` warning |
 | `user_confirmed` | A derived or unresolvable type the user confirmed (the `confirm` phase, once it lands) |
 
 A `derived` type is a normal, expected outcome — the table is an exception list, not a
@@ -113,9 +114,10 @@ was not verified.
 - **`derived_types`** — Terraform types resolved by derivation. Expected to be non-empty on
   any real repo. Report them, so a run is honest about how much of its inventory was
   derived rather than looked up.
-- **`untranslated_types`** — types where the derived **namespace was not recognised**. This
-  is now the only route to that field, and it is what STOPs Design. "No recognised
-  namespace" is a far stronger signal than the old meaning, "no row exists".
+- **`untranslated_types`** — types you **cannot name at all**. Not "no table row", and not
+  "namespace unrecognised" — both of those are derived and retained. This is the residual
+  case where the skill genuinely cannot say what the service is, and it is the only route to
+  a halt from Discover. Expect it to be empty on almost every repo.
 
 ## Warnings
 
@@ -141,6 +143,7 @@ unstable and makes a fixture assertion on any code unreliable. Add a row here fi
 
 | `code`                          | Emitted when                                                                 |
 | ------------------------------- | ---------------------------------------------------------------------------- |
+| `type_derived_uncorroborated` | the ARM type was derived and its namespace is not declared in `namespace_routing`. NOT an error — the resource is retained and Design routes it to a model-chosen category. `detail` names the namespace |
 | `untranslated_terraform_type`   | a Terraform type is absent from `arm-type-canonicalization.md`; the resource is skipped, never guessed |
 | `module_not_resolved`           | a `module` block's source is a registry or git address whose content is not in the workspace |
 | `private_endpoint_consumed`     | a private endpoint was read for its edge and skipped as a target; names the edge produced |

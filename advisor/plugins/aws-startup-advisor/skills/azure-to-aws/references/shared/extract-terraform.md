@@ -36,15 +36,22 @@ For every `resource "azurerm_<x>" "<local_name>" { … }`:
    a. **Listed in the table** → use it. `azure_type_provenance: "table"`.
 
    b. **Not listed** → DERIVE it per that file's § Deriving a type that is not listed:
-      camelCase-pluralise the Terraform suffix for the resource segment, supply the
-      namespace, then **cross-check the namespace against `fast-path-services.json` →
-      `namespace_routing`**. If the namespace is recognised, keep the resource with its
-      full `config`, set `azure_type_provenance: "derived"`, and add the Terraform type to
-      `iac_metadata.derived_types`.
+      camelCase-pluralise the Terraform suffix for the resource segment, and supply the
+      namespace. Cross-check the namespace against `fast-path-services.json` →
+      `namespace_routing`, which is a **signal, not a veto**:
 
-   c. **Namespace not recognised** → the type is genuinely unresolvable. Record it in
-      `iac_metadata.untranslated_types` and in `warnings[]` as
-      `untranslated_terraform_type` with the local name, and skip the resource.
+      - recognised → `azure_type_provenance: "derived"`
+      - not recognised → `azure_type_provenance: "derived_uncorroborated"`, plus a
+        `type_derived_uncorroborated` warning naming the namespace
+
+      **Either way keep the resource, with its full `config`,** and add the Terraform type
+      to `iac_metadata.derived_types`. Design routes an uncorroborated namespace to a
+      model-chosen category rather than halting.
+
+   c. **You cannot say what the service is at all** → only then is it unresolvable. Record
+      it in `iac_metadata.untranslated_types` and in `warnings[]` as
+      `untranslated_terraform_type` with the local name, and skip the resource. This is
+      rare. A type you can NAME is never untranslated.
 
    **Do not skip a resource merely because its type is unlisted.** Dropping it is what made
    87% of the provider surface a hard stop, and it destroyed the `sku`/`tier` evidence Design

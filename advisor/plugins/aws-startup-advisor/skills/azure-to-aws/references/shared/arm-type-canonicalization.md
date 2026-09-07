@@ -313,17 +313,30 @@ independently of this file.
 
 | Outcome | Action |
 | ------- | ------ |
-| Namespace **is** in `namespace_routing` | An independent artefact corroborates it. Accept the derived type, set `azure_type_provenance: "derived"`, keep the resource with its full `config`, and add the type to `iac_metadata.derived_types` |
-| Namespace is **not** in `namespace_routing` | **STOP.** Record it in `iac_metadata.untranslated_types` — this is now the only route to that field, and it means "no recognised namespace", which is a far stronger signal than "no row exists" ever was |
+| Namespace **is** in `namespace_routing` | An independent artefact corroborates it. `azure_type_provenance: "derived"` |
+| Namespace is **not** in `namespace_routing` | **Still accept it.** `azure_type_provenance: "derived_uncorroborated"`, plus a `type_derived_uncorroborated` warning naming the namespace. Design routes it to a model-chosen category (`fast-path-services.json` → `namespace_routing._unrecognised_namespace`) |
 
-That cross-check is the guard. A derived namespace nobody else recognises is exactly the
-case where the model is inventing, and it is the case that stops.
+Either way the resource keeps its place in `resources[]` with its full `config`, and the
+Terraform type goes into `iac_metadata.derived_types`.
+
+**The cross-check is a SIGNAL, not a veto.** It records whether a second artefact agreed;
+it does not decide whether the resource exists. `Microsoft.Maps/accounts` is unambiguous
+and `Microsoft.Maps` is not in the 55-entry list — vetoing it would be refusing to name a
+thing the skill can name perfectly well.
+
+`iac_metadata.untranslated_types` is therefore for one case only: **you cannot say what
+the service is at all.** That is a real answer, it is rare, and it is the only route to a
+halt from this file. A type you can name is never untranslated.
 
 ### What a derived type may NOT do
 
 - **Never `confidence: deterministic`.** That tier requires a `direct_mappings` row and a
   `fast_path_row` naming it. A derived type reaching a `direct_mappings` key by luck still
   carries `inferred`, because the type itself was not verified.
+- **Never a silent guess.** Every derived type is recorded in `iac_metadata.derived_types`
+  with its provenance, and an uncorroborated namespace additionally warns. Deriving is
+  allowed; deriving invisibly is not — the whole reason this is safe is that a reviewer can
+  see which types were looked up and which were reasoned about.
 - **Never overwrite a listed row.** The table is checked first, always.
 - **Never invented for an `azapi_resource`** — those carry the ARM type verbatim and skip
   this whole section (§ Step 2a in `extract-terraform.md`).

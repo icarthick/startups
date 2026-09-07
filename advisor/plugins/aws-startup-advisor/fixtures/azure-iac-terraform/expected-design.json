@@ -361,17 +361,19 @@
     "_pinned_by_why": "Pins keyed on azure_id, not service_id. service_id was specified only as 'stable slug, unique within the artifact', so capability run 4 produced 8 of 14 ids differently from the golden - all valid - and the pin failed on a naming difference rather than a wrong size. azure_id is built by a stated rule and is the same string in every artifact."
   },
   "routing_provenance": {
-    "_comment": "Every services[] entry must say HOW its disposition was reached, and a DERIVED route may never claim confidence: deterministic.",
+    "_comment": "Every services[] entry must say HOW its disposition was reached, and no DERIVED route may claim confidence: deterministic. model_category is the gcp-mimicking fallback: an unrecognised namespace is reasoned into a category rather than halting.",
     "_why": "namespace_routing and child_type_rule let coverage grow without an authored row per type - the fix for coverage being O(n) in judgement. The risk they introduce is that a derived mapping becomes indistinguishable from a curated one in the artifact. This field makes the difference visible, and the deterministic guard stops a derived route inheriting a tier it did not earn.",
     "allowed": [
       "table",
       "index_md",
       "child_type_rule",
-      "namespace_rule"
+      "namespace_rule",
+      "model_category"
     ],
     "derived": [
       "child_type_rule",
-      "namespace_rule"
+      "namespace_rule",
+      "model_category"
     ],
     "namespace_routing_relpath": "../../skills/azure-to-aws/knowledge/design/fast-path-services.json",
     "design_refs_relpath": "../../skills/azure-to-aws/references/design-refs",
@@ -389,6 +391,6 @@
     "require_all_namespaces_routable": true,
     "_require_all_namespaces_routable_why": "Derivation's namespace half is cross-checked against namespace_routing. If a namespace appearing in this table is absent from that one, the cross-check would REJECT a type the table itself asserts is real - the two artefacts would contradict each other.",
     "assert_halt_not_stale": true,
-    "_assert_halt_not_stale_why": "A golden cannot notice that a PROSE rule changed underneath it. When derivation landed, azurerm_iothub stopped being unresolvable -- it derives to Microsoft.Devices/iotHubs, and Microsoft.Devices IS a namespace_routing gate -- so this golden's halt describes behaviour the skill no longer produces, while every shape assertion still passes. That is the exact hand-authored-golden-drifts-from-a-prose-ref trap, in the dangerous direction: green and wrong. This check reads the rule and the golden together and fails when they disagree."
+    "_assert_halt_not_stale_why": "A golden cannot notice that a PROSE rule changed underneath it. When derivation landed, azurerm_iothub stopped being unresolvable -- it derives to Microsoft.Devices/iotHubs, and Microsoft.Devices IS a namespace_routing gate -- so this golden's halt describes behaviour the skill no longer produces, while every shape assertion still passes. That is the exact hand-authored-golden-drifts-from-a-prose-ref trap, in the dangerous direction: green and wrong. This check reads the rule and the golden together and fails when they disagree. REVISED 2026-09-07 (second pass): an unrecognised NAMESPACE no longer halts either - it routes to a model-chosen category, mimicking gcp-to-aws, which has no namespace gate and no missing-rubric halt and therefore always reaches a rubric. So untranslated_types is now only for a type the skill cannot NAME, and a halt naming a type it can name is stale by definition."
   }
 }

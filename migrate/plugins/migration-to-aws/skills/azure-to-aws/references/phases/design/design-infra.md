@@ -122,8 +122,27 @@ deployment records. So:
 - **Benign** — no SKU/tier/capacity property in `config`, **and** no non-zero cost in
   consumption data → record in `warnings[]` and continue.
 - **Cost-bearing** — has a SKU/tier/capacity property, **or** appears in RDfA/billing
-  consumption with non-zero cost, **or** sits in a compute, data, network, or analytics
-  provider namespace → **STOP** and ask for the type to be filed.
+  consumption with non-zero cost → **choose the best-fit category** from the rubrics on
+  disk, load it, and apply its six criteria like any other pass-2 resource. Record
+  `routing_provenance: "model_category"`, emit a `routed_by_model_category` warning naming
+  the namespace and the category, and take `confidence: inferred`. This is not a STOP.
+
+**Only STOP when you genuinely cannot say what the service does.** Then the resource is
+unplaceable rather than unmapped: `halt.kind` is `unmapped_canonical_type` and the message
+asks for the type to be filed. That should be rare.
+
+> **Why this is not a STOP any more.** `gcp-to-aws` — whose workflow serves customers today
+> — lists 28 `google_*` types, has no namespace gate and no missing-rubric halt, and routes
+> an unknown type to one of nine categories where the rubric answers. It handles every case
+> not because its mapping knowledge is complete but because **a rubric is always reachable.**
+> Azure had double gcp's per-type coverage and stopped more often, which is the wrong trade.
+>
+> The line that matters is not table-versus-model. It is **facts versus opinions**: fall back
+> to the model for facts about Azure (what a service is, what a SKU's vCPU count is) and
+> never for this project's positions (Elastic Beanstalk over Fargate for PaaS posture,
+> `x86_64` over Graviton, single-AZ plus a finding rather than inferring Aurora from silence).
+> A model-chosen *category* is a fact-shaped judgement; the rubric it lands in still supplies
+> the opinion.
 
 The consumption test is mechanical whenever RDfA or billing ran, so a resource that
 costs money is never silently skipped. The namespace test is the fallback for an
@@ -184,6 +203,8 @@ be read; these describe what was decided.
 | `app_consumed_by_plan`        | one per `Microsoft.Web/sites` folded into its plan, with `plan_azure_id`             |
 | `idle_app_service_plan`       | a plan with zero apps; `severity: "cost_optimization"`                               |
 | `benign_unknown_type`         | an unmapped canonical type that cleared the cost-bearing test                        |
+| `routed_by_model_category`    | the namespace was not in `namespace_routing`, so the category was chosen by judgement. `detail` MUST name the namespace AND the category chosen, so the decision is reviewable rather than invisible |
+| `type_derived_uncorroborated` | Discover derived the ARM type but no second artefact declared its namespace. Carried through from the inventory so it appears in the design's own warnings too |
 | `routed_by_namespace_rule`    | a type resolved by `namespace_routing` rather than an authored row. `detail` MUST name the namespace and the rubric it routed to, so the derived decision is auditable |
 | `routed_by_child_type_rule`   | a child type folded into its parent by `child_type_rule`. `detail` MUST name the parent and what was contributed |
 | `availability_downgrade_from_source` | the source database is zone-redundant / HA but the target is single-AZ, because no availability answer was recorded. `severity: "review"` — the customer silently loses HA they were paying for unless this is said out loud (`database.md` §1) |
