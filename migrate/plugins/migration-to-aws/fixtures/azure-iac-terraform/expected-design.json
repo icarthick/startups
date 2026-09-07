@@ -162,17 +162,24 @@
     "expected_consumed_app_count": 6
   },
   "unknown_type_stop": {
-    "_why": "Owner decision: an UNTRANSLATED type is treated as cost-bearing by default and STOPs. It has no SKU, no consumption row, and no provider namespace, so the three-part cost-bearing test cannot clear it \u2014 and the skill cannot demonstrate that a resource it could not name is free. Warn-and-skip here would understate the estate with nothing to signal it.",
-    "halt_required": true,
-    "expected_halt_kind": "untranslated_terraform_type",
-    "expected_identifier_substring": "azurerm_iothub",
+    "_why": "INVERTED 2026-09-07. This block used to require a halt on azurerm_iothub. Derivation now resolves it to Microsoft.Devices/iothubs, Microsoft.Devices is a namespace_routing gate, and it defers cleanly - so the halt is UNREACHABLE on this corpus and asserting it would pin behaviour the skill cannot produce. What is worth pinning is the inverse: the type must be DEFERRED, not silently skipped and not halted.",
+    "halt_required": false,
+    "forbidden_halt_kind": "untranslated_terraform_type",
+    "_forbidden_halt_why": "A halt naming a type the skill can NAME is stale by construction. untranslated_types now means 'cannot name the service at all', and check_halt_not_stale guards the general case.",
+    "derived_type_disposition": {
+      "azure_type": "Microsoft.Devices/iothubs",
+      "expected_in": "deferred",
+      "_why": "Microsoft.Devices routes to a specialist gate: IoT Hub and DPS to AWS IoT Core is a device-provisioning and fleet-identity project, and IoT is out of this skill's stated scope. So the resource is DEFERRED - which is the honest answer, distinct from both 'mapped' and 'halted'."
+    },
     "must_not_appear_as_benign_skip_codes": [
       "skipped_no_aws_equivalent",
       "skipped_config_source",
       "skipped_observability",
       "benign_unknown_type"
     ],
-    "_must_not_appear_why": "The failure this pins is the SILENT one: recording the type as an ordinary skip satisfies every shape assertion, lets the phase emit HANDOFF_OK, and produces an estimate that is quietly missing a resource."
+    "_must_not_appear_why": "Unchanged, and still the sharpest assertion here. The failure to fear is the SILENT one: recording a cost-bearing derived type as an ordinary skip satisfies every shape assertion, lets the phase emit HANDOFF_OK, and produces an estimate quietly missing a resource. Deferring is fine. Skipping is not.",
+    "identifier_substring": "iothub",
+    "_identifier_substring_why": "Still needed by the benign-skip guard: whatever disposition the derived type reaches, it must NOT be recorded under a benign skip code. That assertion survives the inversion unchanged."
   },
   "missing_rubric_halt": {
     "_why": "compute.md and database.md landed in build step 5, so pending_rubric[] must now be EMPTY and no missing_rubric_file blocker may remain. This block guards the REVERSE direction from before: a run that still parks these five resources as pending is one that did not load the rubric files that are now on disk.",
@@ -211,7 +218,7 @@
   },
   "accounting": {
     "_why": "The catch-all. Every inventory resource must appear somewhere \u2014 mapped, pending, deferred, or explicitly skipped. Without this, dropping a resource is invisible: the design still parses, every other assertion still passes, and the estimate is simply missing a line.",
-    "expected_inventory_resource_count": 29
+    "expected_inventory_resource_count": 30
   },
   "forbidden_substrings": {
     "values": [

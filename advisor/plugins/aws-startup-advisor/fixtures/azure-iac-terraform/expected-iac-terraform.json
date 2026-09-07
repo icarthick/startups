@@ -6,8 +6,8 @@
   ],
   "resource_counts": {
     "declared_in_corpus": 31,
-    "expected_in_inventory": 29,
-    "_comment": "28 resource blocks; azurerm_dev_test_lab is untranslated and therefore skipped, not guessed. Note that 5 local names collide across types (core, storefront, reporting, data, store), which is why identity is the full address."
+    "expected_in_inventory": 30,
+    "_comment": "30, not 29. Before 2026-09-07 an unlisted azurerm type was DROPPED, so the count was '31 declared minus the untranslated one'. Derivation retains it: azurerm_iothub is now derived to Microsoft.Devices/iothubs and kept with its sku, which is what lets Design's cost-bearing test run at all."
   },
   "canonical_types": {
     "_comment": "Keyed by the full Terraform ADDRESS (<azurerm_type>.<local_name>), because a bare local name is NOT unique \u2014 Terraform namespaces them per type. The ARM type is asserted as the exact spelling arm-type-canonicalization.md emits: matching folds case, but azure_id joins do not, so emission must be consistent.",
@@ -123,10 +123,10 @@
     "_forbidden_config_keys_comment": "A VALUES container must not exist at all. Asserting only on the sentinel string missed a redaction-in-place mutation (a truncated sentinel plus '***'), which the rules forbid but the substring check could not see."
   },
   "untranslated_types": {
-    "_comment": "azurerm_dev_test_lab is deliberately absent from arm-type-canonicalization.md. It must be reported, not guessed: a guessed type fails silently against every downstream mapping table.",
-    "expected": [
-      "azurerm_iothub"
-    ]
+    "_comment": "MUST BE EMPTY. Before 2026-09-07 this held azurerm_iothub. The field now means 'the skill cannot NAME the service' - not 'no table row' and not 'namespace unrecognised', both of which are derived and retained.",
+    "expected": [],
+    "must_be_empty_in_artifact": true,
+    "_why": "If this refills, derivation has regressed to dropping types, which silently understates the estate and destroys the sku evidence Design's cost-bearing test reads."
   },
   "unresolved_modules": {
     "_comment": "A registry module whose content is not in the workspace. Silence here is how a Terraform-only inventory ends up confidently missing a third of the estate.",
@@ -290,20 +290,24 @@
   "clusters_file": "azure-resource-clusters.json",
   "clustering": {
     "_why": "Clustering was implemented and then completely UNGATED \u2014 no golden artifact existed at all, so the split/merge rules were reviewed prose and nothing more. Each fact below is one where the seed-only behaviour and the refined behaviour DIVERGE, which is the only interesting kind.",
-    "expected_cluster_count": 4,
-    "_expected_cluster_count_why": "Seed-only gives 3 (one per resource group). A first draft that split on edges alone and promoted singletons gave 16 \u2014 a capability run produced exactly that, with a VNet separated from its own subnets. 4 is seed, then split, then merge, with containment counting as connectivity and only primary-eligible components promoted.",
+    "expected_cluster_count": 5,
+    "_expected_cluster_count_why": "Seed-only gives 3 (one per resource group). A first draft that split on edges alone and promoted singletons gave 16 - a capability run produced exactly that, with a VNet separated from its own subnets. 5 is seed, then split, then merge, with containment counting as connectivity and only primary-eligible components promoted. CORRECTED 2026-09-07 from 4: the hand-authored golden put the Cosmos account inside the 21-member merge cluster, but that account has ZERO edges in either direction and none of the cluster's three justifying edges touches it. Capability run 4 split it out, which is what the algorithm actually produces - an edgeless, primary-eligible resource in its own resource group is its own workload (13.4b). The old number was intuition ('the app must use the database'), and the corpus declares no such reference. This is 13.4e firing a third time: a worked example or golden must be TRACED against the algorithm, never written by hand.",
     "expected_clusters": {
       "rg-app-tf-web": {
         "justification": "merge:cross_group_edges",
         "primary_tf_address": "azurerm_service_plan.web",
-        "member_count": 21,
+        "member_count": 20,
         "must_contain_tf_addresses": [
           "azurerm_postgresql_flexible_server.store",
           "azurerm_service_plan.web",
           "azurerm_virtual_network.core",
           "azurerm_subnet.apps"
         ],
-        "why": "THE merge case. rg-app and rg-data are separate resource groups, and the app-to-data data_ref edges are the only thing that joins them. Seed-only clustering would cost this app without its database. The vnet and subnets are here too \u2014 NOT a cluster of their own \u2014 because containment counts as connectivity and a vnet is not primary-eligible."
+        "why": "THE merge case. rg-app and rg-data are separate resource groups, and the app-to-data data_ref edges are the only thing that joins them - Postgres and Redis, both referenced from the storefront app's settings. Seed-only clustering would cost this app without its database. The vnet and subnets are here too, NOT a cluster of their own, because containment counts as connectivity and a vnet is not primary-eligible. The Cosmos account is NOT here: nothing references it, so no edge justifies merging it (see rg-data-tf-catalog).",
+        "must_not_contain_tf_addresses": [
+          "azurerm_cosmosdb_account.catalog"
+        ],
+        "_must_not_why": "The correction. A member of a cluster justified 'merge:cross_group_edges' must be reachable by one of the justifying edges. Cosmos has none, so including it made the justification false."
       },
       "rg-app-tf-func": {
         "justification": "split:no_internal_edges",
@@ -316,6 +320,13 @@
         "primary_tf_address": "azurerm_service_plan.legacy",
         "member_count": 1,
         "why": "A single-member cluster is legal and correct: an idle plan with zero edges is its own finding, not part of the reporting VM's workload that happens to share its resource group."
+      },
+      "rg-data-tf-catalog": {
+        "justification": "split:no_internal_edges",
+        "primary_tf_address": "azurerm_cosmosdb_account.catalog",
+        "member_count": 1,
+        "tier": "data",
+        "why": "The Cosmos account is edgeless - no app setting references it and no private endpoint fronts it - and it is primary-eligible, so it is its own workload rather than a member of the app cluster. A split is justified by an ABSENCE (13.3d), so its edges[] is legitimately EMPTY. This cluster exists because capability run 4 traced the algorithm where the golden had guessed."
       }
     },
     "split_may_have_empty_edges": true,
@@ -323,5 +334,12 @@
     "merge_must_have_edges": true,
     "forbidden_primary_type": "Microsoft.Web/sites",
     "_forbidden_primary_why": "A site is never primary even though a human would name the workload after it \u2014 the plan is the compute unit, and naming the cluster after one of five co-hosted apps implies the other four are subordinate."
+  },
+  "derived_types": {
+    "_comment": "Terraform types resolved by derivation rather than a table row.",
+    "expected": [
+      "azurerm_iothub"
+    ],
+    "_why": "The corpus's deliberate unlisted type, and the ONLY thing exercising the derivation path. If this empties, either the canonicalization table grew a row it should not have (see canonicalization_governance) or derivation stopped being reachable."
   }
 }

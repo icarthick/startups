@@ -149,3 +149,30 @@ Implemented as detection-and-warn. Deliberately **not** implemented, per plan §
 explicitly-not-ported list: AHUB core-minimum arithmetic, Software Assurance eligibility
 rules, and elastic-pool licence bin-packing. Those are enterprise-weighted and belong with
 a specialist, and a half-modelled licence calculation is worse than an honest delta line.
+
+## `_fired` and `_firing_reason` are REQUIRED
+
+This is the only Clarify fragment that can legitimately not load, so the artifact has to
+record which happened and why. Two keys on the `licensing` object, always:
+
+```jsonc
+"licensing": {
+  "_fired": true,
+  "_firing_reason": "one Windows VM (azurerm_windows_virtual_machine.reporting, image_publisher MicrosoftWindowsServer). No Microsoft.Sql/* resource is present, which is why sql_model is N/A while the category still fires.",
+  ...
+}
+```
+
+- **`_fired`** — `true` when the firing rule matched, `false` when it did not. Never absent.
+- **`_firing_reason`** — names the specific resource or resources that triggered it, or, when
+  `_fired` is `false`, states what was looked for and not found.
+
+**Why required rather than nice-to-have.** "The category did not fire" and "the category
+fired and the fragment forgot to write it down" produce the same artifact otherwise, and the
+first is correct while the second silently drops a licensing decision worth real money. It is
+also the only thing that lets a user see **why** they are being asked about Windows
+licensing — without it the question arrives with no context and the obvious response is to
+guess.
+
+An N/A category is written out with its reason, never omitted.
+

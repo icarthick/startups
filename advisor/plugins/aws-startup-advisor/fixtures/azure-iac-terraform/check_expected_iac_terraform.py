@@ -400,14 +400,28 @@ def check_child_rg_inheritance(index: dict[str, dict], exp: dict) -> None:
 
 def check_warnings(inv: dict, exp: dict) -> None:
     warnings = json.dumps(inv.get("warnings") or []) + json.dumps(inv.get("iac_metadata") or {})
-    for t in exp["untranslated_types"]["expected"]:
+    meta = inv.get("iac_metadata") or {}
+    ut_spec = exp["untranslated_types"]
+    for t in ut_spec["expected"]:
+        check(t in warnings, f"{t!r} must be reported as untranslated. {ut_spec['_why']}")
+    if ut_spec.get("must_be_empty_in_artifact"):
+        actual = meta.get("untranslated_types")
         check(
-            t in warnings,
-            f"{t!r} is absent from arm-type-canonicalization.md and must be reported as "
-            f"untranslated. Guessing an ARM type for it would not fail loudly — it would "
-            f"silently miss every mapping table, and the report would blame the estate "
-            f"for the skill's gap.",
+            actual == [],
+            f"iac_metadata.untranslated_types is {actual!r}, expected []. That field now means "
+            f"'the skill cannot NAME the service'. A type with no table row is DERIVED and kept; "
+            f"a type whose namespace is unrecognised is also kept. {ut_spec['_why']}",
         )
+    dt_spec = exp.get("derived_types")
+    if dt_spec:
+        actual = meta.get("derived_types") or []
+        for t in dt_spec["expected"]:
+            check(
+                t in actual,
+                f"{t!r} is absent from arm-type-canonicalization.md, so it must appear in "
+                f"iac_metadata.derived_types — derived and RETAINED, not dropped. Got {actual!r}. "
+                f"{dt_spec['_why']}",
+            )
     sub = exp["unresolved_modules"]["expected_substring"]
     check(
         sub in warnings,

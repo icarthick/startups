@@ -283,34 +283,49 @@ def check_fan_in(design: dict, inv: dict, id_of: dict[str, str], exp: dict) -> N
 
 
 def check_unknown_stop(design: dict, exp: dict) -> None:
+    """The derived type must be DEFERRED — not halted on, and not silently skipped."""
     spec = exp["unknown_type_stop"]
     halt = design.get("halt")
-    if not isinstance(halt, dict):
-        FAILS.append(
-            f"no `halt` object. The corpus contains an untranslated type "
-            f"({spec['expected_identifier_substring']}), which is treated as cost-bearing and must "
-            f"STOP the design. {spec['_why']}"
-        )
-        return
+    blocking = (halt or {}).get("blocking") or [] if isinstance(halt, dict) else []
 
-    blocking = halt.get("blocking") or []
-    hit = [
-        b for b in blocking
-        if b.get("kind") == spec["expected_halt_kind"]
-        and spec["expected_identifier_substring"] in json.dumps(b)
-    ]
-    check(
-        bool(hit),
-        f"halt.blocking has no {spec['expected_halt_kind']!r} entry naming "
-        f"{spec['expected_identifier_substring']!r}. {spec['_why']}",
-    )
+    if spec.get("halt_required"):
+        if not isinstance(halt, dict):
+            FAILS.append(f"no `halt` object, and one is required. {spec['_why']}")
+            return
+        hit = [b for b in blocking
+               if b.get("kind") == spec["expected_halt_kind"]
+               and spec["expected_identifier_substring"] in json.dumps(b)]
+        check(bool(hit),
+              f"halt.blocking has no {spec['expected_halt_kind']!r} entry naming "
+              f"{spec['expected_identifier_substring']!r}. {spec['_why']}")
+    else:
+        forbidden = spec.get("forbidden_halt_kind")
+        bad = [b for b in blocking if b.get("kind") == forbidden]
+        check(not bad,
+              f"halt.blocking carries a {forbidden!r} entry {bad!r}, but that halt is "
+              f"UNREACHABLE on this corpus now. {spec['_forbidden_halt_why']}")
 
+    disp = spec.get("derived_type_disposition")
+    if disp:
+        want_type = disp["azure_type"].lower()
+        where = disp["expected_in"]
+        pool = design.get(where) or []
+        hit = [e for e in pool if (e.get("azure_type") or "").lower() == want_type]
+        check(bool(hit),
+              f"{disp['azure_type']} is not in {where}[]. A derived type must reach a real "
+              f"disposition — mapped, or deferred — never vanish. {disp['_why']}")
+        for e in hit:
+            check("confidence" not in e,
+                  f"{disp['azure_type']} is deferred but carries a confidence field. "
+                  f"A deferral did not come from a rubric (13.1e).")
+
+    ident = spec.get("identifier_substring") or spec.get("expected_identifier_substring")
     for w in design.get("warnings") or []:
         if w.get("code") in spec["must_not_appear_as_benign_skip_codes"]:
             check(
-                spec["expected_identifier_substring"] not in json.dumps(w),
-                f"{spec['expected_identifier_substring']!r} is recorded as a benign skip "
-                f"({w.get('code')!r}) instead of stopping the design. "
+                ident not in json.dumps(w).lower(),
+                f"{ident!r} is recorded as a benign skip ({w.get('code')!r}). A cost-bearing "
+                f"derived type may be MAPPED or DEFERRED, never quietly skipped. "
                 f"{spec['_must_not_appear_why']}",
             )
 
@@ -447,10 +462,19 @@ def check_canonical_type_coverage(exp: dict) -> None:
             FAILS.append(f"cannot check canonical-type coverage: missing {pth}")
             return
 
-    canon = {
-        m for m in re.findall(r"`(Microsoft\.[A-Za-z0-9./]+)`", canon_path.read_text())
-        if "/" in m and m not in set(spec["exempt"])
-    }
+    # Only TABLE ROWS count. A type named in prose (an example, a trap explanation) is not a
+    # canonicalization row and must not be demanded a disposition -- reading the whole file
+    # made a prose example look like a row and reported a false orphan.
+    canon = set()
+    for line in canon_path.read_text().splitlines():
+        if not line.startswith("|"):
+            continue
+        cells = [x.strip() for x in line.strip().strip("|").split("|")]
+        if len(cells) < 2 or not re.search(r"`azurerm_[a-z0-9_]+`", cells[0]):
+            continue
+        for m in re.findall(r"`(Microsoft\.[A-Za-z0-9./]+)`", cells[1]):
+            if "/" in m and m not in set(spec["exempt"]):
+                canon.add(m)
     table = json.loads(table_path.read_text())
     disposed: set[str] = set()
     for section in ("direct_mappings", "skip_mappings", "specialist_gates", "hard_blockers"):

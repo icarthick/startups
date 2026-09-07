@@ -167,10 +167,26 @@ There is nothing to weigh, so offering a choice would imply one of the answers w
   "vm_cutover":        { "disposition": "ESSENTIAL", "value": null, "default": null }
 },
 "app_service_plans": [
-  { "plan_azure_id": "<azure_id>", "hosted_app_count": 5,
-    "isolation_split": { "disposition": "PROPOSED", "value": null, "default": false } }
+  { "plan_azure_id": "<azure_id of the 5-app plan>", "hosted_app_count": 5,
+    "isolation_split": { "disposition": "PROPOSED", "value": null, "default": false } },
+  { "plan_azure_id": "<azure_id of a 1-app plan>",  "hosted_app_count": 1,
+    "isolation_split": { "disposition": "N/A", "value": null, "default": null,
+                         "reason": "one app — nothing to isolate from" } },
+  { "plan_azure_id": "<azure_id of a 0-app plan>",  "hosted_app_count": 0,
+    "isolation_split": { "disposition": "N/A", "value": null, "default": null,
+                         "reason": "no apps — idle capacity, raised as a cost finding instead" } }
 ]
 ```
+
+**ONE ROW PER PLAN, always — including plans you do not ask about.** A plan with 0 or 1
+hosted app gets a row with `isolation_split.disposition: "N/A"` and a `reason`; it does
+**not** get a question, because asking whether to isolate one app from nothing is a
+meaningless question in front of the user.
+
+Emitting rows only for the plans you questioned is the trap: `design-infra.md`'s fan-in
+rule and `design.md`'s `Microsoft.Web/sites` postcondition both look a plan up here, and a
+plan with no row is indistinguishable from a plan the user declined to split. The count of
+rows must equal the count of `Microsoft.Web/serverfarms` resources in the inventory.
 
 `value: null` means the user has not answered. The assembler resolves it to the default and
 keeps the disposition PROPOSED — **never** promote a default to a user decision, because

@@ -58,10 +58,13 @@ sentinel makes the assertion unambiguous.
 | `workspace-terraform/`              | the committed INPUT — 31 resources, 1 resolvable module (source on disk under `.terraform/modules/`), 1 unresolvable module, 1 association-only resource |
 | `expected-iac-terraform.json`       | pinned Discover facts                                                |
 | `check_expected_iac_terraform.py`   | the Discover oracle                                                  |
-| `after-discover/`                   | GOLDEN Discover output — 29 resources (31 declared, minus the untranslated type, minus the association) |
+| `after-discover/`                   | GOLDEN Discover output — **30 resources** (31 declared, minus the association-only one) and **5 clusters**. Regenerated from capability run 4, so it is algorithm-traced rather than hand-authored |
 | `expected-design.json`              | pinned Design pass-1 facts                                           |
 | `check_expected_design.py`          | the Design oracle                                                    |
-| `after-design-halted/`              | GOLDEN Design output — a **halted** design, see below                |
+| `after-clarify/`                    | GOLDEN Clarify output — a **BLOCKED** clarify. The scripted user declines to state Azure spend, so an ESSENTIAL row is null and the phase gates |
+| `clarify-answers.json`              | the scripted user for that branch                                    |
+| `clarify-answers-complete.json`     | the scripted user for the COMPLETING branch. **No golden yet** — see the note in that file |
+| `after-design/`                     | GOLDEN Design output — a **completing** design, 16 mapped + 1 deferred. From capability run 4 |
 
 Both asserters are registered in `tools/run-asserters.py` as **golden**: CI runs each
 against its committed tree and requires exit 0.
@@ -84,16 +87,26 @@ Kinesis is the signal that `knowledge/design/fast-path-services.json` was not.
 
 ## The Design oracle
 
-`after-design-halted/aws-design.json` is a **halted** design, and the directory name says
-so. As of build step 5 there is exactly **one** blocker left: the corpus carries an
-untranslated cost-bearing type (`azurerm_iothub`), which STOPs Design unconditionally —
-the skill could not name the resource, so it cannot show the resource is free. The
-missing-rubric blockers are gone; `compute.md` and `database.md` are on disk and
-`pending_rubric[]` is now asserted **empty**.
+`after-design/aws-design.json` is a **completing** design: 16 mapped services, 1 deferred,
+every one of the 30 resources accounted for exactly once.
 
-That assertion inverted deliberately when the rubrics landed. At step 3 a resource *mapped
-past* a missing rubric file was improvisation; now a resource still *parked as pending* is
-a run that did not load rubric files that exist. Same defect, opposite side.
+**It replaced `after-design-halted/` on 2026-09-07, because that state became
+unreachable.** The corpus's `azurerm_iothub` used to STOP Design unconditionally — the
+skill could not name it, so it could not show the resource was free. It now **derives** to
+`Microsoft.Devices/iothubs`, `Microsoft.Devices` is a `namespace_routing` gate, and the
+resource defers cleanly. A golden for a state the skill can no longer produce is worse than
+no golden, because every shape assertion still passes against it.
+
+So the assertion inverted: the oracle now requires that halt **not** occur, and requires
+the derived type to appear in `deferred[]` — mapped or deferred, never quietly skipped. The
+benign-skip guard survives the inversion unchanged, and it is still the sharpest assertion
+here: recording a cost-bearing derived type under a skip code satisfies every shape check,
+lets the phase emit `HANDOFF_OK`, and produces an estimate quietly missing a resource.
+
+`pending_rubric[]` is asserted **empty**. That assertion also inverted when the rubrics
+landed: at step 3 a resource *mapped past* a missing rubric file was improvisation; now a
+resource still *parked as pending* is a run that did not load files that exist. Same defect,
+opposite side.
 
 `clusters[]` carries `pattern_status: "catalog_absent"` because `design-refs/patterns.md`
 does not exist yet, so the asserter checks only that field and the

@@ -88,7 +88,31 @@ the last point before Design commits, and it is cheap relative to re-running fou
 5. **Never copy a secret out of the inventory.** The inventory holds app-setting NAMES only,
    and preferences has no reason to hold even those.
 
+## `clarify_status` — the phase's own verdict
+
+**REQUIRED at the top level of `preferences.json`.** Exactly one of:
+
+| Value | Means |
+| ----- | ----- |
+| `COMPLETE` | Every row the user was shown is recorded, and no `ESSENTIAL` row has `value: null`. The phase may emit `HANDOFF_OK` |
+| `BLOCKED_ON_ESSENTIAL` | At least one `ESSENTIAL` row was shown and left unanswered. The phase emits `GATE_FAIL`, and every blocking row carries `unanswered: true` and `blocks_phase: true` |
+
+`ESSENTIAL` + `value: null` **is** the completion gate (decision 13.5b) — an essential row
+has no default on purpose, and this field is where that determination is written down. A run
+that reaches `HANDOFF_OK` with a null essential value has invented consent, and the artifact
+is perfectly well-formed either way, which is exactly why the verdict must be explicit rather
+than left for a reader to infer.
+
+**A conflicting answer does NOT block.** If the user selects an option a `hard_blockers` row
+suppresses — MGN against an Azure Edition Windows image, say — record the answer **as given**,
+add a sibling `conflict` key stating what suppresses it and why, and put the blocker in
+`licensing.blockers[]` with `severity: "blocker"`. Status stays `COMPLETE`: the customer
+answered, and the blocker is a **prerequisite**, not a competing preference. Silently
+rewriting their answer and faking a gate failure both hide a real decision they need to make.
+
 ## Validation Checklist
+
+- [ ] `clarify_status` is set to `COMPLETE` or `BLOCKED_ON_ESSENTIAL`, and it agrees with whether any `ESSENTIAL` row has `value: null`.
 
 - [ ] `global.target_region` is set.
 - [ ] `design_constraints.cpu_architecture` is set, with `x86_64` recorded as the default.

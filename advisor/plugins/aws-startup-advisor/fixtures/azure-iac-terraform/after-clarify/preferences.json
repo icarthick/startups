@@ -207,6 +207,13 @@
         "default": "unclassified",
         "reason": "patterns.md is absent (build step 4), so there is no recognised pattern to confirm"
       }
+    },
+    {
+      "cluster_id": "rg-data-tf-catalog",
+      "pattern_id": null,
+      "pattern_status": "catalog_absent",
+      "confirmed": true,
+      "_note": "Added 2026-09-07 when after-discover/ was regenerated from capability run 4 and the Cosmos account became its own cluster. preferences.clusters[] must key exactly to the clusters artifact, so this is a mechanically forced edit, not a judgement about the pattern."
     }
   ],
   "workshop": {}

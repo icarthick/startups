@@ -43,7 +43,7 @@ ASSERTERS = {
     # an untranslated cost-bearing type and the pass-2 rubric files do not exist yet — so
     # it does NOT satisfy design.md's _postconditions. It pins the mapping TABLE's
     # application, which is what build step 3 delivers.
-    "azure-iac-terraform/check_expected_design.py": "azure-iac-terraform/after-design-halted",
+    "azure-iac-terraform/check_expected_design.py": "azure-iac-terraform/after-design",
     # Clarify. The golden is a BLOCKED clarify — an ESSENTIAL row is unanswered, so the phase
     # must GATE_FAIL. That pins the completion gate rather than only the happy path. Clarify is
     # _interactive: true, so `clarify-answers.json` stands in for the user; the asserter tests
