@@ -38,7 +38,7 @@ A resource with an AWS target.
 
 ```jsonc
 {
-  "service_id": "<stable slug, unique within the artifact>",
+  "service_id": "<derived slug — see § service_id; unique within the artifact>",
   "azure_id": "<ARM resource ID from the inventory>",
   "azure_type": "Microsoft.Cache/Redis",
   "aws_service": "ElastiCache Redis",
@@ -144,6 +144,32 @@ SKU rather than from the app count. Without them, "five apps correctly fanned in
 plan" and "four apps fanned in and one silently dropped" produce identical artifacts.
 
 Every `azure_id` in `hosted_app_azure_ids` must exist in the inventory.
+
+## `service_id`
+
+**Derived, not invented.** `<aws-service-slug>-<azure-resource-local-name>`:
+
+- `aws-service-slug` — the `aws_service` value lowercased, non-alphanumerics collapsed to a
+  single `-`, leading `aws-` / `amazon-` dropped. **Never abbreviate**, because an
+  abbreviation is a choice and choices are what made this unreproducible:
+  `Elastic Beanstalk` → `elastic-beanstalk` (not `eb`), `RDS PostgreSQL` → `rds-postgresql`,
+  `FSx for Windows File Server` → `fsx-for-windows-file-server`,
+  `Systems Manager Session Manager` → `systems-manager-session-manager`.
+- `azure-resource-local-name` — the source resource's `config.tf_resource_name`, or the last
+  segment of `azure_id` when there is no Terraform provenance. Strip any `tf:` prefix.
+- Collision → append `-2`, `-3`. Collisions should be rare, because one Azure resource
+  produces at most one entry.
+
+**Why a rule and not "any stable slug".** The previous wording was `<stable slug, unique
+within the artifact>`, which let two runs of the same estate produce entirely different ids —
+capability run 4 produced 8 different ids out of 14, every one of them a valid stable slug.
+An identifier nobody can reproduce cannot be referenced from a report, cross-checked between
+artifacts, or asserted by a fixture, and its instability is invisible because each run is
+internally consistent.
+
+**Nothing may key on `service_id` across artifacts.** Use `azure_id` for that — it is
+constructed by a stated rule, it is unique, and it is the same string in every artifact that
+mentions the resource. `service_id` is for human reference within one artifact only.
 
 ## `routing_provenance`
 

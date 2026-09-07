@@ -344,19 +344,21 @@
       "model_prior"
     ],
     "pinned": {
-      "eb-web": {
+      "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web": {
         "instance_type": "t3.small",
         "_why": "S1 plan is 1 vCPU / 1.75 GiB. appservice-eb-sizing.json gives t3.small (2/2). The golden previously said t3.medium (2/4) - double the source memory, and a pure model prior."
       },
-      "rds-store": {
+      "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.DBforPostgreSQL/flexibleServers/tf:store": {
         "instance_class": "db.m6g.large",
         "_why": "GP_Standard_D2s_v3 is 2 vCPU / 8 GiB. flexible-server-rds-sizing.json gives db.m6g.large (2/8). The golden previously said db.t4g.medium (2/4) - HALF the source memory."
       },
-      "ec2-reporting": {
+      "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Compute/virtualMachines/tf:reporting": {
         "instance_type": "m6i.xlarge",
         "_why": "Standard_D4s_v5 is 4 vCPU / 16 GiB, and m6i.xlarge is 4/16. This one the prior got right, which is exactly why an unasserted number is not the same as a correct one."
       }
-    }
+    },
+    "pinned_by": "azure_id",
+    "_pinned_by_why": "Pins keyed on azure_id, not service_id. service_id was specified only as 'stable slug, unique within the artifact', so capability run 4 produced 8 of 14 ids differently from the golden - all valid - and the pin failed on a naming difference rather than a wrong size. azure_id is built by a stated rule and is the same string in every artifact."
   },
   "routing_provenance": {
     "_comment": "Every services[] entry must say HOW its disposition was reached, and a DERIVED route may never claim confidence: deterministic.",

@@ -97,7 +97,7 @@ is a question at all depends on whether Windows is present.
 
 ## Status — build step 5
 
-Implemented. `knowledge/design/azure-region-map.json` does not exist yet, so Q-A1 currently
-states the mapped region as a best-effort and flags that the table is absent — the same
-softer treatment sizing tables get, and for the same reason: a missing table degrades a
-value's precision, where a missing rubric would fabricate a choice.
+Implemented. `knowledge/design/azure-region-map.json` **exists** — look the region up
+there, and do NOT emit a "table absent" flag. Where the row's `same_country` is false the
+move crosses a border: surface that as a residency warning rather than resolving it
+silently.

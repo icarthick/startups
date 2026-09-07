@@ -119,11 +119,15 @@ structurally parallel to `## CPU Architecture`.
 ## Status — build step 5 (both passes, partial)
 
 **Pass 1 and pass 2 both run.** `knowledge/design/fast-path-services.json` carries the
-disposition table; `design-refs/compute.md` and `database.md` carry the two rubrics the
-corpus exercises. A resource routed by `index.md` to a category file that is **not** on
-disk still halts rather than being improvised — `analytics.md`, `messaging.md`,
-`networking.md`, `storage.md`, `identity.md`, `licensing.md`, `gpu-hpc.md`, and `ai.md`
-are still to come.
+disposition table; eight rubrics are on disk — `compute.md`, `database.md`,
+`networking.md`, `messaging.md`, `analytics.md`, `storage.md`, `identity.md` and
+`fast-path.md`. A resource routed by `index.md` to a category file that is **not** on disk
+still halts rather than being improvised; only `licensing.md`, `gpu-hpc.md`, `ai.md` and
+`patterns.md` are still to come.
+
+**Check the filesystem, not this paragraph.** A status list in prose goes stale the moment a
+file lands, and the halt decision reads from disk. If this list and `ls` disagree, `ls` is
+right and this list is the bug.
 
 | Lands in | What                                                                                                     |
 | -------- | -------------------------------------------------------------------------------------------------------- |

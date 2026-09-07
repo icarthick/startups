@@ -210,6 +210,27 @@ indistinguishable from "the extractor found nothing to read."
 unconditional. A missing row means "no downstream table reads a sizing or routing
 attribute from this type", never "skip the resource".
 
+> **EXCEPTION, and it is load-bearing: always extract `sku`, `tier` and `capacity`.**
+> Whatever the per-type rows below say, if the block sets `sku`, `sku_name`, `tier`,
+> `capacity` or `size`, carry it into `config`. This applies to **every** type, listed or
+> not, and especially to a **derived** type (§ Step 2b), which by definition has no row here.
+>
+> Without it the two halves of the skill contradict each other and the failure is silent:
+> `design-infra.md` § 3 decides cost-bearing-ness by asking whether `config` has "a
+> SKU/tier/capacity property", and a derived resource whose SKU was dropped because it had
+> no row is then **guaranteed to look benign**. That is the precise failure decision 13.1d
+> exists to prevent — an unnamed resource silently understating the estate — reintroduced
+> from the other end.
+>
+> Capability run 4 hit exactly this: `azurerm_iothub` has no row, carries
+> `sku { name = "S1", capacity = 1 }`, and the run carried the SKU anyway while recording
+> that no rule authorised it. It only escaped mattering because the namespace gate fired
+> first. On any estate whose derived type lands in a *rubric* namespace it would have
+> understated a cost-bearing resource.
+>
+> § Step 2a already states the right rule for AzAPI — "extract `sku`, `tier` and `capacity`
+> if present and nothing else". This is that rule, generalised.
+
 **If a type below is missing an attribute a mapping table needs, the row is the bug.**
 The failure is silent and expensive: the extraction is correct by its own ref, the
 inventory passes every shape assertion, and the attribute is simply absent when Design
@@ -290,7 +311,10 @@ merges them. Never drop an edge because it crosses a group boundary.
 
 ## Validation before returning
 
-- [ ] Every entry's `azure_type` appears in `arm-type-canonicalization.md`.
+- [ ] Every entry's `azure_type` is EITHER a row in `arm-type-canonicalization.md` (then
+      `azure_type_provenance: "table"`) OR was derived per § Step 2b with its namespace
+      corroborated by `namespace_routing` (then `"derived"`). A derived type NOT appearing
+      in that file is correct and expected — the file is an exception list, not a coverage list.
 - [ ] No entry's `azure_type` starts with `azurerm_`.
 - [ ] Every `azure_id` is unique, and matches the standard form (or the resource-group exception).
 - [ ] Every entry carries `config.tf_address`, and every `tf_address` is unique.
@@ -301,4 +325,6 @@ merges them. Never drop an edge because it crosses a group boundary.
 - [ ] No `*_association` resource produced an inventory entry, and none was reported as an untranslated type.
 - [ ] Every unresolvable module and every untranslated type has a `warnings[]` entry.
 - [ ] Every warning's `code` is from the closed vocabulary in `schema-discover-azure.md` § Warnings.
+- [ ] Every entry whose block sets `sku`, `sku_name`, `tier`, `capacity` or `size` carries it in
+      `config` — including derived types with no per-type row. Design's cost-bearing test reads it.
 - [ ] No `config` key holds `null` — an attribute the configuration does not set is omitted.

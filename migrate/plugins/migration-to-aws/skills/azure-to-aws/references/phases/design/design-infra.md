@@ -252,7 +252,13 @@ database** (`design-refs/compute.md`, `design-refs/database.md`); the other eigh
 files are still to land, and a resource routed to one of them halts per § Missing rubric
 file rather than being mapped from model priors.
 
-Exercised by the `azure-iac-terraform` fixture's Design asserter
-(`check_expected_design.py`), which pins the fan-in count, the untranslated-type STOP, the
-three protocol/API-conditioned fast-path rows, the four pass-2 outcomes, the x86_64
-architecture default, and the source-HA downgrade finding.
+The behaviours above are externally asserted against a committed fixture: the App Service
+Plan fan-in count, the unresolvable-type STOP, the three protocol/API-conditioned fast-path
+rows, the pass-2 outcomes, the `x86_64` architecture default, and the source-HA downgrade
+finding.
+
+**Everything an asserter checks is stated in this file or another skill file — that is the
+contract, not a courtesy.** Do not go looking for an asserter to resolve an ambiguity: if a
+rule is only discoverable by reading test code, the rule is missing and the skill file is
+the bug. (Reading an asserter also invalidates a capability run, which is how this skill is
+tested.)

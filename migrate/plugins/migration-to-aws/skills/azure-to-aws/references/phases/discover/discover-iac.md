@@ -83,10 +83,24 @@ compare types with case FOLDED, so a mis-cased type still routes (see that file'
 § Casing is a convention, not a fact) — but `azure_id` strings are joined by exact
 match, so one resource must always produce one string.
 
-A type absent from that table is recorded in `warnings[]` as
-`untranslated_terraform_type` and the resource is skipped. **Do not guess.** A guessed
-type does not fail loudly — it silently fails to match every mapping table, and the
-resource falls through the unknown-type policy for the wrong reason, so the report
+A type absent from that table is **derived, not skipped** — see
+`arm-type-canonicalization.md` § Deriving a type that is not listed, and
+`extract-terraform.md` § Step 2b. Derive the resource segment from the Terraform suffix,
+supply the namespace, then **cross-check the namespace against `fast-path-services.json`
+→ `namespace_routing`**:
+
+- **Namespace recognised** → keep the resource with its full `config` (including `sku` /
+  `tier` / `capacity`, which Design's cost-bearing test reads), set
+  `azure_type_provenance: "derived"`, and record the Terraform type in
+  `iac_metadata.derived_types`.
+- **Namespace NOT recognised** → the type is genuinely unresolvable. Record it in
+  `iac_metadata.untranslated_types` and in `warnings[]` as
+  `untranslated_terraform_type`, and skip the resource.
+
+**Do not guess a namespace past the cross-check.** The cross-check is the whole guard: a
+namespace an independent artefact also declares is corroborated, and one nobody recognises
+is exactly where the model is inventing. What must never happen is a *silently* guessed
+type — it does not fail loudly, it fails to match every mapping table, and the report then
 blames the customer's estate for the skill's gap.
 
 ## Step 4: Write the contribution

@@ -548,11 +548,17 @@ def check_sizing_provenance(design: dict, exp: dict) -> None:
             f"of {sorted(allowed)}. {spec['_why']}",
         )
 
-    for sid, want in spec["pinned"].items():
-        entry = next((e for e in (design.get("services") or []) if e.get("service_id") == sid), None)
+    pin_key = spec.get("pinned_by", "azure_id")
+    for ident, want in spec["pinned"].items():
+        entry = next((e for e in (design.get("services") or []) if e.get(pin_key) == ident), None)
         if entry is None:
-            FAILS.append(f"no services[] entry {sid!r} to check its pinned size")
+            FAILS.append(
+                f"no services[] entry with {pin_key}={ident!r} to check its pinned size. "
+                f"NOTE: pins are keyed on {pin_key} deliberately -- service_id is per-run and "
+                f"two valid runs name the same resource differently."
+            )
             continue
+        sid = entry.get("service_id")
         cfg = entry.get("aws_config") or {}
         for key, expected in want.items():
             if key.startswith("_"):

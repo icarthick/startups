@@ -31,8 +31,8 @@ Terraform types directly.
 >
 > **The derivable rows present today are a CLOSED CORE.** They are verified and cost
 > nothing at runtime, so they stay. But adding another derivable row means the file is
-> growing toward completeness again, and `check_expected_design.py` caps the count to stop
-> that. See § Admission test.
+> growing toward completeness again. **The count of derivable rows is capped and must never
+> rise** — see § Admission test for what makes a row admissible.
 
 > **`azapi_resource` does not use this table.** The AzAPI provider states the canonical
 > ARM type in its own `type` argument (`Microsoft.Consumption/budgets@2023-05-01`), so
@@ -343,9 +343,14 @@ that means one of:
 - the namespace is one `namespace_routing` does not carry, so the cross-check would stop
 
 **Do NOT add a row because a type is missing.** A missing type is derived, and derivation
-is the design rather than a fallback. Adding derivable rows is how this file got to 132
-rows of which 104 were redundant, and `check_expected_design.py` now fails if the derivable
-count grows past its current level.
+is the design rather than a fallback. Adding derivable rows is how this file got to 132 rows
+of which 104 were redundant.
+
+**The rule, stated here because this is where it belongs:** the number of rows whose
+resource segment a pattern already derives is **capped at its current level and must only
+ever fall**. A row that restates the pattern is not admissible; a row that records a
+divergence always is. CI enforces this, but the rule is normative whether or not anything
+checks it.
 
 If a derived type turns out **wrong** in a real run, that is exactly what a row is for:
 add it, with the wrong answer recorded next to the right one, the way § Traps does.
