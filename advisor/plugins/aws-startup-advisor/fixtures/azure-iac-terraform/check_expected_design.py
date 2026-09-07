@@ -797,6 +797,40 @@ def _plausible_namespace(tf_type: str, namespace: str) -> bool:
     return any(h in suffix for h in HINTS.get(namespace, ()))
 
 
+def check_inline_os_disk(design: dict, exp: dict) -> None:
+    """The VM's root volume must be in aws_config, and must not be its own service entry."""
+    spec = exp.get("inline_os_disk")
+    if not spec:
+        return
+    hits = [e for e in (design.get("services") or []) if e.get("aws_service") == spec["aws_service"]]
+    check(bool(hits), f"no {spec['aws_service']} entry to check its root volume")
+    for e in hits:
+        cfg = e.get("aws_config") or {}
+        rv = cfg.get(spec["required_aws_config_key"])
+        check(
+            isinstance(rv, dict),
+            f"{e.get('service_id')}: aws_config has no {spec['required_aws_config_key']!r}. "
+            f"{spec['_why']}",
+        )
+        for bad in spec["forbidden_keys"]:
+            check(bad not in cfg,
+                  f"{e.get('service_id')}: aws_config carries {bad!r}. {spec['_forbidden_why']}")
+        if isinstance(rv, dict):
+            check(rv.get("volume_type") == spec["expected_volume_type"],
+                  f"root_volume.volume_type is {rv.get('volume_type')!r}, expected "
+                  f"{spec['expected_volume_type']!r} — a tier_mapping lookup, not a judgement.")
+            if spec.get("size_gib_must_be_null"):
+                check(rv.get("size_gib") is None,
+                      f"root_volume.size_gib is {rv.get('size_gib')!r}, expected null. The source "
+                      f"sets no disk_size_gb, so the size is the image default and is not "
+                      f"discoverable — a remembered number would be priced as fact.")
+    forbidden_type = spec["must_not_be_own_service_entry"]
+    own = [e for e in (design.get("services") or []) if e.get("azure_type") == forbidden_type]
+    check(not own,
+          f"{forbidden_type} appears as its own services[] entry {[e.get('service_id') for e in own]}. "
+          f"{spec['_must_not_why']}")
+
+
 def check_cluster_pattern_status(design: dict, exp: dict) -> None:
     """Assert the honest 'no pattern catalog' state, not a plausible architecture string.
 
@@ -1020,6 +1054,7 @@ def main() -> int:
     check_deterministic(design, table, id_of, exp)
     check_fan_in(design, inv, id_of, exp)
     check_unknown_stop(design, exp)
+    check_inline_os_disk(design, exp)
     check_pending_rubric(design, id_of, exp)
     check_rubric_mappings(design, id_of, exp)
     check_architecture_default(design, id_of, exp)

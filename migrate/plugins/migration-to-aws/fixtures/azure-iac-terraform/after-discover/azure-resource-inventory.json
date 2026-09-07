@@ -2,8 +2,12 @@
   "phase": "discover",
   "metadata": {
     "discovery_timestamp": "2026-09-07T00:00:00Z",
-    "discovery_sources": ["terraform"],
-    "subscriptions_discovered": ["<subscription-unknown>"],
+    "discovery_sources": [
+      "terraform"
+    ],
+    "subscriptions_discovered": [
+      "<subscription-unknown>"
+    ],
     "total_resources": 30,
     "confidence": "inferred"
   },
@@ -73,7 +77,9 @@
       "source": "terraform",
       "config": {
         "name_expression": "vnet-${var.prefix}-core",
-        "address_space": ["10.20.0.0/16"],
+        "address_space": [
+          "10.20.0.0/16"
+        ],
         "tf_file": "network.tf",
         "tf_resource_name": "core",
         "tf_address": "azurerm_virtual_network.core"
@@ -92,7 +98,9 @@
       "location": "westeurope",
       "source": "terraform",
       "config": {
-        "address_prefixes": ["10.20.1.0/24"],
+        "address_prefixes": [
+          "10.20.1.0/24"
+        ],
         "tf_file": "network.tf",
         "tf_resource_name": "apps",
         "tf_address": "azurerm_subnet.apps"
@@ -117,7 +125,9 @@
       "location": "westeurope",
       "source": "terraform",
       "config": {
-        "address_prefixes": ["10.20.2.0/24"],
+        "address_prefixes": [
+          "10.20.2.0/24"
+        ],
         "tf_file": "network.tf",
         "tf_resource_name": "data",
         "tf_address": "azurerm_subnet.data"
@@ -202,7 +212,9 @@
       "source": "terraform",
       "config": {
         "name_expression": "pe-${var.prefix}-store",
-        "subresource_names": ["postgresqlServer"],
+        "subresource_names": [
+          "postgresqlServer"
+        ],
         "tf_file": "network.tf",
         "tf_resource_name": "store",
         "tf_address": "azurerm_private_endpoint.store"
@@ -559,7 +571,12 @@
         "image_sku": "2022-datacenter-azure-edition",
         "tf_file": "compute.tf",
         "tf_resource_name": "reporting",
-        "tf_address": "azurerm_windows_virtual_machine.reporting"
+        "tf_address": "azurerm_windows_virtual_machine.reporting",
+        "os_disk": {
+          "caching": "ReadWrite",
+          "storage_account_type": "Premium_LRS",
+          "disk_size_gb": null
+        }
       },
       "tags": {},
       "edges": [
@@ -633,10 +650,15 @@
       "config": {
         "name_expression": "cosmos-${var.prefix}-catalog",
         "kind": "MongoDB",
-        "capabilities": ["EnableMongo"],
+        "capabilities": [
+          "EnableMongo"
+        ],
         "consistency_level": "Session",
         "geo_locations": [
-          { "location": "westeurope", "failover_priority": 0 }
+          {
+            "location": "westeurope",
+            "failover_priority": 0
+          }
         ],
         "tf_file": "data.tf",
         "tf_resource_name": "catalog",
@@ -660,7 +682,9 @@
         "account_tier": "Standard",
         "account_replication_type": "LRS",
         "account_kind": "StorageV2",
-        "static_website": { "index_document": "index.html" },
+        "static_website": {
+          "index_document": "index.html"
+        },
         "tf_file": "data.tf",
         "tf_resource_name": "assets",
         "tf_address": "azurerm_storage_account.assets"
@@ -722,7 +746,10 @@
       "source": "terraform",
       "config": {
         "name_expression": "iot-${var.prefix}-ingest",
-        "sku": { "name": "S1", "capacity": 1 },
+        "sku": {
+          "name": "S1",
+          "capacity": 1
+        },
         "tf_file": "unsupported.tf",
         "tf_resource_name": "telemetry_ingest",
         "tf_address": "azurerm_iothub.telemetry_ingest"
@@ -733,11 +760,19 @@
     }
   ],
   "iac_metadata": {
-    "dialects_found": ["terraform"],
-    "dialects_extracted": ["terraform"],
+    "dialects_found": [
+      "terraform"
+    ],
+    "dialects_extracted": [
+      "terraform"
+    ],
     "files_scanned": 6,
-    "modules_unresolved": ["module.cdn (Azure/cdn/azurerm 3.1.0)"],
-    "derived_types": ["azurerm_iothub"],
+    "modules_unresolved": [
+      "module.cdn (Azure/cdn/azurerm 3.1.0)"
+    ],
+    "derived_types": [
+      "azurerm_iothub"
+    ],
     "untranslated_types": [],
     "subscription_id_source": "unresolved"
   },

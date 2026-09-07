@@ -248,8 +248,8 @@ endpoints, App Insights) were added after exactly that happened.
 | ------------------------------------------- | -------------------------------------------------------------------------- | ----------------------------------------- |
 | `Microsoft.Web/serverfarms`                 | `sku_name`, `worker_count`, `os_type`, `zone_balancing_enabled`             | the plan is the compute unit and its SKU + instance count is what is being paid for |
 | `Microsoft.Web/sites`                       | `kind`, `service_plan_id`, `runtime_stack`, `app_setting_names`, `https_only` | `kind` separates web app from function app; the plan link drives the fan-in |
-| `Microsoft.Compute/virtualMachines`         | `size`, `os_type`, `image_publisher`, `image_offer`, `image_sku`, `zone`     | size drives right-sizing; the image drives licensing and the Windows x86 path |
-| `Microsoft.Compute/virtualMachineScaleSets` | `sku`, `instances`, `os_type`, `image_*`                                     | as above, plus the ASG mapping            |
+| `Microsoft.Compute/virtualMachines`         | `size`, `os_type`, `image_publisher`, `image_offer`, `image_sku`, `zone`, **`os_disk`** | size drives right-sizing; the image drives licensing and the Windows x86 path; `os_disk` is the ROOT VOLUME — see § Inline blocks that are not resources |
+| `Microsoft.Compute/virtualMachineScaleSets` | `sku`, `instances`, `os_type`, `image_*`, **`os_disk`**                       | as above, plus the ASG mapping and the launch template's root volume |
 | `Microsoft.Compute/disks`                   | `storage_account_type`, `disk_size_gb`, `disk_iops_read_write`               | the gp3 → io2 breakpoint                  |
 | `Microsoft.ContainerService/managedClusters`| `kubernetes_version`, `default_node_pool` (`vm_size`, `node_count`, `min_count`, `max_count`), `network_plugin` | EKS node sizing |
 | `Microsoft.DBforPostgreSQL/flexibleServers` / `...MySQL/...` | `sku_name`, `storage_mb`, `version`, `high_availability`, `zone`, `backup_retention_days` | RDS vs Aurora, and the availability override gate |
@@ -267,6 +267,42 @@ endpoints, App Insights) were added after exactly that happened.
 | `Microsoft.Insights/components`             | `application_type`, `workspace_id`                                          | the report names the app type and the workspace link; `workspace_id` is config, NOT an edge (see `schema-discover-azure.md` § Typed edges) |
 | `Microsoft.Network/privateEndpoints`        | `subresource_names`                                                         | names WHICH sub-resource is fronted (`postgresqlServer`, `blob`, `vault`), which is what makes the `private_link` edge specific rather than "something connects to something" |
 | `Microsoft.Storage/.../blobServices/containers` | `container_access_type`                                                 | `blob` or `container` means public read, which becomes an S3 public-access-block decision |
+
+## Inline blocks that are not resources
+
+Some Azure infrastructure is declared as a **block inside another resource**, not as a
+resource of its own. Terraform gives it no address, so there is nothing to iterate and it is
+invisible to a `resource`-block walk — which is exactly how it gets lost.
+
+**`os_disk` on a virtual machine or scale set is the case that costs money.**
+
+```hcl
+resource "azurerm_windows_virtual_machine" "reporting" {
+  size = "Standard_D4s_v5"
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Premium_LRS"
+  }
+}
+```
+
+There is no `azurerm_managed_disk` here and therefore no `Microsoft.Compute/disks`
+resource — but the VM absolutely has a root volume and it is absolutely billed. Extract the
+block into `config.os_disk`, keeping `storage_account_type`, `disk_size_gb` and `caching`.
+
+Design maps it to the instance's **root volume** in `aws_config`, never to a `services[]`
+entry of its own (`knowledge/design/disk-ebs-sizing.json` § os_disk_vs_data_disk — counting
+it twice is the commonest way a VM estate's storage cost gets inflated).
+
+**When `disk_size_gb` is absent, the size is the image's default and you do not know it.**
+Record `disk_size_gb: null` and let Design carry `size_source: "image_default_unstated"`.
+Do **not** substitute a number from your own knowledge of Windows or Linux image defaults:
+a silently invented 127 GiB is indistinguishable from a measured one, and Estimate would
+price it as fact. A stated unknown is worth more than a plausible number.
+
+Capability run 4 found this: the corpus VM's root volume was **entirely absent** from the
+design, and the run recorded a prose note because no rule let it do anything better. Every
+VM estate was being understated.
 
 ## Secrets: names only, never values
 

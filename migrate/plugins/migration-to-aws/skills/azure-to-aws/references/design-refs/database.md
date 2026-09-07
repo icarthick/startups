@@ -9,11 +9,22 @@ sizing.
 ## 1. The availability override gate — read this before the rubric
 
 **For Postgres and MySQL Flexible Server, the availability answer selects the family, and
-it overrides whatever the rubric would have chosen.** This is a post-rubric override gate,
+it overrides whatever the rubric would have chosen.** Read it from
+`preferences.json` → **`data.availability`** — *not* `design_constraints.availability`,
+which is where gcp-to-aws keeps it and where this file wrongly looked until 2026-09-07.
+`clarify-database.md` writes it under `data`, and `schema-preferences.md` § data documents
+it there.
+
+> **Why that typo was dangerous rather than annoying.** Looking in the wrong place finds
+> nothing, and § the absent case below then says to default to RDS single-AZ — which is
+> the *same answer* the corpus produces, so every test stayed green. On an estate where
+> the customer answers `multi-az-ha` it silently produces RDS where Aurora was chosen,
+> and the artifact records the customer's answer faithfully next to a target that ignores
+> it. Capability run 4 found it by reading both files. This is a post-rubric override gate,
 not a criterion, and it is the cleanest lift in the whole port — gcp's Q6 maps across
 unchanged.
 
-| `design_constraints.availability` | Target (match the engine from the source) |
+| `data.availability` | Target (match the engine from the source) |
 | --------------------------------- | ----------------------------------------- |
 | `single-az`                       | **RDS PostgreSQL** / **RDS MySQL**        |
 | `multi-az`                        | **RDS** … **Multi-AZ**                    |

@@ -397,8 +397,14 @@
         "tenancy": "default",
         "cutover": "mgn",
         "cutover_blocked": true,
-        "root_volume_note": "The source VM's OS disk is declared inline (os_disk with storage_account_type Premium_LRS) rather than as a separate azurerm_managed_disk, so it is not its own inventory resource and no Microsoft.Compute/disks entry exists to map to EBS. The root volume is therefore ABSENT from this design and from any cost derived from it. Premium_LRS would map to gp3 or io2 depending on IOPS.",
-        "access_note": "Systems Manager Session Manager replaces the Azure Bastion host, so this instance needs the SSM Agent and an instance profile and no inbound RDP."
+        "access_note": "Systems Manager Session Manager replaces the Azure Bastion host, so this instance needs the SSM Agent and an instance profile and no inbound RDP.",
+        "root_volume": {
+          "volume_type": "gp3",
+          "size_gib": null,
+          "size_source": "image_default_unstated",
+          "source": "inline os_disk block, storage_account_type Premium_LRS",
+          "_why": "Premium_LRS maps to gp3 by knowledge/design/disk-ebs-sizing.json tier_mapping - a lookup, not a judgement. size_gib is null because the source sets no disk_size_gb, so the size is the image default and is NOT discoverable from Terraform. A remembered default would be indistinguishable from a measured one and Estimate would price it as fact."
+        }
       },
       "confidence": "inferred",
       "rubric_applied": "compute.md",
