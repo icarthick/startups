@@ -9,6 +9,12 @@ needs translating, and this file is that translation. It is applied inside
 gcp-to-aws did not face this because it had one IaC dialect and could key tables off
 Terraform types directly.
 
+> **`azapi_resource` does not use this table.** The AzAPI provider states the canonical
+> ARM type in its own `type` argument (`Microsoft.Consumption/budgets@2023-05-01`), so
+> there is nothing to translate and no row to add. See `extract-terraform.md`
+> § Step 2a. Do not add `azapi_*` names here — a row for them would never be consulted,
+> and its presence would imply the translation is needed.
+
 ## Rules
 
 1. **The table is the authority, not inference.** Several ARM types are not derivable

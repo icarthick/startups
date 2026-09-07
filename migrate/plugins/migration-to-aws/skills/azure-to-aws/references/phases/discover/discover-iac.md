@@ -72,7 +72,13 @@ budget on their own, before the app-code, billing, RDfA, and live fragments are 
 
 Every extracted resource's type is translated to its canonical `Microsoft.*` ARM
 string via `references/shared/arm-type-canonicalization.md`. Nothing downstream ever
-sees an `azurerm_*` string. Emit the spelling that file uses; the mapping tables
+sees an `azurerm_*` string.
+
+**`azapi_resource` skips this step.** It carries the canonical ARM type in its own `type`
+argument, so it is canonical on arrival — see `extract-terraform.md` § Step 2a. It is part
+of the **terraform** dialect, not a fourth dialect: a `.tf` file containing only
+`azapi_resource` blocks is still Terraform, still sets `source: "terraform"`, and must not
+be reported as an unreadable dialect by the halt guard. Emit the spelling that file uses; the mapping tables
 compare types with case FOLDED, so a mis-cased type still routes (see that file's
 § Casing is a convention, not a fact) — but `azure_id` strings are joined by exact
 match, so one resource must always produce one string.

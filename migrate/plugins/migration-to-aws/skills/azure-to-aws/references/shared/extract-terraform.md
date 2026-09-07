@@ -12,9 +12,9 @@ Glob `**/*.tf` and `**/*.tf.json`, excluding `**/node_modules/` and any path und
 `$MIGRATION_DIR`. Exclude `.terraform/` too on this first pass — its `modules/`
 subtree is walked deliberately in Step 3, per module, so that each module's resources
 carry the right `config.tf_module` provenance rather than appearing as loose root
-resources. Read each file. A `.tf` file with no `azurerm_`
-resource block contributes nothing and is not an error — many repos carry provider,
-backend, and variable files with no resources at all.
+resources. Read each file. A `.tf` file with no `azurerm_` or
+`azapi_` resource block contributes nothing and is not an error — many repos carry
+provider, backend, and variable files with no resources at all.
 
 **Do not read `terraform.tfstate`, `*.tfstate.backup`, or any `*.tfstate`.** State files
 contain resolved attribute values including secrets that the configuration only
@@ -88,6 +88,60 @@ Count `count` and `for_each` as **one** inventory entry, with
 fan out into N entries: the count is usually a variable, so fanning out invents
 resources. Flag it, because a `for_each` over a map of five apps is exactly the case
 where the estimate is otherwise five times wrong in the other direction.
+
+## Step 2a: `azapi_resource` states its ARM type outright
+
+The AzAPI provider (`Azure/azapi`) addresses the ARM REST API directly, and a real repo
+reaches for it whenever the `azurerm` provider lags an API version or a resource has no
+`azurerm` implementation at all. It is common in modern Azure Terraform and must not be
+skipped.
+
+```hcl
+resource "azapi_resource" "orders_budget" {
+  type      = "Microsoft.Consumption/budgets@2023-05-01"
+  name      = "orders-monthly"
+  parent_id = azurerm_resource_group.platform.id
+  body      = { properties = { amount = 2500 } }
+}
+```
+
+**This is the easiest extraction in the file, and the reason is worth stating: `type`
+already carries the canonical ARM type.** No canonicalization lookup is needed and none
+must be attempted.
+
+1. **Split `type` on `@`.** The left half is `azure_type` verbatim —
+   `Microsoft.Consumption/budgets`. The right half is the ARM API version; keep it in
+   `config.azapi_api_version`, because it is the only place a reader can see which API
+   surface the customer targeted.
+2. **`azure_type` is used AS GIVEN.** Do not look it up in
+   `arm-type-canonicalization.md`, do not normalise it toward a row in that table, and do
+   not record it as an untranslated type. The table exists to translate `azurerm_*` names;
+   an AzAPI resource has already skipped that problem. Casing folds on comparison per that
+   file's § Casing is a convention, not a fact, so a `type` whose casing differs from the
+   table's spelling is still the same type.
+3. **`parent_id` is the containment parent**, so `azure_id` is
+   `<parent_id>/<type-last-segment>/<name>`. Containment is derivable by truncation and is
+   **not** an edge (13.3f). When `parent_id` is an unresolved reference, apply the same
+   `<subscription-unknown>` rule as everywhere else.
+4. **Read `body` for routing attributes only, and never for values.** `body` is an
+   arbitrary ARM payload, so it can contain anything — including secrets. Extract only the
+   attributes the § Per-type attributes table names for that ARM type; if the type has no
+   row there, extract `sku`, `tier` and `capacity` if present and nothing else. The secret
+   boundary in § Secrets applies to `body` in full.
+5. **Set `config.declared_via: "azapi"`.** Design needs it: an AzAPI resource is evidence
+   the customer is already working around an `azurerm` gap, which is a useful signal for
+   the report, and it explains why the type may be absent from the canonicalization table
+   while still being perfectly well identified.
+
+**`azapi_update_resource` and `azapi_resource_action` emit no inventory entry.** They
+mutate a resource declared elsewhere — the AzAPI analogue of the association-only class
+(13.2d) — so they are not resources and are not untranslated types. Record nothing, warn
+nothing.
+
+**A cost-bearing AzAPI type with no disposition still STOPs Design**, exactly as any other
+type would. Naming a resource is not the same as knowing what it maps to: the untranslated
+STOP is about the *type vocabulary*, and the unknown-type policy (§ 7a.4) is about the
+*disposition*. AzAPI clears the first and not the second.
 
 ## Step 3: Modules are boundaries, not resources
 

@@ -315,5 +315,15 @@
       "Microsoft.Resources/resourceGroups/rg"
     ],
     "_exempt_why": "These are the WRONG column of the \u00a7 Traps table \u2014 strings the file exists to warn against. They are not canonical types and must never get a disposition."
+  },
+  "index_reference_files": {
+    "_comment": "INTENSIONAL check: no run input. index.md's HALT rule says a resource routed to a Reference file that is not on disk stops the design. So every .md named in a ROUTING ROW must exist, or be declared pending here.",
+    "_why": "Nothing distinguished 'this rubric is deliberately pending' from 'someone typo'd the filename'. Both read as a HALT at runtime, and a typo would be diagnosed as missing content that already exists. known_pending is checked in BOTH directions: a file listed here that now EXISTS also fails, so the list cannot rot the way a fixture depending on an absent type does.",
+    "index_relpath": "../../skills/azure-to-aws/references/design-refs/index.md",
+    "design_refs_relpath": "../../skills/azure-to-aws/references/design-refs",
+    "known_pending": [
+      "ai.md"
+    ],
+    "_known_pending_why": "ai.md is the traditional-ML rubric for Microsoft.CognitiveServices/accounts of a non-OpenAI kind. It belongs to build step 6 (AI), which is deferred with the rest of source breadth; no Terraform-sourced infra estate routes to it."
   }
 }

@@ -467,6 +467,59 @@ def check_canonical_type_coverage(exp: dict) -> None:
     NOTES.append(f"canonical-type coverage: {len(canon)} types, {len(orphans)} orphan(s)")
 
 
+def check_index_reference_files_exist(exp: dict) -> None:
+    """Every rubric file index.md ROUTES to must be on disk, or declared pending.
+
+    index.md carries a HALT: a resource routed to a Reference file that is not on disk
+    stops the design. That is correct behaviour, but it made two very different situations
+    identical at runtime -- a rubric deliberately not written yet, and a filename typo. A
+    typo would be diagnosed as "write that rubric", and the rubric already existed.
+
+    No run input is needed, which is the point: this is a relationship between two files.
+    """
+    spec = exp.get("index_reference_files")
+    if not spec:
+        return
+    index_path = HERE / spec["index_relpath"]
+    refs_dir = HERE / spec["design_refs_relpath"]
+    if not index_path.exists() or not refs_dir.is_dir():
+        FAILS.append("cannot check index.md Reference files: index.md or design-refs/ missing")
+        return
+
+    pending = set(spec["known_pending"])
+    on_disk = {p.name for p in refs_dir.glob("*.md")}
+
+    routed: set[str] = set()
+    for line in index_path.read_text().splitlines():
+        if not line.startswith("|"):
+            continue
+        for f in re.findall(r"`([a-z0-9-]+\.md)`", line):
+            routed.add(f)
+    # vendored/ai/*.md live outside design-refs/ and are not this check's business
+    routed -= {f for f in routed if f"`vendored/ai/{f}`" in index_path.read_text()}
+
+    missing = sorted(f for f in routed if f not in on_disk and f not in pending)
+    check(
+        not missing,
+        f"index.md routes to {missing} which are NOT on disk and NOT declared in "
+        f"known_pending. Either the rubric is missing (write it, or add it to "
+        f"known_pending with a reason) or the filename is wrong. {spec['_why']}",
+    )
+
+    # Anti-rot: a pending entry that has since been written must be removed, or the next
+    # reader trusts a stale list.
+    landed = sorted(f for f in pending if f in on_disk)
+    check(
+        not landed,
+        f"known_pending still lists {landed}, but those files now EXIST. Remove them from "
+        f"expected-design.json -- a pending list that is never pruned stops meaning anything.",
+    )
+    NOTES.append(
+        f"index.md Reference files: {len(routed)} routed, {len(routed) - len(pending & routed)} on disk, "
+        f"{sorted(pending & routed)} declared pending"
+    )
+
+
 def check_cluster_pattern_status(design: dict, exp: dict) -> None:
     """Assert the honest 'no pattern catalog' state, not a plausible architecture string.
 
@@ -681,6 +734,7 @@ def main() -> int:
 
     check_table(table, exp)
     check_canonical_type_coverage(exp)
+    check_index_reference_files_exist(exp)
     check_deterministic(design, table, id_of, exp)
     check_fan_in(design, inv, id_of, exp)
     check_unknown_stop(design, exp)
