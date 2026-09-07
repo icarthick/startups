@@ -19,6 +19,7 @@ their single creator and owns the validation checklist at the bottom.
     {
       "azure_id": "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.Web/serverfarms/<name>",
       "azure_type": "Microsoft.Web/serverfarms",   // canonical ARM type; never azurerm_*
+  "azure_type_provenance": "table",            // REQUIRED — table | derived | user_confirmed
       "name": "<name>",
       "resource_group": "<rg>",
       "subscription_id": "<sub>",
@@ -86,6 +87,35 @@ A disagreement between sources is **never** silently reconciled. Both values are
 with their sources and the winner recorded, so the report can say "your Terraform
 declares `Standard_D2s_v3`, your tenant is running `Standard_D4s_v3`". Drift the
 customer did not know they had is a deliverable, not a nuisance.
+
+## `azure_type_provenance`
+
+**REQUIRED on every `resources[]` entry.** How the canonical type was resolved:
+
+| Value | Means |
+| ----- | ----- |
+| `table` | A row in `arm-type-canonicalization.md`. Authoritative |
+| `derived` | Not listed, so derived by that file's § Deriving a type that is not listed, with the **namespace cross-checked** against `fast-path-services.json` → `namespace_routing` |
+| `user_confirmed` | A derived or unresolvable type the user confirmed (the `confirm` phase, once it lands) |
+
+A `derived` type is a normal, expected outcome — the table is an exception list, not a
+coverage list, and 79% of its rows were restating a derivable pattern. What matters is that
+the artifact says which happened, so a reviewer can tell a verified type from a resolved
+one without re-deriving it.
+
+**A `derived` type can never carry `confidence: deterministic` downstream.** Design's
+`deterministic` tier requires a `direct_mappings` row AND a `fast_path_row` naming it; a
+derived type reaching such a key by luck still yields `inferred`, because the type itself
+was not verified.
+
+`iac_metadata` carries the two collections that follow from this:
+
+- **`derived_types`** — Terraform types resolved by derivation. Expected to be non-empty on
+  any real repo. Report them, so a run is honest about how much of its inventory was
+  derived rather than looked up.
+- **`untranslated_types`** — types where the derived **namespace was not recognised**. This
+  is now the only route to that field, and it is what STOPs Design. "No recognised
+  namespace" is a far stronger signal than the old meaning, "no row exists".
 
 ## Warnings
 

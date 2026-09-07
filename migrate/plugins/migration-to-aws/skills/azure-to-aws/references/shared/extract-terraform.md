@@ -31,12 +31,26 @@ Everything else under `.terraform/` stays out of scope.
 
 For every `resource "azurerm_<x>" "<local_name>" { … }`:
 
-1. **Translate the type** via `arm-type-canonicalization.md`. A type absent from that
-   table is recorded in `warnings[]` as `untranslated_terraform_type` with the local
-   name, and the resource is skipped. **Never guess an ARM type from the Terraform
-   name** — a wrong type does not fail loudly, it silently fails to match every
-   mapping table and the resource falls through the unknown-type policy for the wrong
-   reason.
+1. **Resolve the type** via `arm-type-canonicalization.md`, in that file's order:
+
+   a. **Listed in the table** → use it. `azure_type_provenance: "table"`.
+
+   b. **Not listed** → DERIVE it per that file's § Deriving a type that is not listed:
+      camelCase-pluralise the Terraform suffix for the resource segment, supply the
+      namespace, then **cross-check the namespace against `fast-path-services.json` →
+      `namespace_routing`**. If the namespace is recognised, keep the resource with its
+      full `config`, set `azure_type_provenance: "derived"`, and add the Terraform type to
+      `iac_metadata.derived_types`.
+
+   c. **Namespace not recognised** → the type is genuinely unresolvable. Record it in
+      `iac_metadata.untranslated_types` and in `warnings[]` as
+      `untranslated_terraform_type` with the local name, and skip the resource.
+
+   **Do not skip a resource merely because its type is unlisted.** Dropping it is what made
+   87% of the provider surface a hard stop, and it destroyed the `sku`/`tier` evidence Design
+   needs to decide whether the resource costs money. Derivation is the design, not a
+   fallback — but the table is consulted FIRST, because the cases where a guess goes wrong
+   are enumerated there.
 2. **Resolve `name`** from the block's `name` attribute. When it is an expression
    (`"${var.prefix}-app"`, a `format()` call, a `random_*` reference), record the
    expression verbatim in `config.name_expression` and set `name` to the Terraform

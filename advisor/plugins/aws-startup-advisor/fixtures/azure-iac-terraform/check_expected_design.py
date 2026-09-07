@@ -628,6 +628,145 @@ def check_namespace_routing_targets(exp: dict) -> None:
     NOTES.append(f"namespace_routing: {len(rules)} namespaces, all routes resolvable")
 
 
+def _camel(sn: str) -> str:
+    parts = sn.split("_")
+    return parts[0] + "".join(x.capitalize() for x in parts[1:])
+
+
+def _plural(w: str) -> str:
+    if w.endswith("y") and not w.endswith(("ay", "ey", "oy", "uy")):
+        return w[:-1] + "ies"
+    if w.endswith(("s", "x", "z", "ch", "sh")):
+        return w + "es"
+    return w + "s"
+
+
+def _segment_derivable(tf_type: str, arm_type: str) -> bool:
+    """Would the pattern rule produce this ARM type's last segment from the azurerm name?"""
+    suffix = tf_type[len("azurerm_"):]
+    last = arm_type.split("/")[-1]
+    cand = {_plural(_camel(suffix)), _camel(suffix)}
+    for i in range(1, suffix.count("_") + 1):
+        tail = "_".join(suffix.split("_")[i:])
+        if tail:
+            cand |= {_plural(_camel(tail)), _camel(tail)}
+    return last.lower() in {x.lower() for x in cand}
+
+
+def check_canonicalization_governance(exp: dict) -> None:
+    """Cap the DERIVABLE rows so the exception list cannot become a coverage list again.
+
+    The file reached 132 rows of which 104 were fully redundant. Derivation is now the
+    default path, so a new row is only justified where derivation would be WRONG. Nothing
+    else would notice the file quietly growing back.
+    """
+    spec = exp.get("canonicalization_governance")
+    if not spec:
+        return
+    canon_path = HERE / spec["canon_relpath"]
+    ns_path = HERE / spec["namespace_table_relpath"]
+    if not canon_path.exists() or not ns_path.exists():
+        FAILS.append("cannot check canonicalization governance: a source file is missing")
+        return
+
+    rows: list[tuple[str, str]] = []
+    for line in canon_path.read_text().splitlines():
+        if not line.startswith("|"):
+            continue
+        cells = [x.strip() for x in line.strip().strip("|").split("|")]
+        if len(cells) < 2:
+            continue
+        arms = re.findall(r"`(Microsoft\.[A-Za-z0-9./]+)`", cells[1])
+        tfs = re.findall(r"`(azurerm_[a-z0-9_]+)`", cells[0])
+        if tfs and arms:
+            rows += [(t, arms[0]) for t in tfs]
+
+    derivable = [r for r in rows if _segment_derivable(*r)]
+    divergent = [r for r in rows if not _segment_derivable(*r)]
+
+    check(
+        len(derivable) <= spec["max_derivable_rows"],
+        f"{len(derivable)} DERIVABLE rows in arm-type-canonicalization.md, ceiling is "
+        f"{spec['max_derivable_rows']}. A derivable row restates the pattern rule instead of "
+        f"recording an exception. {spec['_max_derivable_why']}",
+    )
+    check(
+        len(divergent) >= spec["min_divergent_rows"],
+        f"only {len(divergent)} DIVERGENT rows, floor is {spec['min_divergent_rows']}. "
+        f"Pruning has removed rows that carry information. {spec['_min_divergent_why']}",
+    )
+
+    if spec.get("require_all_namespaces_routable"):
+        ns_rules = set(((json.loads(ns_path.read_text()).get("namespace_routing") or {}).get("rules") or {}))
+        orphan_ns = sorted({a.split("/")[0] for _, a in rows} - ns_rules)
+        check(
+            not orphan_ns,
+            f"namespaces {orphan_ns} appear in arm-type-canonicalization.md but NOT in "
+            f"namespace_routing. Derivation cross-checks the namespace against that table, so "
+            f"the two artefacts contradict each other. {spec['_require_all_namespaces_routable_why']}",
+        )
+    NOTES.append(
+        f"canonicalization: {len(rows)} rows = {len(divergent)} divergent (kept) + "
+        f"{len(derivable)} derivable (capped at {spec['max_derivable_rows']})"
+    )
+
+
+def check_halt_not_stale(design: dict, exp: dict) -> None:
+    """An untranslated-type halt is stale if that type's namespace is now routable.
+
+    Derivation resolves an unlisted type and only STOPs when the derived NAMESPACE is
+    unrecognised. So a golden halting on a type whose namespace namespace_routing now
+    carries is describing behaviour the skill no longer produces -- and every shape
+    assertion still passes, because the artifact is well-formed. Only reading the rule and
+    the artifact together catches it.
+    """
+    spec = exp.get("canonicalization_governance")
+    if not spec or not spec.get("assert_halt_not_stale"):
+        return
+    ns_path = HERE / spec["namespace_table_relpath"]
+    if not ns_path.exists():
+        return
+    ns_rules = set(((json.loads(ns_path.read_text()).get("namespace_routing") or {}).get("rules") or {}))
+    canon = (HERE / spec["canon_relpath"]).read_text()
+
+    for blocker in ((design.get("halt") or {}).get("blocking") or []):
+        if blocker.get("kind") != "untranslated_terraform_type":
+            continue
+        m = re.match(r"(azurerm_[a-z0-9_]+)", blocker.get("identifier", ""))
+        if not m:
+            continue
+        tf = m.group(1)
+        if f"`{tf}`" in canon:
+            FAILS.append(
+                f"halt names {tf} as untranslated, but it IS in arm-type-canonicalization.md"
+            )
+            continue
+        derived_ns = sorted(n for n in ns_rules if _plausible_namespace(tf, n))
+        check(
+            not derived_ns,
+            f"STALE HALT: {tf} halts as untranslated, but derivation would place it in "
+            f"{derived_ns} which namespace_routing RECOGNISES, so it now resolves instead of "
+            f"stopping. This golden needs regenerating by a capability run. "
+            f"{spec['_assert_halt_not_stale_why']}",
+        )
+
+
+def _plausible_namespace(tf_type: str, namespace: str) -> bool:
+    """Would this azurerm type plausibly derive into this namespace? Conservative."""
+    HINTS = {
+        "Microsoft.Devices": ("iothub", "iot_"),
+        "Microsoft.Maps": ("maps_",),
+        "Microsoft.NotificationHubs": ("notification_hub",),
+        "Microsoft.Kusto": ("kusto",),
+        "Microsoft.HDInsight": ("hdinsight",),
+        "Microsoft.Purview": ("purview",),
+        "Microsoft.Relay": ("relay",),
+        "Microsoft.NetApp": ("netapp",),
+    }
+    suffix = tf_type[len("azurerm_"):]
+    return any(h in suffix for h in HINTS.get(namespace, ()))
+
+
 def check_cluster_pattern_status(design: dict, exp: dict) -> None:
     """Assert the honest 'no pattern catalog' state, not a plausible architecture string.
 
@@ -846,6 +985,8 @@ def main() -> int:
     check_sizing_provenance(design, exp)
     check_routing_provenance(design, exp)
     check_namespace_routing_targets(exp)
+    check_canonicalization_governance(exp)
+    check_halt_not_stale(design, exp)
     check_deterministic(design, table, id_of, exp)
     check_fan_in(design, inv, id_of, exp)
     check_unknown_stop(design, exp)

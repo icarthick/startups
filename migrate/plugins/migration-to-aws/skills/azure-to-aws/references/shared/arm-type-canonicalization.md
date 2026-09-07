@@ -3,11 +3,36 @@
 Every mapping table in this skill keys off an **ARM resource type string**
 (`Microsoft.Web/sites`), never a Terraform type. Four of the five discovery sources
 — Bicep, ARM templates, live `az`, and RDfA — speak ARM natively. Only Terraform
-needs translating, and this file is that translation. It is applied inside
+needs translating, and this file governs that translation. It is applied inside
 `discover-iac.md`, so nothing downstream ever sees an `azurerm_*` string.
 
 gcp-to-aws did not face this because it had one IaC dialect and could key tables off
 Terraform types directly.
+
+> ## This file is an EXCEPTION LIST, not a coverage list
+>
+> **[REDESIGNED 2026-09-07.]** It used to try to enumerate the provider surface. That is
+> not achievable and was never the right shape: the `azurerm` provider carries past a
+> thousand resource types and ships every couple of weeks, so a table chasing completeness
+> decays continuously and was at **13%** when this was measured.
+>
+> Measured against the 132 rows here: **105 (79%) have a resource segment a pattern
+> derives**, and 104 of those also have a namespace already declared in
+> `fast-path-services.json` → `namespace_routing`. So four fifths of the file was
+> restating a rule. Only **27 rows carry information a pattern cannot produce** — and
+> those are the traps below plus a handful more.
+>
+> So the default path is **derivation** (§ Deriving a type that is not listed), and the
+> table's job is to hold the cases where derivation would be **wrong**.
+>
+> This is the same selection rule the fixture oracles already use — *pin only facts where
+> a plausible improvisation and the correct answer diverge* — applied to the table for the
+> first time.
+>
+> **The derivable rows present today are a CLOSED CORE.** They are verified and cost
+> nothing at runtime, so they stay. But adding another derivable row means the file is
+> growing toward completeness again, and `check_expected_design.py` caps the count to stop
+> that. See § Admission test.
 
 > **`azapi_resource` does not use this table.** The AzAPI provider states the canonical
 > ARM type in its own `type` argument (`Microsoft.Consumption/budgets@2023-05-01`), so
@@ -17,12 +42,13 @@ Terraform types directly.
 
 ## Rules
 
-1. **The table is the authority, not inference.** Several ARM types are not derivable
-   from the Terraform name, and several are actively misleading (see § Traps). If a type
-   is absent from this table, `discover-iac.md` records it as an untranslated type in
-   `warnings[]` and does NOT guess — a guessed type silently corrupts every
-   downstream lookup, because the mapping tables will simply fail to match and the
-   resource falls through to the unknown-type policy for the wrong reason.
+1. **A listed type is authoritative; an unlisted type is DERIVED, never dropped.** Check
+   this table FIRST — that ordering is what makes derivation safe, because the cases where
+   a guess goes wrong are enumerated here (§ Traps). A type absent from the table is
+   resolved by § Deriving a type that is not listed, and the resource keeps its place in
+   `resources[]` with `azure_type_provenance: "derived"`. It is **not** silently dropped:
+   dropping it was what made 87% of the provider surface a hard stop and what forced Design
+   to treat every unnamed resource as cost-bearing by default.
 2. **Matching folds case; emission follows this file.** ARM compares resource type
    strings case-insensitively, so every lookup in this skill — fast-path, Skip
    Mappings, `index.md` routing, rubric selection — MUST fold case before comparing.
@@ -264,22 +290,65 @@ references to one resource to produce one string. It does not matter to ARM, and
 mis-cased type is a convention violation, never evidence that the translation was
 guessed.
 
-## Coverage is not completeness
+## Deriving a type that is not listed
 
-This table carries the ~137 `azurerm_*` types that appear in real startup estates. It
-is **not** the full provider surface, which runs past a thousand types. A real repo will
-contain something absent here, and that is expected and handled: the resource is
-recorded as `untranslated_terraform_type` and skipped, never guessed.
+The default path. Two halves with very different reliability, and the asymmetry is what
+makes this safe rather than a guess.
 
-Two consequences worth being explicit about, because they are easy to misread as bugs:
+### Step 1 — the resource segment, by pattern
 
-1. **An untranslated type STOPs Design** (`design-infra.md` § Unknown types), by design.
-   The skill cannot show that a resource it could not name is free, so it asks for the
-   row rather than quietly under-reporting the estate.
-2. **The fix is one table row, and the halt message names it.** When a run stops on an
-   untranslated type, add its row here and re-run — do not work around it by mapping
-   the resource by hand somewhere downstream, because the next run will make the same
-   omission.
+Strip `azurerm_`, then convert the remainder from `snake_case` to `lowerCamelCase` and
+pluralise it. Where the leading noun duplicates the parent type, drop it and derive from
+the tail (`virtual_network_peering` under `virtualNetworks` → `virtualNetworkPeerings`).
+
+This is mechanical and it accounts for 79% of the rows already in this file, so it is not
+a hopeful heuristic — it is the rule the table was mostly restating.
+
+### Step 2 — the namespace, from knowledge, then CROSS-CHECKED
+
+The provider namespace is **not** derivable from the Terraform name: nothing in
+`firewall_policy` says `Microsoft.Network`. Supply it, then **verify it against
+`fast-path-services.json` → `namespace_routing`**, which declares 54 namespaces
+independently of this file.
+
+| Outcome | Action |
+| ------- | ------ |
+| Namespace **is** in `namespace_routing` | An independent artefact corroborates it. Accept the derived type, set `azure_type_provenance: "derived"`, keep the resource with its full `config`, and add the type to `iac_metadata.derived_types` |
+| Namespace is **not** in `namespace_routing` | **STOP.** Record it in `iac_metadata.untranslated_types` — this is now the only route to that field, and it means "no recognised namespace", which is a far stronger signal than "no row exists" ever was |
+
+That cross-check is the guard. A derived namespace nobody else recognises is exactly the
+case where the model is inventing, and it is the case that stops.
+
+### What a derived type may NOT do
+
+- **Never `confidence: deterministic`.** That tier requires a `direct_mappings` row and a
+  `fast_path_row` naming it. A derived type reaching a `direct_mappings` key by luck still
+  carries `inferred`, because the type itself was not verified.
+- **Never overwrite a listed row.** The table is checked first, always.
+- **Never invented for an `azapi_resource`** — those carry the ARM type verbatim and skip
+  this whole section (§ Step 2a in `extract-terraform.md`).
+
+## Admission test
+
+A new row is admissible **only if derivation would produce the wrong answer.** In practice
+that means one of:
+
+- the resource segment is not a camelCase pluralisation of the Terraform suffix
+  (`application_insights` → `components`, `lb` → `loadBalancers`, `api_management` →
+  `service`)
+- several Terraform types collapse onto one ARM type (`linux_web_app`,
+  `windows_web_app`, `app_service` → `Microsoft.Web/sites`)
+- the child path is not what the name suggests (`cdn_frontdoor_endpoint` →
+  `profiles/afdEndpoints`)
+- the namespace is one `namespace_routing` does not carry, so the cross-check would stop
+
+**Do NOT add a row because a type is missing.** A missing type is derived, and derivation
+is the design rather than a fallback. Adding derivable rows is how this file got to 132
+rows of which 104 were redundant, and `check_expected_design.py` now fails if the derivable
+count grows past its current level.
+
+If a derived type turns out **wrong** in a real run, that is exactly what a row is for:
+add it, with the wrong answer recorded next to the right one, the way § Traps does.
 
 ## Reconstructing `azure_id`
 

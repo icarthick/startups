@@ -374,5 +374,19 @@
     "namespace_routing_relpath": "../../skills/azure-to-aws/knowledge/design/fast-path-services.json",
     "design_refs_relpath": "../../skills/azure-to-aws/references/design-refs",
     "_corpus_expectation": "This corpus routes NOTHING through a derived rule - every type has an authored row or an index.md row. So the derived counts are expected to be ZERO here, and the check is guarding the contract rather than exercising it. Extending the corpus with a type that only a namespace rule can place is the follow-up."
+  },
+  "canonicalization_governance": {
+    "_comment": "GOVERNANCE check on arm-type-canonicalization.md. It is an EXCEPTION list, not a coverage list: a row is admissible only where derivation would be wrong. This caps the DERIVABLE row count so the file cannot drift back toward chasing the provider surface.",
+    "_why": "The file reached 132 rows of which 104 were fully redundant - resource segment derivable by pattern AND namespace already declared in namespace_routing. It was at 13% of the azurerm surface and decaying every provider release. Capping the derivable count is what makes 'stop building this mapping over time' mechanical rather than aspirational: adding a divergent row is free, adding a derivable one fails.",
+    "canon_relpath": "../../skills/azure-to-aws/references/shared/arm-type-canonicalization.md",
+    "namespace_table_relpath": "../../skills/azure-to-aws/knowledge/design/fast-path-services.json",
+    "max_derivable_rows": 105,
+    "min_divergent_rows": 27,
+    "_max_derivable_why": "105 is where the file stood when it was redesigned. It is a CEILING, not a target - it should fall as redundant rows are pruned, never rise. A new row must be divergent.",
+    "_min_divergent_why": "A floor, so pruning cannot accidentally delete the rows that carry information. These are the traps: linux_web_app -> sites, service_plan -> serverfarms, public_ip -> publicIPAddresses, lb -> loadBalancers, application_insights -> components, api_management -> service, and the rest.",
+    "require_all_namespaces_routable": true,
+    "_require_all_namespaces_routable_why": "Derivation's namespace half is cross-checked against namespace_routing. If a namespace appearing in this table is absent from that one, the cross-check would REJECT a type the table itself asserts is real - the two artefacts would contradict each other.",
+    "assert_halt_not_stale": true,
+    "_assert_halt_not_stale_why": "A golden cannot notice that a PROSE rule changed underneath it. When derivation landed, azurerm_iothub stopped being unresolvable -- it derives to Microsoft.Devices/iotHubs, and Microsoft.Devices IS a namespace_routing gate -- so this golden's halt describes behaviour the skill no longer produces, while every shape assertion still passes. That is the exact hand-authored-golden-drifts-from-a-prose-ref trap, in the dangerous direction: green and wrong. This check reads the rule and the golden together and fails when they disagree."
   }
 }

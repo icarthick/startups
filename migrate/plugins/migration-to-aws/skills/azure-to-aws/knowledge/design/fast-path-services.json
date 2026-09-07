@@ -792,6 +792,12 @@
         "route": null,
         "kind": "gate",
         "reason": "Data governance and catalog -- a DataZone / Glue Catalog engagement."
+      },
+      "Microsoft.DevTestLab": {
+        "route": null,
+        "kind": "skip",
+        "skip_kind": "config_source",
+        "reason": "A DevTest Lab is a management wrapper around VMs, schedules and policies. The VMs it contains are the real resources and are inventoried in their own right; the lab itself has no AWS counterpart. Its auto-shutdown schedules are a cost-optimisation finding, not a mapping."
       }
     },
     "_unrecognised_namespace": "If the namespace is not listed above, fall through to the unknown-type policy in design-infra.md: benign -> warn and continue; cost-bearing -> STOP. Do NOT guess a category from the type NAME -- that is the gcp heuristic this rule replaces, and it is what produces a confidently wrong rubric."
