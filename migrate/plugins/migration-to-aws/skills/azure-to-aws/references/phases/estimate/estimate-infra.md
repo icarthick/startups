@@ -8,31 +8,591 @@ _contributes:
 # Estimate — Infrastructure Cost Engine
 
 > **Fragment unit.** See `estimate.md` for how it is composed into the phase.
+> Prices every service in `aws-design.json`, derives the Azure baseline it is
+> compared against, and produces **two** AWS totals. The artifact write, the
+> decision gate, and the phase-status update belong to `estimate-assemble.md`.
 
-Prices every service in `aws-design.json` and derives the Azure baseline it is
-compared against.
+**Execute ALL parts in order. Do not skip or optimize.**
 
-## Two totals, always
+---
 
-- **Non-optimized (1:1 lift)** — price each mapped service at the size the Azure
-  resource is running today. No right-sizing, no architecture change.
-- **Right-sized** — price the design as recommended, including measured right-sizing
-  and the CPU-architecture choice.
+## Step 0: Pricing mode
 
-Report both, plus `cost_comparison` stating the delta and
-`optimization_opportunities` itemizing where the delta came from.
+Execute `references/vendored/estimate/pricing-mode.md` as this step: staleness
+check, the region check, the **rate-row** check, the MCP retry ladder, the
+pricing-mode display, and the per-rate-row hierarchy including `partial`,
+`estimated` and `unavailable`. Do not restate or fork that logic here.
 
-## Baseline derivation, highest confidence first
+Two of its steps fire on nearly every Azure run, so expect them:
 
-1. An Azure Cost Management export, when the customer supplied one.
-2. RDfA consumption data — with reserved resources priced at their RI-equivalent
-   rate, never at the literal `$0` that consumption reports.
-3. Derived from discovered SKUs against cached Azure rates.
+- **Region.** The cache is `us-east-1`. Azure source regions map to AWS regions
+  through `knowledge/design/azure-region-map.json`, and a European Azure region
+  maps to a European AWS region — so the design's `target_region` differs from
+  the cache region on most estates.
+- **Rate rows.** The `knowledge/design/*-sizing.json` tables emit
+  current-generation types chosen to fit the Azure SKU. They were authored
+  against Azure SKUs rather than against the rate card, so a design can name a
+  type the rate card has no row for. Resolve every rate key **before** computing
+  anything, so the holes are known up front instead of discovered per line.
 
-Label the baseline with the rung that produced it. A baseline derived from SKUs is
-not a bill and must not be presented as one.
+## Step 1: Prerequisites
 
-## Status — skeleton (build step 1)
+The entry gate (design completed, inputs present and valid, non-empty
+`services[]`) is enforced by this phase's `_preconditions` per `INTERPRETER.md`
+§ Gate protocol; it has already passed. Then read:
 
-Wiring only. The pricing formulas, the dual-output arithmetic, and the licensing
-delta line land in steps 5–6.
+1. `$MIGRATION_DIR/aws-design.json` — `services[]`, `deferred[]`, `warnings[]`,
+   `target_region`, `clusters[]`.
+2. `$MIGRATION_DIR/preferences.json` — `baseline`, `design_constraints`, `data`,
+   and `licensing` (whose `_fired` flag decides Part 3's delta line).
+3. `$MIGRATION_DIR/azure-resource-inventory.json` — the source SKUs the 1:1 lift
+   is priced from, plus `iac_metadata`.
+
+---
+
+## Part 1: The Azure baseline
+
+The comparison is the point of this phase, so the baseline's **quality** matters
+as much as its value. Use the best available source; first match wins.
+
+| Rung | Source | `current_costs.source` | Reachable today? |
+| ---- | ------ | ---------------------- | ---------------- |
+| 1 | An Azure Cost Management export the customer supplied | `"cost_management_export"` | **No** — needs the billing source (deferred) |
+| 2 | Consumption data from an RDfA report | `"consumption_data"` | **No** — needs RDfA (deferred) |
+| 3 | `preferences.baseline.azure_monthly_spend`, when the user stated a figure | `"user_stated"` | **Yes** |
+| 4 | Derived from discovered SKUs against an Azure rate card | `"derived_from_skus"` | **No** — this skill ships no Azure rate card |
+| 5 | No baseline | `"unavailable"` | — |
+
+**Say plainly which rungs are reachable.** On a Terraform-only estate — every
+estate today — rungs 1, 2 and 4 cannot fire: the first two need a discovery
+source that is not built, and rung 4 needs Azure rates this skill does not ship.
+So the baseline is the user's stated figure, or nothing. Do not report rung 4 as
+attempted; there is nothing to attempt it against.
+
+Record the rung on the artifact, and never present a derived figure as an
+invoice:
+
+```json
+"current_costs": {
+  "azure_monthly": "<figure or null>",
+  "source": "<one of the rung values above>",
+  "accuracy": "<'as stated by the customer' | 'invoice data' | 'unavailable'>",
+  "baseline_note": "<REQUIRED for every source except cost_management_export>",
+  "currency": "<preferences.baseline.azure_monthly_spend.currency, default USD>"
+}
+```
+
+For `user_stated`, `baseline_note` is: "This is the figure you gave us, not an
+invoice we read. It may include Azure charges from outside this estate (other
+subscriptions, support plans, marketplace items) or exclude discounts you hold,
+so treat the comparison as directional."
+
+### The reservation `$0` trap
+
+A reserved VM, or capacity under a savings plan, reports **`$0`** in consumption
+data. It is not free — it was pre-paid, and the money left the customer's account
+earlier. Pricing the baseline from the literal figure understates current Azure
+spend, which makes AWS look worse than it is and can invert the recommendation.
+
+So: **a `$0` consumption figure against a resource that exists means RESERVED,
+never free.** Price that resource at its pay-as-you-go rate as the baseline
+stand-in, and record the substitution:
+
+```json
+"reservation_substitutions": [
+  {
+    "azure_id": "<the resource>",
+    "reported_consumption": 0,
+    "substituted_basis": "<the rate used, and where it came from>",
+    "reason": "A $0 consumption figure on an existing resource indicates a reservation or a savings plan, not zero cost."
+  }
+]
+```
+
+**This rule is unreachable today and must not be presented as exercised.** A `$0`
+consumption figure only appears in Cost Management or RDfA data — rungs 1 and 2,
+both deferred. A `user_stated` baseline has no per-resource figures at all, so
+`reservation_substitutions` is an empty array: the rule is a contract for when
+the billing source lands, not something this run tested. Write the empty array
+rather than omitting the key, so its emptiness is visible to a reader.
+
+### Metrics lookback affects confidence, not just precision
+
+When a metrics window does exist, read its actual length from the report metadata
+rather than assuming 31 days. Below `confidence_rules.min_window_days` in
+`knowledge/estimate/rightsizing-thresholds.json`, hold right-sizing confidence at
+`inferred` and say why: a P95 over a short window can sit entirely inside a quiet
+period, and a workload sized for a trough it will leave is worse than one sized
+from its SKU.
+
+---
+
+## Part 2: Price the design TWICE
+
+**Dual output is the shape of this phase, not an option a user asks for.** Both
+totals are always produced.
+
+| Total | What it prices | Why it exists |
+| ----- | -------------- | ------------- |
+| **1:1 lift** (`projected_costs.lift`) | Every mapped service at the capacity the Azure resource runs **today** | It is what a naive migration costs, and what the customer assumes if nobody shows them otherwise |
+| **Right-sized** (`projected_costs.right_sized`) | The design as recommended | It is the recommendation, and the delta is the visible evidence of the work |
+
+Reporting only the lift overstates the bill. Reporting only the right-sized
+figure hides the work that produced the saving and leaves the customer unable to
+check it against their own expectations. Report both, always, plus
+`cost_comparison` stating the delta between them.
+
+### 2A: The 1:1 lift
+
+For each `services[]` entry, price the AWS service at the capacity implied by the
+**source** resource — from the inventory entry's `config`, not from `aws_config`:
+
+- A source VM's SKU gives its like-for-like AWS instance via
+  `knowledge/design/vm-ec2-sizing.json`. The row's own vCPU/memory columns for
+  both sides are what make "like-for-like" checkable rather than asserted.
+- A source App Service Plan's SKU and worker count give the EB instance size and
+  count via `knowledge/design/appservice-eb-sizing.json`.
+- A source Flexible Server SKU gives the RDS class via
+  `knowledge/design/flexible-server-rds-sizing.json`; its `storage_mb` gives
+  allocated storage.
+- Where the design **dropped or shrank** a resource, the lift keeps it at full
+  size. That is the entire point of the lift.
+
+### 2B: The right-sized target
+
+Price `aws_config` as the design states it. Right-sizing arrives from two
+distinct places, and conflating them is the mistake to avoid:
+
+| Kind | Evidence | Needs metrics? |
+| ---- | -------- | -------------- |
+| **Utilization-based** | Observed P95 against the bands in `knowledge/estimate/rightsizing-thresholds.json` | **Yes** |
+| **Declared-waste-based** | What the IaC itself declares: a plan with zero apps, an `idle` flag, an unattached disk, a worker count above what any app uses | **No** |
+
+Utilization-based right-sizing is unreachable without a metrics source, and
+`rightsizing-thresholds.json` `_precondition` forbids applying its bands to a
+declared SKU — a SKU is what was bought, not what is used. Declared-waste
+right-sizing is reachable from Terraform alone.
+
+**So on a Terraform-only estate the delta comes entirely from declared waste, and
+it can legitimately be `$0`.** When it is, say so and say why in the delta line
+itself: "No utilization data was discovered, so no size was reduced on measured
+evidence; this delta reflects declared waste only." A `$0` delta presented
+without that sentence reads as a broken calculation — and a reader who assumes
+right-sizing was attempted and found nothing has been actively misled.
+
+Right-sizing never revisits the **service choice**. The rubric's six criteria
+picked the service; this fragment only picks a size within it. If no size in the
+chosen service fits, that is a finding for the report, not a reason to re-run the
+rubric.
+
+### Per-service formulas
+
+Rates come from the named keys in
+`references/vendored/pricing/aws-infra-pricing.json`. Do not restate a rate here.
+`hours_per_month` is `_meta.hours_per_month` (730).
+
+| AWS service | Formula | Key inputs from `aws_config` |
+| ----------- | ------- | ---------------------------- |
+| **Elastic Beanstalk** | `ec2.instances[instance_type]` × 730 × running count + `alb.monthly_fixed` + an LCU estimate (web only) + `ebs.gp3_per_gb_month` × root volume × count. EB's own service fee is `$0` | `instance_type`, `instance_count`, `min_instances`, `cpu_architecture` |
+| **EC2** | `ec2.instances[instance_type]` × 730 × count + root volume via `ebs.gp3_per_gb_month`. **Windows: see the `partial` rule below** | `instance_type`, `instance_count`, `operating_system`, `license_model`, `root_volume` |
+| **RDS PostgreSQL** | `rds_postgresql.instances[instance_class]` × 730 + `allocated_storage_gib` × `rds_postgresql.storage_per_gb_month`. That rate is `baked_in` Multi-AZ — do **not** double it for `multi_az` | `instance_class`, `allocated_storage_gib`, `multi_az` |
+| **ElastiCache Redis** | `elasticache.nodes[node_type]` × 730 × `num_cache_nodes`, ×2 when `multi_az` (`multiplier_x2`) | `node_type`, `num_cache_nodes` |
+| **MSK** | `msk.brokers[broker_instance_type]` × 730 × `number_of_broker_nodes` + storage × `msk.storage_per_gb_month`. `intrinsic` multi-AZ, no multiplier | `broker_instance_type`, `number_of_broker_nodes` |
+| **EKS** | `eks.control_plane_monthly` + `eks.node_rates_monthly[type]` × node count. Pods cost `$0` — compute is billed via the nodes. ALB and NAT are their own lines and are not re-added here | `node_groups[].instance_types`, `desired_size` |
+| **ALB** | `alb.monthly_fixed` + `alb.per_lcu_hour` × 730 × an LCU estimate | one per web service with a load balancer |
+| **NAT Gateway** | `nat_gateway.monthly_fixed` + `nat_gateway.per_gb_processed` × GB. **Azure's NAT Gateway is regional and AWS's is zonal**, so one source resource becomes N — price N, not one | subnet / AZ count from the VPC design |
+| **S3** | `fast_path_services.s3.storage_per_gb_month` × GB + requests, or `s3.monthly_baseline_est`. **Cross-Region Replication is a NEW line** when the source was GRS or GZRS — Azure bundled that into one SKU and AWS does not | `storage_class`, `source_replication` |
+| **Secrets Manager** | secret count × `fast_path_services.secrets_manager.per_secret_month` + API calls, or `monthly_baseline_est` | Key Vault secret count from the inventory |
+| **Lambda** | `lambda.per_request` × requests + `lambda.per_gb_second_<arch>_first_6b` × GB-seconds | `memory_mb`, `architecture`, invocation volume |
+| **CloudWatch** | Part 2C | — |
+| **VPC, subnets, route tables, Systems Manager Session Manager** | `$0`. Emit the line at zero with a `basis` note rather than omitting it, so the reader can see it was considered rather than forgotten | — |
+
+**Lambda has rates but no invocation data.** The rates are in the pricing file, so
+this is not a missing-rate case: IaC declares no request volume, and a source
+consumption plan provisions no worker capacity, so there is no source-side figure
+to multiply them by. Emit `monthly: null` with `exclusion_reason: "no_quantity"`
+and a stated reason — never a remembered default request count.
+`lambda._no_invocation_data_note` says the same thing at the data layer.
+
+### Services with no rate row — do not paper over them
+
+`_absent_services` in the pricing file names the services a design can emit that
+have **no** rates there, and none in the `gcp-to-aws` cache either. Today those
+are **DocumentDB**, **FSx for Windows File Server**, and the **Windows licence
+adder**. For each, attempt MCP per Step 0; when MCP is unreachable:
+
+1. Set that line's `pricing_source` to `"unavailable"` and its
+   `exclusion_reason` to `"no_rate"`.
+2. **Exclude** it from both totals, with `excluded_from_total: true`, but keep the
+   line in the breakdown.
+3. Add to `warnings[]`: "Pricing unavailable for `<service_id>`
+   (`<aws_service>`) — not in the pricing cache and the pricing API was
+   unreachable. This line is excluded from the totals, so both totals are
+   **floors**."
+4. Add the `service_id` to `pricing_source.services_with_missing_fallback[]`.
+
+**Never substitute a neighbouring rate.** `db.t3.medium` on a DocumentDB line is
+not an `rds_postgresql` class: different service, and those rates are baked-in
+Multi-AZ, so the wrong table would be wrong twice over. A near-miss rate is
+indistinguishable from a correct one in the output, which is what makes it worse
+than a hole.
+
+### The Windows line is `partial` — neither silently wrong nor thrown away
+
+When a service carries `license_model: "License Included"` (or the design
+otherwise states a Windows or SQL Server target), the `ec2.instances` rate is
+**Linux** — `ec2._windows_note` says so — and the file carries no licence adder.
+A Windows general-purpose instance costs roughly twice its Linux row.
+
+Do not price it silently at the Linux rate: that understates the estate's most
+expensive compute line, in the direction that flatters AWS. Do not mark it
+`unavailable` either: the base rate is real, and discarding it loses information
+the customer needs. Instead, per `pricing-mode.md` rung 1b:
+
+```json
+{
+  "service_id": "<id>",
+  "monthly": "<the Linux-rate figure>",
+  "pricing_source": "partial",
+  "exclusion_reason": "partial_rate",
+  "excluded_from_total": true,
+  "missing_component": "Windows Server licence (License Included)",
+  "is_floor": true,
+  "note": "Priced at the Linux on-demand rate. Windows Server 'License Included' costs materially more — roughly 2x for a general-purpose size — and no Windows rate or per-vCPU licence adder is in the pricing cache. This line is a FLOOR and is excluded from the decision-grade total."
+}
+```
+
+and add the `service_id` to `pricing_source.services_by_source.partial[]`.
+
+Note how this meets the architecture choice: the design defaults to `x86_64`
+**because** of Windows and .NET prevalence. So the estates where that default is
+load-bearing are exactly the estates where this pricing hole bites hardest. Say
+that in the report rather than leaving the reader to work it out.
+
+### The three reasons a line is excluded, and the one rule that decides
+
+A line leaves the totals for exactly one recorded reason:
+
+| `exclusion_reason` | Meaning | Example on a real estate |
+| ------------------ | ------- | ------------------------ |
+| `no_rate` | The rate row does not exist, here or in the `gcp-to-aws` cache, and MCP was unreachable | DocumentDB, FSx for Windows |
+| `partial_rate` | The base rate resolved but a required rate COMPONENT did not | A Windows instance with no licence adder |
+| `no_quantity` | Every rate resolved, but the design and the IaC supply no quantity to multiply | Lambda, whose cost is invocation-driven and whose invocation count IaC never declares |
+
+**The rule: price what is quantified, and exclude a line only when its PRIMARY
+cost driver is unpriced or unquantified.** A missing minor component does not
+remove a line — it is priced on what is known and the omission is named in
+`assumptions[]`. MSK is the worked example: brokers are the primary driver and
+they are quantified, so the line is priced, while per-broker storage is not sized
+by the design and appears as an assumption rather than deleting the line. A
+Windows instance goes the other way — its licence is roughly half the line, so
+what is left is a floor, not an estimate.
+
+This is a materiality judgement, stated so it can be argued with rather than
+discovered. When in doubt, price the line and name the assumption: an
+under-stated line the reader can see beats a missing line they cannot.
+
+### Totals
+
+```
+lift_total        = sum(per-service lift costs)        — excluding every line with an exclusion_reason
+right_sized_total = sum(per-service right-sized costs) — excluding every line with an exclusion_reason
+```
+
+Each total must equal the arithmetic sum of its own per-service lines. A total
+that does not reconcile is a gate failure, not a rounding note. When any line was
+excluded, **both totals are floors**, and every presentation of them says so.
+
+Excluded lines still appear in the breakdown, carrying their `exclusion_reason`,
+whatever partial figure is known, and `excluded_from_total: true`. Dropping them
+from the breakdown entirely would make the estate look smaller than it is, which
+is the failure this whole section exists to prevent.
+
+---
+
+## Part 2C: Observability (CloudWatch)
+
+Azure bundles a Log Analytics allowance, so many customers have never seen a
+separate line for it. CloudWatch bills from the first GB. Surface it here so it
+is not a surprise after cutover.
+
+Every quantity below comes from
+[`knowledge/estimate/estimate-defaults.json`](../../../knowledge/estimate/estimate-defaults.json).
+Read them from there; do not supply a remembered figure.
+
+1. **Log volume** — `log_volume_gb_per_service`, keyed by service kind and counted
+   per instance, node, broker or environment (not per cluster). Sum across the
+   design. This is a **heuristic** and it is the coarsest input in the estimate.
+2. **Custom metrics** — `cloudwatch_defaults.custom_metrics_per_service` × service
+   count, floored at `custom_metrics_floor`.
+3. **Alarms** — `max(alarms_floor, alarms_per_service × service count)`.
+4. Cost = `log_gb × cloudwatch.log_ingestion_per_gb`
+   + `log_gb × cloudwatch.log_storage_per_gb_month × retention_months`
+   + `metrics × cloudwatch.custom_metric_month`
+   + `alarms × cloudwatch.standard_alarm_month`,
+   with `retention_months` from `cloudwatch_defaults`. Add X-Ray
+   (`cloudwatch.xray_per_million_traces`) **only** when tracing is actually
+   detected in the source; otherwise it contributes a cost that traces back to no
+   evidence.
+
+Emit as a single entry with `volume_source: "heuristic"` and a **±35%** band, and
+label it: "Azure Monitor includes a Log Analytics allowance; CloudWatch charges
+from the first GB. Actual cost depends on log verbosity and retention." This
+entry REPLACES any CloudWatch row a supporting-services line would otherwise add
+— never double-count.
+
+The ALB line's LCU count comes from the same file
+(`alb_lcu_estimate.default_lcus`), for the same reason.
+
+---
+
+## Part 3: Comparison, and the licensing delta
+
+### Azure vs AWS
+
+When Part 1 produced a baseline from any rung except `unavailable`, present:
+
+- The Azure monthly baseline, **labeled with its rung and accuracy**, repeating
+  `baseline_note` next to the number whenever it is not invoice data.
+- Both AWS totals — lift and right-sized — each marked a floor when any line was
+  excluded.
+- The difference against each, monthly and annual.
+- A per-cluster breakdown of the right-sized total, using `clusters[]` from the
+  design, so the customer can see which part of the estate drives the bill.
+
+```json
+"cost_comparison": {
+  "azure_monthly_baseline": "<Part 1 figure or null>",
+  "baseline_source": "<rung>",
+  "lift": { "aws_monthly": "<lift_total>", "is_floor": true, "monthly_difference": "<lift - azure>", "annual_difference": "<x12>", "percent_change": "<+/-X%>" },
+  "right_sized": { "aws_monthly": "<right_sized_total>", "is_floor": true, "monthly_difference": "<right_sized - azure>", "annual_difference": "<x12>", "percent_change": "<+/-X%>" },
+  "rightsizing_delta": {
+    "monthly": "<lift_total - right_sized_total>",
+    "annual": "<x12>",
+    "basis": "<'declared_waste' | 'utilization' | 'both' | 'none'>",
+    "explanation": "<REQUIRED — and REQUIRED to say WHY whenever monthly is 0>"
+  }
+}
+```
+
+**Sign convention:** `difference = AWS − Azure`, so a negative number means AWS
+is cheaper. Never print a bare signed value; always label it, e.g. "AWS is $X/mo
+cheaper".
+
+When `current_costs.source == "unavailable"`, set `azure_monthly_baseline` to
+null and present the AWS totals alone: "No Azure baseline was established, so
+these are AWS costs without a comparison. Tell us your approximate Azure monthly
+spend and we will produce the side-by-side."
+
+### The licensing delta line
+
+**Render this line if and only if `preferences.licensing._fired` is true.** When
+Clarify's licensing category did not fire, no licensing line appears anywhere —
+not as a zero, not as "not applicable".
+
+It is **one delta row, not a cost model**. What it says depends on
+`licensing.windows_model`:
+
+| `windows_model` | The delta line |
+| --------------- | -------------- |
+| `license_included` | AWS bills the Windows licence inside the instance rate. State the count of Windows workloads and their vCPU total, note that the AWS-side licence cost is **not in the estimate** (see the `partial` rule above), and that this is the line most likely to move the total |
+| `byol` | The customer brings licences. State the Dedicated Host or tenancy requirement BYOL implies, because it changes the instance line rather than adding to it |
+| unanswered | Render no figure. State that the licensing basis is unresolved and that the Windows compute line cannot be finalised without it |
+
+Two facts to carry across from `preferences.licensing`:
+
+- **`ahub_in_use: false`** means the Azure baseline carries an unreduced Windows
+  rate, so the Azure side is not understated on licence grounds. When it is
+  `true`, the Azure baseline already benefits from Hybrid Benefit and the
+  comparison is not like-for-like — say so rather than comparing anyway.
+- Anything in `licensing.blockers[]` is a **prerequisite, not a cost**. An
+  Azure-Edition Windows image that AWS Application Migration Service refuses is
+  work that must happen before replication starts; it is not a line item.
+  Reference it, and do not price it.
+
+```json
+"licensing_delta": {
+  "fired": true,
+  "windows_model": "<from preferences>",
+  "windows_workload_count": "<N>",
+  "windows_vcpu_total": "<N>",
+  "ahub_in_use": false,
+  "monthly_delta": null,
+  "delta_basis": "<the rate and where it came from, or why this is null>",
+  "note": "<per the table above>"
+}
+```
+
+`monthly_delta` is `null` whenever the Windows rate is unavailable. A null with a
+stated reason is honest. A remembered per-vCPU figure is not, however plausible
+it looks.
+
+---
+
+## Part 4: Migration cost considerations
+
+**Azure charges egress and Heroku does not**, so do not carry a "no egress fees"
+framing across from another skill. Categories — none of them priced without a
+data volume:
+
+| Category | Basis |
+| -------- | ----- |
+| **Azure egress during transfer** | Per-GB outbound from Azure. Needs a data volume: database size, blob storage size, VM disk footprint. Name the sources from the inventory and state the volume as unknown rather than assuming one |
+| **Parallel operation** | Both clouds run during cutover: `~<Azure baseline>/month` for the cutover window, when a baseline exists |
+| **Migration service cost** | DMS instance hours when `data.db_cutover` is `dms`; MGN replication-server hours when `design_constraints.vm_cutover` is `mgn`. Both are real AWS charges and both are duration-driven |
+| **Unexpired Azure commitments** | A reservation or savings plan that outlives cutover keeps costing after the workload has left. A genuine migration cost, and invisible unless named |
+| **Dual-write or replication overhead** | Only when the chosen cutover approach implies it |
+
+**No human labor.** No professional-services figure, no people-time, no day
+rate, no "N engineer-weeks × $X". Effort belongs to the timeline band, never to a
+dollar column. This holds across every part of this fragment.
+
+---
+
+## Part 5: ROI
+
+Present the monthly and annual difference between the Azure baseline and each AWS
+total. If AWS is cheaper, state the saving against each. If AWS is more
+expensive, state that plainly and justify it with operational benefits rather
+than burying it below the fold.
+
+Qualitative factors only — **assign no dollar value** to any of these:
+infrastructure control, autoscaling granularity, service breadth, reduced
+dependence on the cloud being left, compliance posture, and access to commitment
+products Azure priced differently.
+
+Repeat the sign convention beside any signed number, and repeat the floor caveat
+wherever a total that excludes lines appears in an ROI sentence.
+
+---
+
+## Part 6: Optimization opportunities
+
+Eligibility, the three-state rendering model, and the required caveats are
+defined in `references/vendored/estimate/ri-sp-eligibility.md`. Execute that
+file's matrix as this step — it is the source of truth on eligibility. Only the
+azure-specific shaping lives here.
+
+**Always render this section**, even when nothing qualifies: state which of the
+three states the design landed in rather than omitting the section.
+
+- **The customer may already hold Azure reservations or a savings plan.** If
+  `reservation_substitutions` is non-empty, or the user mentioned reservations, a
+  commitment product is not a new idea to them — it is what they already do, and
+  migrating resets its clock. Frame it as continuity. An unexpired Azure
+  commitment is a **sunk cost that survives cutover**, and it belongs in Part 4.
+- **Graviton is not offered by default.** The design chose `x86_64` deliberately,
+  for Windows and .NET. Raise an arm64 opportunity only for a workload whose
+  stack is known to be portable, and raise it in the `workshop` sidebar where the
+  customer sees both prices — not as an assumed saving here. A withdrawn
+  recommendation costs more trust than one never made.
+- **Declared waste is not an "opportunity"** — it is already inside the
+  right-sized total. Listing it here double-counts the saving.
+
+---
+
+## Part 7: Complexity tier
+
+Load the thresholds from `references/vendored/estimate/complexity-tiers.json` and
+classify from the largest tier down, first match wins. Inputs:
+
+| Input | Source |
+| ----- | ------ |
+| Service count | `aws-design.json` `services[]` length |
+| Cluster count | `aws-design.json` `clusters[]` length |
+| Monthly spend | the right-sized total |
+| Has databases | any `aws_service` in {RDS PostgreSQL, DocumentDB, ElastiCache Redis, MSK, FSx for Windows File Server} |
+| Availability | `preferences.data.availability` |
+| Compliance | `preferences.global.compliance` |
+| Multi-region | more than one distinct `aws_config.region` |
+| Licensing | `preferences.licensing._fired` |
+
+Two azure-specific notes. A `deferred[]` entry raises complexity even though it
+carries no cost — deferred work is still work. And a **floor** total must not
+pull the tier down: when lines were excluded, classify on the evidence that
+those services exist, not on a total that omits them.
+
+```json
+"complexity_tier": "small|medium|large",
+"complexity_inputs": {
+  "service_count": "<N>", "cluster_count": "<N>",
+  "monthly_spend": "<right-sized>", "monthly_spend_is_floor": true,
+  "has_databases": true, "availability": "<...>", "compliance": "<...>",
+  "multi_region": false, "licensing_fired": true, "deferred_count": "<N>"
+}
+```
+
+---
+
+## Part 8: Recommendation
+
+`path` says how a migration would run; `outcome` says whether to run it now.
+
+**Hard triggers — any one forces `outcome: "defer_for_evidence"`:**
+
+| # | Trigger | Evidence to name |
+| - | ------- | ---------------- |
+| 1 | Compliance is unknown **and** signals suggest a government or heavily regulated requirement — the region set, service catalog and pricing all change together | Confirmation from the customer's compliance owner |
+| 2 | The customer's **only** stated motivation is cost saving **and** no baseline exists at all (`current_costs.source == "unavailable"`) | An Azure Cost Management export, or a stated monthly figure |
+
+`defer_for_evidence` is expected to be **rare**: AWS almost always has the
+services, and the AWS-side estimate can almost always be produced. Prefer
+`conditional_go` with named conditions when in doubt.
+
+**Soft triggers — never force a defer. Each becomes an entry in `conditions[]`
+(so `outcome` becomes `conditional_go`) and in `would_flip_if[]`:**
+
+| # | Trigger | Condition wording |
+| - | ------- | ----------------- |
+| 3 | `data.availability` was defaulted rather than confirmed | "Confirm the availability requirement — Multi-AZ roughly doubles the database line" |
+| 4 | Any line is `unavailable` or `partial`, so a total is a floor | "Price `<services>` before treating the total as decision-grade — today it is a floor" |
+| 5 | `target_region` differs from the pricing cache region | "Reprice in `<target_region>` — these are `<cache region>` rates" |
+| 6 | The pricing cache is past its own staleness window | "Refresh pricing before treating the delta as decision-grade" |
+| 7 | `licensing._fired` and the Windows licence cost is not in the estimate | "Confirm the Windows licensing basis — it is the line most likely to move the total" |
+| 8 | The right-sizing delta is `$0` for want of utilization data | "Supply utilization data to see what right-sizing is worth; today the delta reflects declared waste only" |
+
+**Derivation:**
+
+```
+IF any hard trigger fired      -> "defer_for_evidence"
+ELSE IF path == "stay"         -> "stay"
+ELSE IF any soft trigger fired -> "conditional_go"   (conditions[] = the fired triggers)
+ELSE                           -> "go"
+```
+
+Complexity alone selects `path: "migrate_phased"`; it never moves `outcome` away
+from go or conditional_go.
+
+Populate `decision_basis` from provenance — inventory-extracted or invoice values
+are `measured`, defaulted inputs are `assumed`, declined or unknown ones are
+`unknown` — and `would_flip_if[]` with the 1–3 changes most likely to alter the
+outcome, each with its direction.
+
+**Presenting a defer:** lead with what IS established ("AWS can host this estate;
+the AWS-side floor is $X/mo") before naming the one missing piece of evidence and
+how to obtain it. Never present a defer as "no answer".
+
+```json
+"recommendation": {
+  "path": "migrate_optimized|migrate_phased|stay",
+  "path_label": "<label>",
+  "outcome": "go|conditional_go|defer_for_evidence|stay",
+  "outcome_label": "<label>",
+  "roi_justification": "<one sentence>",
+  "confidence": "high|medium|low",
+  "migrate_if": ["<specific to THIS estate>"],
+  "stay_if": ["<specific to THIS estate>"],
+  "conditions": ["<non-empty when outcome is conditional_go>"],
+  "decision_basis": { "measured": [], "assumed": [], "unknown": [] },
+  "would_flip_if": [],
+  "next_steps": []
+}
+```
+
+`outcome: "stay"` only ever accompanies `path: "stay"`.
+
+**Cost labeling.** Every dollar figure presented anywhere — chat, report, metric
+box — is labeled as an estimate ("Est." or "estimated monthly"). Never present a
+computed figure as exact.
+
+When Parts 1–8 are complete, control passes to `estimate-assemble.md`.
