@@ -51,6 +51,15 @@ ASSERTERS = {
     "azure-iac-terraform/check_expected_clarify.py": "azure-iac-terraform/after-clarify",
     # second branch of the same phase: BLOCKED above, COMPLETING here. Both are real states.
     "azure-iac-terraform/check_expected_clarify_complete.py": "azure-iac-terraform/after-clarify-complete",
+    # Estimate. FIRST asserter in the repo that uses TOLERANCES rather than exact equality:
+    # AWS rates move on AWS's cadence, so an exact committed total would go permanently red
+    # on the next refresh. Three tiers — contracts exact, arithmetic identities exact but
+    # RELATIVE (they survive any rate change), dollar figures against bands recorded in
+    # expected-estimate.json. The golden is deliberately not a clean estimate: five of the
+    # sixteen designed services cannot be priced, so both totals are FLOORS and the
+    # right-sizing delta is legitimately $0 — the two states an implementation is most
+    # likely to fake into something tidier.
+    "azure-iac-terraform/check_expected_estimate.py": "azure-iac-terraform/after-estimate",
 }
 
 
