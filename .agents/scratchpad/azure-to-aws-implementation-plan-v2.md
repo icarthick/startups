@@ -1404,6 +1404,19 @@ Estimate and Generate can never run there until the untranslated-type halt is re
 by the user-override behaviour or by a variant inventory with
 `iac_metadata.untranslated_types` cleared.
 
+> **[RESOLVED 2026-09-08, and it resolved itself.]** Both gates §16.4 named are gone, and
+> neither was closed by the work that was proposed for them. Derivation (§17.2–17.3) cleared
+> `untranslated_types` to `[]`, and the five landed rubrics (§17.7) cleared `pending_rubric` to
+> `[]`, so **Design now satisfies every one of its postconditions on the corpus** — it does not
+> halt. The clarify gate was closed separately by the `after-clarify-complete/` branch. So
+> Estimate was reachable before it was built, which is why §18 could build it against a real
+> upstream artifact rather than a synthetic one. `run-asserters.py` still described
+> `after-design/` as "deliberately a HALTED design" until 2026-09-08 — a stale comment that
+> told a reader Estimate was unreachable when it was not. **Note the pattern: this is the
+> third time a capability or coverage improvement silently disarmed a fixture's premise**
+> (§13.6 `azurerm_dev_test_lab`, §17.9 #1 `azurerm_iothub`, and now the halted-design golden).
+> A fixture whose point is that something FAILS needs a guard that the failure still happens.
+
 ### The remaining order
 
 | Step | What | State |

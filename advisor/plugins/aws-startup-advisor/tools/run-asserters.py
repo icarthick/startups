@@ -39,10 +39,14 @@ ASSERTERS = {
     # Input-corpus fixture. `workspace-terraform/` is the committed INPUT; each golden
     # tree below is the hand-authored expected output for one phase.
     "azure-iac-terraform/check_expected_iac_terraform.py": "azure-iac-terraform/after-discover",
-    # Design pass 1. The golden tree is deliberately a HALTED design — the corpus carries
-    # an untranslated cost-bearing type and the pass-2 rubric files do not exist yet — so
-    # it does NOT satisfy design.md's _postconditions. It pins the mapping TABLE's
-    # application, which is what build step 3 delivers.
+    # Design, both passes. CORRECTED 2026-09-08: this golden is NO LONGER a halted design.
+    # It was, while the corpus carried an untranslated cost-bearing type and the pass-2
+    # rubrics were absent. Derivation resolved azurerm_iothub and the rubrics landed, so the
+    # tree now has untranslated_types [] and pending_rubric [] and SATISFIES design.md's
+    # _postconditions. That is what makes Estimate reachable on this corpus at all: with
+    # after-clarify-complete/ answering the clarify gate, both blockers that once stood in
+    # front of Estimate are gone. The directory name is unchanged only to avoid churning
+    # every reference to it.
     "azure-iac-terraform/check_expected_design.py": "azure-iac-terraform/after-design",
     # Clarify. The golden is a BLOCKED clarify — an ESSENTIAL row is unanswered, so the phase
     # must GATE_FAIL. That pins the completion gate rather than only the happy path. Clarify is
