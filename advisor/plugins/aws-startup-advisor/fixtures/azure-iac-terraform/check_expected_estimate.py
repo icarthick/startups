@@ -130,14 +130,32 @@ def main() -> int:  # noqa: C901 -- a fixture oracle is a checklist; splitting i
     pc = est.get("projected_costs") or {}
     lift = pc.get("lift") or {}
     rs = pc.get("right_sized") or {}
-    breakdown = pc.get("breakdown") or []
     cc = est.get("cost_comparison") or {}
+
+    # `breakdown` is an OBJECT keyed by service_id, per the shared schema
+    # (projected_costs.breakdown type: object) and matching what the other skills emit.
+    # An array here is a schema violation that `_validate_json` cannot catch, because it
+    # checks parseability rather than conformance.
+    raw_bd = pc.get("breakdown")
+    check(
+        isinstance(raw_bd, dict),
+        f"projected_costs.breakdown is {type(raw_bd).__name__}, and the shared "
+        f"estimation-infra.schema.json declares it type 'object' keyed by service_id with a "
+        f"'total'. An array passes _validate_json and still violates the contract.",
+    )
     by_id = {}
-    for line in breakdown:
-        sid = line.get("service_id")
-        if sid in by_id:
-            FAILS.append(f"breakdown has duplicate service_id {sid!r}")
-        by_id[sid] = line
+    if isinstance(raw_bd, dict):
+        for sid, entry in raw_bd.items():
+            if sid == "total" or sid.startswith("_"):
+                continue
+            by_id[sid] = {**entry, "service_id": sid}
+    elif isinstance(raw_bd, list):  # tolerate, so the rest of the checks still report
+        for entry in raw_bd:
+            sid = entry.get("service_id")
+            if sid in by_id:
+                FAILS.append(f"breakdown has duplicate service_id {sid!r}")
+            by_id[sid] = entry
+    breakdown = list(by_id.values())
 
     # ---------------- TIER 1: dual output exists at all ----------------
     for p in exp["dual_output"]["required_paths"]:
@@ -148,6 +166,55 @@ def main() -> int:  # noqa: C901 -- a fixture oracle is a checklist; splitting i
                 break
             cur = cur[seg]
         check(ok, f"dual_output: required path {p!r} is absent. {exp['dual_output']['must_not_be']} is not the specified shape.")
+
+    # ---------------- TIER 1 + TIER 2: the three shared scenario keys ----------------
+    # INTENSIONAL check against the vendored schema, not against a recorded value: read the
+    # schema's own `required` list rather than restating it, so the two cannot drift apart.
+    sc = exp["scenarios"]
+    schema_path = HERE / exp["schema_relpath"]
+    if schema_path.exists():
+        schema = json.loads(schema_path.read_text())
+        for key in (schema.get("properties", {}).get("projected_costs", {}).get("required") or []):
+            check(
+                key in pc,
+                f"projected_costs is missing {key!r}, which the shared "
+                f"estimation-infra.schema.json lists as REQUIRED. "
+                f"No additionalProperties:false permits ADDING the azure lift/right_sized "
+                f"keys; it does not permit omitting a required one.",
+            )
+        ac_type = schema.get("properties", {}).get("accuracy_confidence", {}).get("type")
+        if ac_type == "string" and "accuracy_confidence" in est:
+            check(
+                isinstance(est["accuracy_confidence"], str),
+                f"accuracy_confidence is {type(est['accuracy_confidence']).__name__}; the shared "
+                f"schema declares it a string.",
+            )
+    else:
+        FAILS.append(f"cannot reach the shared schema at {exp['schema_relpath']} to check conformance")
+
+    bal, prem, opt = (num(pc.get(k)) for k in ("aws_monthly_balanced", "aws_monthly_premium", "aws_monthly_optimized"))
+    rsm = num(rs.get("monthly"))
+    if None not in (bal, rsm):
+        check(
+            close(bal, rsm, rel_early := float(exp["relational"]["rel_tolerance"])),
+            f"aws_monthly_balanced is {bal} but right_sized.monthly is {rsm}. {sc['_anchor_why']}",
+        )
+    if None not in (prem, bal):
+        check(prem >= bal, f"aws_monthly_premium {prem} is below Balanced {bal}; higher resilience costs more, not less")
+    if None not in (opt, bal):
+        check(opt <= bal, f"aws_monthly_optimized {opt} is above Balanced {bal}; a commitment discount cannot raise the bill")
+    banded("aws_monthly_premium", prem, sc["premium_min"], sc["premium_max"], "total")
+    banded("aws_monthly_optimized", opt, sc["optimized_min"], sc["optimized_max"], "total")
+    if opt is not None and bal is not None and close(opt, round(bal * (1 - sc["blanket_discount"]), 2), 0.01):
+        FAILS.append(
+            f"aws_monthly_optimized {opt} equals Balanced x (1 - {sc['blanket_discount']}), i.e. a BLANKET "
+            f"discount across the whole total. {sc['_blanket_why']}"
+        )
+    ann = num(pc.get("aws_annual_optimized"))
+    if None not in (ann, opt):
+        check(close(ann, opt * 12, rel_early), f"aws_annual_optimized is {ann}, expected {round(opt * 12, 2)}")
+    check(bool(pc.get("_premium_basis")), f"projected_costs._premium_basis must show the uplift arithmetic. {sc['_show_work_why']}")
+    check(bool(pc.get("_optimized_basis")), f"projected_costs._optimized_basis must show the two subtotals and the rate. {sc['_show_work_why']}")
 
     # ---------------- TIER 1: the line shape every line owes ----------------
     # estimate-infra.md § "The breakdown line shape" requires `basis` on EVERY line,

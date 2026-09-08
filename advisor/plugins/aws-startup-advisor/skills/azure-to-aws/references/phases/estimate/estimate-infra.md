@@ -337,6 +337,58 @@ is the failure this whole section exists to prevent.
 
 ---
 
+## Part 2D: The three pricing scenarios the shared schema requires
+
+**The dual output does NOT replace the three scenarios, and this is the easiest
+thing in the phase to get wrong.** They are different axes:
+
+| Axis | Varies | Keys |
+| ---- | ------ | ---- |
+| Dual output (azure) | **sizing** — source capacity vs the recommended design | `projected_costs.lift`, `projected_costs.right_sized` |
+| Scenarios (shared) | **resilience and pricing model** for one design | `aws_monthly_premium`, `aws_monthly_balanced`, `aws_monthly_optimized` |
+
+`references/vendored/estimate/estimation-infra.schema.json` lists all three
+scenario keys under `projected_costs.required`. It has no
+`additionalProperties: false`, so the azure `lift` / `right_sized` keys are legal
+additions — but "no `additionalProperties: false`" permits ADDING, it does not
+permit OMITTING a required key. An artifact carrying only the dual output fails
+the schema this phase declares.
+
+**The anchor: `aws_monthly_balanced` IS the right-sized total.** They are the same
+number by definition — the recommended design at on-demand rates — so emit them
+equal rather than computing a second figure that could drift from it.
+
+Derive the other two as **stated adjustments off Balanced**, never as fresh rate
+lookups:
+
+| Scenario | Derivation |
+| -------- | ---------- |
+| **Premium** | Balanced plus the multi-AZ uplift for every line whose `multi_az_handling` is `multiplier_x2` and which is not already multi-AZ. Lines that are `baked_in` (RDS) or `intrinsic` (MSK, Aurora) get **no** uplift — that is what `_multi_az_convention` in the rate file is for, and applying a blanket multiplier here reintroduces exactly the error it prevents |
+| **Optimized** | Balanced with a commitment discount applied **only to the RI/SP-eligible subtotal**, per `references/vendored/estimate/ri-sp-eligibility.md`, plus the ineligible subtotal unchanged. Use the mid-point of the applicable range from `estimate-defaults.json`. A blanket percentage across the whole total silently discounts S3, ALB, EBS and CloudWatch, none of which has a commitment product |
+
+State the discount rate and the two subtotals, so the arithmetic is checkable
+without trusting the author. And note the eligibility carefully on an Azure
+estate: **MSK has no RI or Savings Plan product**, so it belongs in the ineligible
+subtotal even though it looks like the kind of thing that would be covered.
+
+**Every scenario figure inherits the floor.** If any line was excluded, all three
+scenarios are floors, and Optimized is the most misleading of them — a discounted
+floor reads as the cheapest credible number in the artifact when it is the least
+complete.
+
+### Two shape constraints the schema imposes
+
+- **`projected_costs.breakdown` is an OBJECT, not an array** — keyed by
+  `service_id`, values being the line shape above, plus a `total` key holding the
+  Balanced total. This matches what the other skills emit; an array here is a
+  schema violation that `_validate_json` will not catch, because it checks
+  parseability rather than conformance.
+- **`accuracy_confidence` is a STRING**, e.g. `"floor — five lines unpriced;
+  ±5-10% on the rest"`. Any structured detail belongs in
+  `pricing_source.message` or its own key, not here.
+
+---
+
 ## Part 2C: Observability (CloudWatch)
 
 Azure bundles a Log Analytics allowance, so many customers have never seen a
