@@ -149,6 +149,27 @@ def main() -> int:  # noqa: C901 -- a fixture oracle is a checklist; splitting i
             cur = cur[seg]
         check(ok, f"dual_output: required path {p!r} is absent. {exp['dual_output']['must_not_be']} is not the specified shape.")
 
+    # ---------------- TIER 1: the line shape every line owes ----------------
+    # estimate-infra.md § "The breakdown line shape" requires `basis` on EVERY line,
+    # including the $0 ones, and requires `components` to sum to its own line.
+    for line in breakdown:
+        sid = line.get("service_id")
+        check(
+            bool((line.get("basis") or "").strip()),
+            f"{sid!r}: basis is required on every line, including the $0 ones -- "
+            f"'a VPC is not billed' is the answer to a question a reader otherwise has to assume.",
+        )
+        comps = line.get("components")
+        if isinstance(comps, dict):
+            cs = sum(num(v) or 0.0 for v in comps.values())
+            lv = num(line.get("right_sized_monthly"))
+            if lv is not None and any(num(v) is not None for v in comps.values()):
+                check(
+                    close(cs, lv, 1e-2),
+                    f"{sid!r}: components sum to {round(cs, 2)} but the line is {lv}. "
+                    f"A breakdown that contradicts itself is worse than one without components.",
+                )
+
     # ---------------- TIER 3: priced line bands ----------------
     lb = exp["line_bands"]
     for spec in lb["priced"]:
@@ -594,6 +615,15 @@ def main() -> int:  # noqa: C901 -- a fixture oracle is a checklist; splitting i
                 FAILS.append(f"per_cluster entry {entry.get('cluster_id')!r} has a non-numeric right_sized_monthly")
                 continue
             s += v
+            # estimate-infra.md: a $0.00 cluster figure needs its note, because a cluster
+            # whose every line was excluded reads as free and is not -- it is unpriced.
+            if v == 0.0:
+                check(
+                    bool((entry.get("note") or "").strip()),
+                    f"per_cluster {entry.get('cluster_id')!r} is $0.00 with no note. "
+                    f"A cluster whose every line was excluded is UNPRICED, not free, and the "
+                    f"number alone cannot say which.",
+                )
             cid = entry.get("cluster_id")
             if cid is not None and design_cluster_ids:
                 check(
