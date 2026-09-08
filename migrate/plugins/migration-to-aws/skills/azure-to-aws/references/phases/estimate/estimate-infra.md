@@ -319,7 +319,54 @@ This is a materiality judgement, stated so it can be argued with rather than
 discovered. When in doubt, price the line and name the assumption: an
 under-stated line the reader can see beats a missing line they cannot.
 
-### Totals
+---
+
+## Part 2C: Observability (CloudWatch)
+
+Azure bundles a Log Analytics allowance, so many customers have never seen a
+separate line for it. CloudWatch bills from the first GB. Surface it here so it
+is not a surprise after cutover.
+
+Every quantity below comes from
+[`knowledge/estimate/estimate-defaults.json`](../../../knowledge/estimate/estimate-defaults.json).
+Read them from there; do not supply a remembered figure.
+
+1. **Log volume** — `log_volume_gb_per_service`, keyed by service kind and counted
+   per instance, node, broker or environment (not per cluster). Sum across the
+   design. This is a **heuristic** and it is the coarsest input in the estimate.
+2. **Custom metrics** — `cloudwatch_defaults.custom_metrics_per_service` × service
+   count, floored at `custom_metrics_floor`.
+3. **Alarms** — `max(alarms_floor, alarms_per_service × service count)`.
+4. Cost = `log_gb × cloudwatch.log_ingestion_per_gb`
+   + `log_gb × cloudwatch.log_storage_per_gb_month × retention_months`
+   + `metrics × cloudwatch.custom_metric_month`
+   + `alarms × cloudwatch.standard_alarm_month`,
+   with `retention_months` from `cloudwatch_defaults`. Add X-Ray
+   (`cloudwatch.xray_per_million_traces`) **only** when tracing is actually
+   detected in the source; otherwise it contributes a cost that traces back to no
+   evidence.
+
+Emit as a **single** breakdown line, `service_id: "observability-cloudwatch"`,
+carrying `volume_source: "heuristic"`, `band_percent: 35`, and the resulting
+`low` and `high` alongside its `right_sized_monthly`, with `components` broken out
+as `log_ingestion`, `log_storage`, `custom_metrics`, `alarms` and `tracing`. Label
+it: "Azure Monitor includes a Log Analytics allowance; CloudWatch charges from the
+first GB. Actual cost depends on log verbosity and retention."
+
+It is the one line that is **not** a designed service, so it has no entry in
+`aws-design.json services[]` and must not be counted as one. It is also
+estate-wide, so its `per_cluster` attribution is `cluster_id: null` rather than a
+cluster picked arbitrarily.
+
+This entry REPLACES any CloudWatch row a supporting-services line would otherwise
+add — never double-count.
+
+The ALB line's LCU count comes from the same file
+(`alb_lcu_estimate.default_lcus`), for the same reason.
+
+---
+
+## Part 2D: Totals
 
 ```
 lift_total        = sum(per-service lift costs)        — excluding every line with an exclusion_reason
@@ -337,7 +384,7 @@ is the failure this whole section exists to prevent.
 
 ---
 
-## Part 2D: The three pricing scenarios the shared schema requires
+## Part 2E: The three pricing scenarios the shared schema requires
 
 **The dual output does NOT replace the three scenarios, and this is the easiest
 thing in the phase to get wrong.** They are different axes:
@@ -386,51 +433,6 @@ complete.
 - **`accuracy_confidence` is a STRING**, e.g. `"floor — five lines unpriced;
   ±5-10% on the rest"`. Any structured detail belongs in
   `pricing_source.message` or its own key, not here.
-
----
-
-## Part 2C: Observability (CloudWatch)
-
-Azure bundles a Log Analytics allowance, so many customers have never seen a
-separate line for it. CloudWatch bills from the first GB. Surface it here so it
-is not a surprise after cutover.
-
-Every quantity below comes from
-[`knowledge/estimate/estimate-defaults.json`](../../../knowledge/estimate/estimate-defaults.json).
-Read them from there; do not supply a remembered figure.
-
-1. **Log volume** — `log_volume_gb_per_service`, keyed by service kind and counted
-   per instance, node, broker or environment (not per cluster). Sum across the
-   design. This is a **heuristic** and it is the coarsest input in the estimate.
-2. **Custom metrics** — `cloudwatch_defaults.custom_metrics_per_service` × service
-   count, floored at `custom_metrics_floor`.
-3. **Alarms** — `max(alarms_floor, alarms_per_service × service count)`.
-4. Cost = `log_gb × cloudwatch.log_ingestion_per_gb`
-   + `log_gb × cloudwatch.log_storage_per_gb_month × retention_months`
-   + `metrics × cloudwatch.custom_metric_month`
-   + `alarms × cloudwatch.standard_alarm_month`,
-   with `retention_months` from `cloudwatch_defaults`. Add X-Ray
-   (`cloudwatch.xray_per_million_traces`) **only** when tracing is actually
-   detected in the source; otherwise it contributes a cost that traces back to no
-   evidence.
-
-Emit as a **single** breakdown line, `service_id: "observability-cloudwatch"`,
-carrying `volume_source: "heuristic"`, `band_percent: 35`, and the resulting
-`low` and `high` alongside its `right_sized_monthly`, with `components` broken out
-as `log_ingestion`, `log_storage`, `custom_metrics`, `alarms` and `tracing`. Label
-it: "Azure Monitor includes a Log Analytics allowance; CloudWatch charges from the
-first GB. Actual cost depends on log verbosity and retention."
-
-It is the one line that is **not** a designed service, so it has no entry in
-`aws-design.json services[]` and must not be counted as one. It is also
-estate-wide, so its `per_cluster` attribution is `cluster_id: null` rather than a
-cluster picked arbitrarily.
-
-This entry REPLACES any CloudWatch row a supporting-services line would otherwise
-add — never double-count.
-
-The ALB line's LCU count comes from the same file
-(`alb_lcu_estimate.default_lcus`), for the same reason.
 
 ---
 
