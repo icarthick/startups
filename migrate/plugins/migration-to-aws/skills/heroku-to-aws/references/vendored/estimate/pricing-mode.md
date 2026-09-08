@@ -86,6 +86,31 @@ Attempt the awspricing MCP with **up to 2 retries** (3 total attempts,
 3. Timeout/error → wait 2s, attempt 3
 4. All 3 fail → cached prices, `pricing_source: "cached_fallback"`
 
+**If the MCP tool is not present in the host at all**, there is nothing to retry:
+treat tool-absence as equivalent to three failures and proceed. Do not report a
+retry ladder that was never executed.
+
+### Tiebreak: a STALE cache and an unreachable MCP at the same time
+
+This is the common case, not an edge case, and three rules above name two different
+values for it — Step 0a says `cached_stale`, Step 0b and hierarchy row 3 say
+`cached_fallback`. **Resolution: the top-level `pricing_source.status` is
+`"cached_stale"`, and staleness wins.**
+
+The reason is that the two labels answer different questions. `cached_fallback`
+means "we tried live pricing and could not get it", which is about the attempt;
+`cached_stale` means "these rates are older than the file says they should be",
+which is about the DATA the reader is being handed. Only the second changes how
+much to trust the number, so it is the one that belongs on the status. Record the
+MCP failure in `pricing_source.message` and in `mcp_available: false`, so nothing
+is lost.
+
+Per-LINE `pricing_source` values remain the hierarchy's own: `cached`, `partial`,
+`live`, `cached_fallback`, `estimated`, `unavailable`. **`cached_stale` is a
+run-level status and never a per-line value** — every line in a stale-cache run
+would otherwise be relabelled, which loses the distinction between a rate that
+resolved and one that did not.
+
 ## Step 0c: Display the pricing mode
 
 Before any calculation, surface the status:

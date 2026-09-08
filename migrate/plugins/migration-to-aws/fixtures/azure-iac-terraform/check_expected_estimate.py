@@ -167,6 +167,12 @@ def main() -> int:  # noqa: C901 -- a fixture oracle is a checklist; splitting i
             cur = cur[seg]
         check(ok, f"dual_output: required path {p!r} is absent. {exp['dual_output']['must_not_be']} is not the specified shape.")
 
+    # Tolerance for every TIER 2 identity. Defined ONCE, here, above its first use: it was
+    # originally bound by a walrus inside an `if`, so an artifact that skipped that branch
+    # crashed the oracle instead of being reported on. A crashing oracle is worse than a
+    # failing one -- it says nothing about the artifact.
+    rel = float(exp["relational"]["rel_tolerance"])
+
     # ---------------- TIER 1 + TIER 2: the three shared scenario keys ----------------
     # INTENSIONAL check against the vendored schema, not against a recorded value: read the
     # schema's own `required` list rather than restating it, so the two cannot drift apart.
@@ -196,7 +202,7 @@ def main() -> int:  # noqa: C901 -- a fixture oracle is a checklist; splitting i
     rsm = num(rs.get("monthly"))
     if None not in (bal, rsm):
         check(
-            close(bal, rsm, rel_early := float(exp["relational"]["rel_tolerance"])),
+            close(bal, rsm, rel),
             f"aws_monthly_balanced is {bal} but right_sized.monthly is {rsm}. {sc['_anchor_why']}",
         )
     if None not in (prem, bal):
@@ -212,7 +218,7 @@ def main() -> int:  # noqa: C901 -- a fixture oracle is a checklist; splitting i
         )
     ann = num(pc.get("aws_annual_optimized"))
     if None not in (ann, opt):
-        check(close(ann, opt * 12, rel_early), f"aws_annual_optimized is {ann}, expected {round(opt * 12, 2)}")
+        check(close(ann, opt * 12, rel), f"aws_annual_optimized is {ann}, expected {round(opt * 12, 2)}")
     check(bool(pc.get("_premium_basis")), f"projected_costs._premium_basis must show the uplift arithmetic. {sc['_show_work_why']}")
     check(bool(pc.get("_optimized_basis")), f"projected_costs._optimized_basis must show the two subtotals and the rate. {sc['_show_work_why']}")
 
@@ -302,7 +308,6 @@ def main() -> int:  # noqa: C901 -- a fixture oracle is a checklist; splitting i
                 )
 
     # ---------------- TIER 2: totals reconcile against their own lines ----------------
-    rel = float(exp["relational"]["rel_tolerance"])
     for key, obj, field in (("lift", lift, "lift_monthly"), ("right_sized", rs, "right_sized_monthly")):
         total = num(obj.get("monthly"))
         if total is None:
@@ -339,6 +344,51 @@ def main() -> int:  # noqa: C901 -- a fixture oracle is a checklist; splitting i
         g = num(obj.get("monthly"))
         if g is not None and close(g, float(tt["must_not_be"]), 0.01):
             FAILS.append(f"projected_costs.{key}.monthly is {g}, the known-wrong total. {tt['must_not_be_why']}")
+
+    # ---------------- TIER 1: a rate that describes the wrong configuration ----------------
+    rcm = exp["rate_configuration_mismatch"]
+    rl = by_id.get(rcm["service_id"]) or {}
+    got_rcm = rl.get("rate_configuration_mismatch")
+    check(
+        isinstance(got_rcm, dict),
+        f"{rcm['service_id']!r} has no rate_configuration_mismatch. {rcm['_why']}",
+    )
+    if isinstance(got_rcm, dict):
+        for k in rcm["required_keys"]:
+            check(k in got_rcm, f"{rcm['service_id']}.rate_configuration_mismatch is missing {k!r}")
+        check(
+            got_rcm.get("direction") == rcm["expected_direction"],
+            f"{rcm['service_id']}: direction is {got_rcm.get('direction')!r}, expected "
+            f"{rcm['expected_direction']!r} — a Multi-AZ rate on a single-AZ design overstates",
+        )
+    check(
+        rl.get("is_ceiling") is rcm["expected_is_ceiling"],
+        f"{rcm['service_id']}.is_ceiling must be {rcm['expected_is_ceiling']}: the figure is an upper "
+        f"bound for that line even while the TOTAL is a lower bound. {rcm['_mixed_direction_why']}",
+    )
+    v = num(rl.get("right_sized_monthly"))
+    if v is not None:
+        for spec in lb["priced"]:
+            if spec["service_id"] == rcm["service_id"]:
+                if close(v, round(spec["expected"] / 2, 2), 0.02):
+                    FAILS.append(f"{rcm['service_id']}: {v} is the Multi-AZ rate halved. {rcm['must_not_be_halved']}")
+                break
+    check(
+        rl.get("exclusion_reason") is None,
+        f"{rcm['service_id']} was excluded. {rcm['must_not_be_excluded']}",
+    )
+    # Must be ONE condition naming both the service and the mismatch. Matching "single-az"
+    # anywhere in conditions[] was too weak: the availability condition already says
+    # "answered single-az against a ZoneRedundant source", so dropping the repricing
+    # condition entirely still passed.
+    conds_l = [str(c).lower() for c in ((est.get("recommendation") or {}).get("conditions") or [])]
+    check(
+        any(rcm["service_id"].lower() in c and rcm["condition_must_mention"].lower() in c for c in conds_l),
+        f"recommendation.conditions must carry ONE condition naming both {rcm['service_id']!r} and "
+        f"{rcm['condition_must_mention']!r} — repricing it is the highest-value correction available "
+        f"to this estimate and is invisible from the number. A mention of "
+        f"{rcm['condition_must_mention']!r} in some other condition does not satisfy this.",
+    )
 
     # ---------------- TIER 1: floor propagation ----------------
     fp = exp["floor_propagation"]
@@ -589,6 +639,41 @@ def main() -> int:  # noqa: C901 -- a fixture oracle is a checklist; splitting i
         (ph.get("phases") or {}).get("generate") == rmspec["expected_generate_phase"],
         f"phases.generate is {(ph.get('phases') or {}).get('generate')!r}, "
         f"expected {rmspec['expected_generate_phase']!r}. {rmspec['_why_generate_pending']}",
+    )
+
+    # ---------------- TIER 1: the closed warning vocabulary ----------------
+    wv = exp["warning_vocabulary"]
+    src = HERE / wv["source_file_relpath"]
+    declared = set()
+    if src.exists():
+        # read the codes out of the skill file's table, rather than restating them here
+        declared = set(re.findall(r"^\| `([a-z0-9_]+)` \|", src.read_text(), re.M))
+        check(bool(declared), f"could not read any warning codes from {wv['source_file_relpath']}")
+    else:
+        FAILS.append(f"cannot reach {wv['source_file_relpath']} to read the closed vocabulary")
+    warnings = est.get("warnings") or []
+    for w in warnings:
+        if not isinstance(w, dict):
+            FAILS.append(f"warnings[] entry is a bare string: {str(w)[:60]!r}. {wv['must_not_be']}")
+            continue
+        code = w.get("code")
+        check(bool(code), f"a warnings[] entry has no code. {wv['must_not_be']}")
+        if code and declared:
+            check(
+                code in declared,
+                f"warning code {code!r} is not a row in estimate-infra.md's closed vocabulary. "
+                f"{wv['must_not_be']}",
+            )
+    seen = {w.get("code") for w in warnings if isinstance(w, dict)}
+    for code in wv["expected_codes_present"]:
+        check(code in seen, f"expected a {code!r} warning on this estate and found none")
+
+    # ---------------- TIER 1: compliance was never asked ----------------
+    cna = exp["compliance_never_asked"]
+    got_comp = (est.get("complexity_inputs") or {}).get("compliance", "__absent__")
+    check(
+        got_comp is None,
+        f"complexity_inputs.compliance is {got_comp!r} and must be null. {cna['must_not_be_why']}",
     )
 
     # ---------------- TIER 1: forbidden content ----------------

@@ -296,6 +296,42 @@ Note how this meets the architecture choice: the design defaults to `x86_64`
 load-bearing are exactly the estates where this pricing hole bites hardest. Say
 that in the report rather than leaving the reader to work it out.
 
+### When the rate exists but describes a different configuration
+
+A distinct failure from a missing rate, and worse, because the arithmetic looks
+complete. **`rds_postgresql.instances` rates are Multi-AZ** — that section's
+`multi_az_handling` is `baked_in` and its `_note` says the rate already includes
+it. There is no single-AZ RDS table anywhere. So a **single-AZ** design priced from
+that table is roughly **2× too high**, on what is usually the largest line in the
+estate.
+
+Do not silently halve it: a halved Multi-AZ rate is a fabricated rate wearing
+arithmetic. Do not exclude the line either — it is the biggest number the customer
+needs. Price it from the table that exists, and label the direction of the error:
+
+```json
+{
+  "rate_configuration_mismatch": {
+    "designed": "single-AZ",
+    "rate_describes": "Multi-AZ (rds_postgresql.multi_az_handling is baked_in)",
+    "direction": "overstates",
+    "magnitude": "roughly 2x on this line",
+    "why_not_corrected": "No single-AZ RDS rates exist here or in the gcp-to-aws cache, and halving a Multi-AZ rate would invent one."
+  },
+  "is_ceiling": true
+}
+```
+
+**This makes the totals wrong in BOTH directions at once, and that must be said
+rather than netted off.** Excluded lines push every total down; a Multi-AZ rate on a
+single-AZ design pushes the largest line up. A total described as a simple "floor"
+while carrying a 2× overstatement on its biggest component is not honest. State
+both, and do not offset them — they do not cancel in any knowable amount.
+
+Carry the mismatch into `recommendation.conditions` too. Repricing single-AZ RDS is
+one of the highest-value corrections available to this estimate, and it is
+completely invisible from the number itself.
+
 ### The three reasons a line is excluded, and the one rule that decides
 
 A line leaves the totals for exactly one recorded reason:
@@ -638,14 +674,38 @@ classify from the largest tier down, first match wins. Inputs:
 | Monthly spend | the right-sized total |
 | Has databases | any `aws_service` in {RDS PostgreSQL, DocumentDB, ElastiCache Redis, MSK, FSx for Windows File Server} |
 | Availability | `preferences.data.availability` |
-| Compliance | `preferences.global.compliance` |
+| Compliance | **No Clarify fragment produces this row.** See below |
 | Multi-region | more than one distinct `aws_config.region` |
 | Licensing | `preferences.licensing._fired` |
 
-Two azure-specific notes. A `deferred[]` entry raises complexity even though it
-carries no cost — deferred work is still work. And a **floor** total must not
-pull the tier down: when lines were excluded, classify on the evidence that
-those services exist, not on a total that omits them.
+Three azure-specific notes. A `deferred[]` entry raises complexity even though it
+carries no cost — deferred work is still work. A **floor** total must not pull the
+tier down: when lines were excluded, classify on the evidence that those services
+exist, not on a total that omits them. And:
+
+**Compliance is not asked anywhere in this skill.** `clarify-global.md` produces
+`target_region`, `environment_scope`, `migration_window`, `cost_optimization` and
+`azure_monthly_spend` — no fragment produces a compliance row. So record
+`compliance: null` with the reason, **never `"none"`**: "none" is an answer, and
+nobody was asked. Two consequences to handle rather than absorb:
+
+- `complexity-tiers.json` lists `compliance_present: true` as one of four `large`
+  conditions under `match: "any"`, so that condition can never be evaluated on this
+  skill. Say so in `complexity_inputs`; do not report it as evaluated-and-false.
+- **Part 8's hard trigger 1 has a permanently-true first clause** ("compliance is
+  unknown"), because the question is never put. Only its second clause — signals
+  suggesting a regulated requirement — does any work. Read it as a one-clause
+  trigger until a compliance row exists, and do not treat the unknown as a signal
+  in itself.
+
+**The tier here is driven by a row count, not by money.** `service_count_gte: 9`
+fires on the literal `services[]` length, which includes `$0` networking
+primitives, while `monthly_spend_gt: 10000` can be missed by an order of magnitude.
+A $465/month estate can therefore classify `large`. That is the shared table's
+behaviour and it is followed literally — `complexity-tiers.json` says
+`metadata.total_services` and nothing distinguishes billable from free — but the
+artifact should say which condition fired, so a reader is not left inferring that
+the estate is expensive.
 
 ```json
 "complexity_tier": "small|medium|large",
@@ -729,5 +789,37 @@ how to obtain it. Never present a defer as "no answer".
 **Cost labeling.** Every dollar figure presented anywhere — chat, report, metric
 box — is labeled as an estimate ("Est." or "estimated monthly"). Never present a
 computed figure as exact.
+
+---
+
+## The Estimate warning vocabulary — CLOSED
+
+Discover and Design each declare a closed warning vocabulary, on the grounds that
+an invented code makes the report's grouping unstable. Estimate had none, which
+left every code in this phase improvised. **This vocabulary is closed on the same
+terms: add a row here first, then use it.**
+
+| Code | Fires when |
+| ---- | ---------- |
+| `pricing_unavailable` | A line's rate row does not exist and the MCP was unreachable — `exclusion_reason: no_rate` |
+| `pricing_partial` | A base rate resolved but a required component did not — `exclusion_reason: partial_rate` |
+| `quantity_unavailable` | Every rate resolved but no quantity exists to multiply — `exclusion_reason: no_quantity` |
+| `rate_configuration_mismatch` | The rate describes a different configuration than the design (single-AZ priced from a Multi-AZ table) |
+| `region_rate_mismatch` | `target_region` differs from the pricing cache's `_meta.region` |
+| `pricing_cache_stale` | The cache is past its own `staleness_days` window |
+| `baseline_not_invoiced` | The Azure baseline came from any rung other than a Cost Management export |
+| `baseline_unavailable` | No Azure baseline could be established at all |
+| `quantity_from_stated_baseline` | A line was priced from a rate file's own `monthly_baseline_est` rather than an estate quantity |
+| `component_not_sized` | A priced line's sub-component has a rate but no quantity (MSK per-broker storage) |
+| `rightsizing_delta_zero_no_metrics` | The delta is `$0` because no utilization data exists |
+| `declared_waste_found` | The IaC declares waste (an idle plan, an unattached disk) |
+| `licensing_cost_absent` | `licensing._fired` and the Windows rate is unavailable |
+| `deferred_bears_azure_cost` | A `deferred[]` entry is cost-bearing on Azure, so the baseline includes it and the AWS side does not |
+| `compliance_never_asked` | Recorded once per run: no fragment produces a compliance row |
+
+Each warning carries `code`, a human `message`, and the `service_id` it concerns
+where it concerns one. **If a situation needs a code that is not here, add the row
+in this file before emitting it** — an improvised code is indistinguishable from a
+typo to whatever groups the report.
 
 When Parts 1–8 are complete, control passes to `estimate-assemble.md`.

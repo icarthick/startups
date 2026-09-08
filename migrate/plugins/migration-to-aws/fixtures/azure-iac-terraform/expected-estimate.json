@@ -301,7 +301,7 @@
     ]
   },
   "complexity": {
-    "expected_tier": "medium",
+    "expected_tier": "large",
     "allowed_tiers": [
       "small",
       "medium",
@@ -309,7 +309,11 @@
     ],
     "inputs_required": true,
     "floor_must_not_lower_tier": true,
-    "_why": "17 services and five database-class services put this in Medium; spend under $10,000, one region and no compliance keep it out of Large. The trap is the FLOOR: classifying on a $465 total that omits five services could pull the tier down, so the tier must be derived from the evidence those services exist."
+    "must_not_be": "medium",
+    "_why": "service_count 16 >= 9, and complexity-tiers.json lists service_count_gte 9 as a LARGE condition with match 'any'. Evaluation is large -> medium -> small, first match wins.",
+    "_why_must_not_be_medium": "CORRECTED 2026-09-08 after capability run 6, which got this right where the fixture author got it wrong. The original expected value was 'medium', justified as 'service count 17 is above the Medium band' -- and ABOVE the medium band is precisely what large means. The oracle pinned a wrong answer and mutation-tested 'small' as the error while 'large', the correct answer, would also have failed. A fresh context reading the shared table beat the author reading their own reasoning.",
+    "expected_timeline_weeks": "12-18",
+    "_timeline_why": "The gate template asks for '~[N-M] weeks ([complexity_tier])'. Until this session no azure file supplied the bands, so the number could only be remembered -- capability run 6 flagged 12-18 as 'a number no file supplies'. estimate-defaults.json now carries them."
   },
   "accounting": {
     "_why": "The catch-all, and the one check that cannot be satisfied by improvising. Every designed service appears exactly once — priced or explicitly excluded. Without it, dropping a line is invisible, and dropping a line is what an implementation does when it cannot price something.",
@@ -406,5 +410,46 @@
     "_show_work_why": "Premium and Optimized are derived by stated adjustment, not by rate lookup, so the arithmetic must be visible or a reviewer cannot check it without redoing the whole estimate.",
     "ordering": "premium >= balanced >= optimized. Higher resilience costs more; a commitment discount cannot raise the bill.",
     "all_three_are_floors": "Five lines are excluded, so every scenario is a lower bound. Optimized is the most misleading of the three: a discounted floor reads as the cheapest credible number in the artifact when it is the least complete."
+  },
+  "rate_configuration_mismatch": {
+    "_why": "Capability run 6's most serious finding, and one the fixture author missed: rds_postgresql rates are Multi-AZ (multi_az_handling baked_in) and the design is single-AZ, so the largest line in the estate — 59% of the priced total — is roughly 2x too high. A missing rate is loud; a rate for the WRONG CONFIGURATION is silent, because the arithmetic looks complete.",
+    "service_id": "rds-postgresql-store",
+    "required_keys": [
+      "designed",
+      "rate_describes",
+      "direction",
+      "magnitude",
+      "why_not_corrected"
+    ],
+    "expected_direction": "overstates",
+    "expected_is_ceiling": true,
+    "must_not_be_halved": "A line priced at roughly 137.30 — the Multi-AZ rate halved. That is a fabricated single-AZ rate wearing arithmetic, and it is indistinguishable in the output from a real one.",
+    "must_not_be_excluded": "Excluding the line loses the biggest number the customer needs. The rate exists; only its configuration is wrong.",
+    "condition_must_mention": "single-AZ",
+    "_mixed_direction_why": "Excluded lines push every total DOWN and this line pushes UP, so the artifact must state both rather than describing itself as a simple floor or netting them off. They do not cancel in any knowable amount."
+  },
+  "warning_vocabulary": {
+    "_why": "Discover and Design each declare a CLOSED warning vocabulary on the grounds that an invented code makes the report's grouping unstable. Estimate had none until 2026-09-08, so every code in the phase was improvised — capability run 6 invented five and declared them in its own artifact, which is the correct behaviour under a missing rule and the wrong state for the rule to be in. The vocabulary is read from the skill file at assert time, not restated here, so the two cannot drift.",
+    "source_file_relpath": "../../skills/azure-to-aws/references/phases/estimate/estimate-infra.md",
+    "must_carry_code": true,
+    "expected_codes_present": [
+      "pricing_unavailable",
+      "pricing_partial",
+      "quantity_unavailable",
+      "rate_configuration_mismatch",
+      "region_rate_mismatch",
+      "pricing_cache_stale",
+      "licensing_cost_absent",
+      "compliance_never_asked"
+    ],
+    "must_not_be": "a warnings[] entry with no code, or a code absent from estimate-infra.md's table. An improvised code is indistinguishable from a typo to whatever groups the report."
+  },
+  "compliance_never_asked": {
+    "_why": "CORRECTED after capability run 6, which got this right where the fixture author wrote 'none'. NO Clarify fragment produces a compliance row: clarify-global.md emits target_region, environment_scope, migration_window, cost_optimization and azure_monthly_spend. 'none' is an answer; nobody was asked.",
+    "expected_compliance": null,
+    "must_not_be": "none",
+    "must_not_be_why": "Recording 'none' fabricates an answer to an unasked question, and it silently satisfies complexity-tiers.json's compliance_present condition as evaluated-and-false when it is unevaluable.",
+    "tier_condition_unevaluable": "complexity-tiers.json lists compliance_present as one of four large conditions under match 'any'. On this skill it can never fire.",
+    "hard_trigger_1_clause_permanently_true": "Part 8's hard trigger 1 opens with 'compliance is unknown', which is always true here because the question is never put. Only its second clause does any work."
   }
 }

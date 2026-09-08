@@ -29,7 +29,7 @@
       "documentdb-catalog"
     ]
   },
-  "accuracy_confidence": "floor — 5 of 16 designed services are unpriced and excluded, so every total is a lower bound; +/-5-10% on the priced lines, +/-35% on the observability line, and all rates are us-east-1 against a eu-west-1 target",
+  "accuracy_confidence": "MIXED DIRECTION, not a simple band. Five of 16 designed services are excluded, which pushes every total DOWN; and the RDS line — 59% of the priced total — is priced from a Multi-AZ-only rate table against a single-AZ design, which pushes it UP by roughly 2x. The two do not cancel in any knowable amount. Plus +/-35% on the observability heuristic and us-east-1 rates against a eu-west-1 target.",
   "current_costs": {
     "azure_monthly": 4200,
     "currency": "USD",
@@ -165,7 +165,16 @@
           "instance": 259.88,
           "storage": 14.72
         },
-        "multi_az_handling": "baked_in — the rate already includes Multi-AZ and was NOT doubled. The design is single-AZ anyway, so this line is if anything conservative; see the availability_downgrade_from_source finding on the design."
+        "multi_az_handling": "baked_in — the rate already includes Multi-AZ and was NOT doubled.",
+        "rate_configuration_mismatch": {
+          "designed": "single-AZ (preferences.data.availability)",
+          "rate_describes": "Multi-AZ — rds_postgresql.multi_az_handling is baked_in and its _note says the rate already includes it",
+          "direction": "overstates",
+          "magnitude": "roughly 2x on this line, which is 59% of the priced total",
+          "why_not_corrected": "No single-AZ RDS rates exist in aws-infra-pricing.json or the gcp-to-aws cache, and halving a Multi-AZ rate would invent one. Priced from the table that exists, with the direction labelled."
+        },
+        "is_ceiling": true,
+        "_superseded_framing": "An earlier draft of this golden called the line 'if anything conservative'. That was the wrong framing: overstating the largest line makes AWS look MORE expensive, which can invert a migrate/stay recommendation just as surely as understating it. Capability run 6 named this as its most serious finding."
       },
       "observability-cloudwatch": {
         "aws_service": "CloudWatch",
@@ -262,7 +271,7 @@
       "percent_change": "-88.9%"
     },
     "sign_convention": "difference = AWS minus Azure, so NEGATIVE means AWS is cheaper. Never print a bare signed value: this one reads 'AWS is $3,734.91/mo cheaper than the stated Azure figure' — and that sentence must not be used without the floor and baseline caveats below.",
-    "credibility_caveat": "An 89% reduction is not a credible finding and must not be presented as one. The AWS side is a FLOOR excluding five services including both Windows compute lines; the Azure side is a figure the customer stated, which may cover more than this estate. The two numbers are not measuring the same thing yet.",
+    "credibility_caveat": "An 89% reduction is not a credible finding and must not be presented as one. The errors run in BOTH directions: the AWS side excludes five services including both Windows compute lines (understating), while its largest single line is priced from a Multi-AZ rate table against a single-AZ design (overstating by roughly 2x). The Azure side is a figure the customer stated, which may cover more than this estate. Do not net these off — state them.",
     "rightsizing_delta": {
       "monthly": 0.0,
       "annual": 0.0,
@@ -474,7 +483,7 @@
     "declared_waste_not_listed": "The idle P1v3 Windows plan is NOT listed as an optimization opportunity. It is recorded once, under cost_comparison.rightsizing_delta.declared_waste_found. Listing it here as well would present the same saving twice.",
     "state": "opportunities_found — per the vendored three-state model, this design does contain RI/SP-eligible services, so the section renders opportunities rather than one of the two empty states."
   },
-  "complexity_tier": "medium",
+  "complexity_tier": "large",
   "complexity_inputs": {
     "service_count": 17,
     "cluster_count": 5,
@@ -483,11 +492,14 @@
     "has_databases": true,
     "has_stateful_storage": true,
     "availability": "single-az",
-    "compliance": "none",
+    "compliance": null,
     "multi_region": false,
     "licensing_fired": true,
     "deferred_count": 1,
-    "_why_medium": "Service count 17 is above the Medium band and has_databases is true (RDS, DocumentDB, ElastiCache, MSK, FSx). Not Large: spend is under $10,000, there is one region, and compliance is none. The floor total did NOT pull the tier down — the tier was classified on the evidence that the excluded services exist, not on a total that omits them."
+    "_why_large": "service_count 16 is >= 9, and complexity-tiers.json makes service_count_gte 9 a LARGE condition with match: 'any'. Evaluation runs large -> medium -> small and the first match wins, so nothing below it is consulted. Spend under $10,000, one region and compliance 'none' are all TRUE and all irrelevant: they would only matter if no large condition had fired. The floor total did NOT pull the tier down -- the tier never depended on spend here.",
+    "timeline_weeks": "12-18",
+    "_compliance_note": "null, not 'none'. NO Clarify fragment produces a compliance row -- clarify-global.md emits target_region, environment_scope, migration_window, cost_optimization and azure_monthly_spend. 'none' would be an answer and nobody was asked. Consequence: complexity-tiers.json's compliance_present condition can never be evaluated on this skill, and Part 8's hard trigger 1 has a permanently-true first clause. Capability run 6 got this right where the fixture author wrote 'none'.",
+    "_tier_driven_by": "service_count_gte 9 -- the ONLY large condition that fired. Note it is a ROW COUNT: 5 of the 16 services are $0 networking primitives, and monthly_spend_gt 10000 is missed by a factor of ~21. A $465/mo estate classifying 'large' is the shared table's literal behaviour, not a miscalculation, but the artifact must say which condition fired so a reader does not infer the estate is expensive."
   },
   "financial_summary": {
     "azure_monthly": 4200,
@@ -514,6 +526,7 @@
     ],
     "conditions": [
       "Price fsx-for-windows-file-server-reports and documentdb-catalog before treating either total as decision-grade — today both are floors",
+      "Reprice rds-postgresql-store for single-AZ — the only RDS rate table available is Multi-AZ (baked_in), so this line, 59% of the priced total, is roughly 2x too high. Highest-value single correction available to this estimate, and invisible from the number.",
       "Confirm the Windows licensing basis: License Included covers 6 vCPU across two workloads and is the line most likely to move the total",
       "Reprice in eu-west-1 — these are us-east-1 rates, and eu-west-1 runs roughly 5-12% higher on compute and RDS",
       "Refresh the pricing cache: it is past its own 30-day staleness window (last updated 2026-07-19)",
@@ -542,6 +555,7 @@
       ]
     },
     "would_flip_if": [
+      "Repricing the RDS line for single-AZ roughly halves 59% of the priced total, which moves the AWS figure down by around $130/mo — in the OPPOSITE direction to pricing the five excluded services, so the two corrections partly offset and the net direction is genuinely unknown until both are done.",
       "Pricing the five excluded services pushes the AWS total materially higher — the two Windows lines alone are a $210/mo floor whose licence component is unpriced, so the true total is meaningfully above $465",
       "The stated $4,200 turns out to include other subscriptions, which would shrink or erase the apparent saving",
       "The availability answer changes to multi-az, roughly doubling the $274.60 database line"
@@ -553,14 +567,84 @@
     ]
   },
   "warnings": [
-    "Pricing unavailable for fsx-for-windows-file-server-reports (FSx for Windows File Server) — not in the pricing cache and the pricing API was unreachable. This line is excluded from the totals, so both totals are floors.",
-    "Pricing unavailable for documentdb-catalog (DocumentDB) — not in the pricing cache and the pricing API was unreachable. This line is excluded from the totals, so both totals are floors.",
-    "elastic-beanstalk-legacy and ec2-reporting are priced at Linux rates and excluded from the totals: both are Windows workloads and no Windows rate or per-vCPU licence adder exists in the pricing cache. Their combined $210.88 floor is missing its entire licence component.",
-    "lambda-func has rates but no invocation volume — Terraform declares none and the source Y1 consumption plan provisions no capacity. Excluded from the totals rather than given an invented request count.",
-    "Rates are us-east-1; the design targets eu-west-1. Compute and RDS run roughly 5-12% higher there. The awspricing MCP takes a per-call region and was unreachable.",
-    "The pricing cache is past its own staleness window (_meta.last_updated 2026-07-19, staleness_days 30), so pricing_source.status is cached_stale.",
-    "MSK per-broker storage is not sized by the design, so the MSK line covers brokers only.",
-    "The Azure baseline is a figure the customer stated, not an invoice. The 89% apparent reduction is not a credible finding while five services are unpriced on the AWS side.",
-    "preferences.json counts 1 Windows workload / 4 vCPU because clarify-licensing.md's firing rule reads only Microsoft.Compute/virtualMachines. The Windows App Service Plan also carries Windows licensing on the target, so the estimate uses 2 workloads / 6 vCPU."
-  ]
+    {
+      "code": "pricing_unavailable",
+      "service_id": "fsx-for-windows-file-server-reports",
+      "message": "Pricing unavailable for fsx-for-windows-file-server-reports (FSx for Windows File Server) — not in the pricing cache and the pricing API was unreachable. Excluded from the totals, so both totals are floors."
+    },
+    {
+      "code": "pricing_unavailable",
+      "service_id": "documentdb-catalog",
+      "message": "Pricing unavailable for documentdb-catalog (DocumentDB) — not in the pricing cache and the pricing API was unreachable. Excluded from the totals, so both totals are floors."
+    },
+    {
+      "code": "pricing_partial",
+      "service_id": "ec2-reporting",
+      "message": "Priced at the Linux rate: Windows Server 2022 with License Included, and no Windows rate or per-vCPU licence adder exists. $140.16 is a floor missing its entire licence component."
+    },
+    {
+      "code": "pricing_partial",
+      "service_id": "elastic-beanstalk-legacy",
+      "message": "Priced at the Linux rate: platform_family is Windows Server (IIS). $70.72 is a floor missing its licence component. Note this line carries NO license_model field — the Windows obligation follows from the platform, not from a field."
+    },
+    {
+      "code": "quantity_unavailable",
+      "service_id": "lambda-func",
+      "message": "Lambda rates exist but no invocation volume does: Terraform declares none and the source Y1 consumption plan provisions no capacity. Excluded rather than given an invented request count."
+    },
+    {
+      "code": "rate_configuration_mismatch",
+      "service_id": "rds-postgresql-store",
+      "message": "Priced from a Multi-AZ rate table (rds_postgresql.multi_az_handling is baked_in) against a single-AZ design, so this line — 59% of the priced total — is roughly 2x too HIGH. No single-AZ RDS rates exist to correct it with, and halving the Multi-AZ rate would invent one. This is the one error in the artifact that runs opposite to the exclusions."
+    },
+    {
+      "code": "region_rate_mismatch",
+      "message": "Rates are us-east-1; the design targets eu-west-1, where compute and RDS run roughly 5-12% higher. The MCP takes a per-call region and was unreachable."
+    },
+    {
+      "code": "pricing_cache_stale",
+      "message": "The cache is past its own staleness window (_meta.last_updated 2026-07-19, staleness_days 30), so pricing_source.status is cached_stale. Staleness wins over cached_fallback: it describes the DATA rather than the attempt."
+    },
+    {
+      "code": "baseline_not_invoiced",
+      "message": "The Azure baseline is a figure the customer stated, not an invoice. The 89% apparent reduction is not a credible finding while five services are unpriced and the largest priced line is ~2x too high."
+    },
+    {
+      "code": "quantity_from_stated_baseline",
+      "service_id": "s3-assets",
+      "message": "Priced from fast_path_services.s3.monthly_baseline_est; Terraform declares no blob volume."
+    },
+    {
+      "code": "quantity_from_stated_baseline",
+      "service_id": "secrets-manager-main",
+      "message": "Priced from fast_path_services.secrets_manager.monthly_baseline_est; one Key Vault and zero secret child resources, so the count is not discoverable."
+    },
+    {
+      "code": "component_not_sized",
+      "service_id": "msk-telemetry",
+      "message": "Per-broker storage is not sized by the design, so the MSK line covers brokers only. Brokers are the primary driver and are quantified, so the line is priced rather than excluded."
+    },
+    {
+      "code": "rightsizing_delta_zero_no_metrics",
+      "message": "The right-sizing delta is $0 because no utilization data was discovered, so the sizing tables mapped every source SKU like-for-like. Not an uncomputed delta."
+    },
+    {
+      "code": "declared_waste_found",
+      "service_id": "elastic-beanstalk-legacy",
+      "message": "The source P1v3 Windows App Service Plan has ZERO apps and the design carries idle: true. Real waste; removing it is a Design decision, and its line is excluded as partial_rate so it cannot move either total."
+    },
+    {
+      "code": "licensing_cost_absent",
+      "message": "licensing._fired is true and no Windows rate exists, so 6 vCPU of Windows compute across two workloads has no licence cost in either total. The line most likely to move the result."
+    },
+    {
+      "code": "deferred_bears_azure_cost",
+      "message": "The deferred Microsoft.Devices/IotHubs is an S1 with capacity 1, so it is cost-bearing on Azure today. The stated Azure baseline includes it and the AWS side has no line for it at all."
+    },
+    {
+      "code": "compliance_never_asked",
+      "message": "No Clarify fragment produces a compliance row, so complexity_inputs.compliance is null rather than 'none', complexity-tiers.json's compliance_present condition is unevaluable, and Part 8 hard trigger 1's first clause is permanently true."
+    }
+  ],
+  "_warning_vocabulary": "Closed, per estimate-infra.md. Every code above is a row in that file's table. Estimate had no vocabulary until 2026-09-08 while Discover and Design both declared theirs closed; capability run 6 invented five codes and said so."
 }
