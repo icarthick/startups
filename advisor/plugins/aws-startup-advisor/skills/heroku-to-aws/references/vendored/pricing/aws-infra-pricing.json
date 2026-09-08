@@ -1,5 +1,6 @@
 {
-  "_comment": "Shared AWS infrastructure pricing rates (us-east-1, USD) for the estimate phase. Rates evolve on AWS's cadence, independent of the cost algorithm, so they live here as DATA and the estimate procedure does a lookup, not a guess. Each service carries its rates + a multi_az_handling key; the cost FORMULAS live in the estimate phase's prose (the algorithm is not data). Currently consumed by the heroku-to-aws skill; intended to be shared with gcp-to-aws. AI-model / Lambda / DynamoDB / Redshift / Athena / SageMaker rates are NOT here (gcp-specific; they remain in the gcp-to-aws pricing cache).",
+  "_comment": "Shared AWS infrastructure pricing rates (us-east-1, USD) for the estimate phase. Rates evolve on AWS's cadence, independent of the cost algorithm, so they live here as DATA and the estimate procedure does a lookup, not a guess. Each service carries its rates + a multi_az_handling key; the cost FORMULAS live in the estimate phase's prose (the algorithm is not data). Consumed by the heroku-to-aws and azure-to-aws skills; intended to be shared with gcp-to-aws, which still has its own markdown cache. AI-model / DynamoDB / Redshift / Athena / SageMaker rates are NOT here (they remain in the gcp-to-aws pricing cache). Lambda WAS on that exclusion list and no longer is — azure-to-aws maps consumption-plan Function Apps to Lambda, so the rates were harvested here from gcp's cache.",
+  "_region_warning": "EVERY rate in this file is _meta.region (us-east-1) and there is no multiplier. A design targeting another region is being priced with us-east-1 numbers: eu-west-1 and eu-central-1 run roughly 5-12% higher for compute and RDS, and some services differ more. This file cannot fix that on its own — the consuming estimate MUST compare the design's target region against _meta.region and, when they differ, either reprice via the awspricing MCP (which takes a region parameter; note .mcp.json pins AWS_REGION=us-east-1 as the SERVER default, so the region must be passed per call) or state the mismatch next to every total and widen the accuracy band. Silently presenting us-east-1 figures as a eu-west-1 estimate is the failure this key exists to prevent.",
   "_meta": {
     "last_updated": "2026-07-19",
     "region": "us-east-1",
@@ -200,8 +201,34 @@
       "m6g.8xlarge": 1.2288,
       "m6g.16xlarge": 2.4576,
       "r6g.xlarge": 0.2016,
-      "r6g.4xlarge": 0.8064
+      "r6g.4xlarge": 0.8064,
+      "m6i.large": 0.096,
+      "m6i.xlarge": 0.192
     },
-    "_instances_note": "x86 rates match dyno-eb-sizing ec2_instance_type; Graviton rates ~20% below x86 counterparts for workshop arm64 path \u2014 verify via MCP for large estimates."
+    "_instances_note": "x86 rates match dyno-eb-sizing ec2_instance_type; Graviton rates ~20% below x86 counterparts for workshop arm64 path \u2014 verify via MCP for large estimates.",
+    "_m6i_note": "m6i.large and m6i.xlarge are NOT new rates: this file already carried them as eks.node_rates_monthly (70.08 and 140.16), which are these hourly figures x 730. They are restated here because the EB/EC2 formula looks up ec2.instances[instance_type] and a design emitting a current-generation type would otherwise find no row \u2014 see _rate_row_coverage. No other m6i size is listed; query the awspricing MCP for one.",
+    "_windows_note": "THESE RATES ARE LINUX. An instance whose design carries license_model 'License Included' (Windows Server, SQL Server) costs materially MORE than the row above \u2014 roughly 2x for a general-purpose size \u2014 and no Windows rate or per-vCPU license adder is in this file. Pricing a Windows instance from a Linux row understates it, in the direction that flatters AWS and can invert a migrate/stay recommendation. Look the Windows rate up via the awspricing MCP (AmazonEC2, operatingSystem=Windows, preInstalledSw=NA); when the MCP is unreachable, label the line per the estimate phase's partial-line rule rather than silently using the Linux number."
+  },
+  "lambda": {
+    "_comment": "AWS Lambda rates (us-east-1). HARVESTED VERBATIM from gcp-to-aws references/shared/pricing-cache.md (Last updated 2026-08-24), which is where these lived when this file's _comment still called Lambda 'gcp-specific'. Azure Function Apps on a consumption plan map to Lambda, so the exclusion no longer holds.",
+    "per_request": 0.0000002,
+    "per_gb_second_x86_first_6b": 0.0000166667,
+    "per_gb_second_x86_over_6b": 0.000015,
+    "per_gb_second_arm64_first_6b": 0.0000133334,
+    "per_gb_second_arm64_over_6b": 0.000012,
+    "free_tier": "1M requests + 400K GB-seconds per month",
+    "multi_az_handling": "intrinsic",
+    "_no_invocation_data_note": "Lambda cost is invocation-driven, and IaC declares no invocation count. With no measured request volume there is no figure to compute: emit null with a stated reason rather than a remembered default. A source consumption plan provisions no worker capacity, so there is no source-side number to carry across either."
+  },
+  "_rate_row_coverage": {
+    "_comment": "THE GAP CLASS this file kept hitting: a service can be present here while the specific RATE ROW a design needs is absent. 'ec2' is in the file; a design emitting m6i.2xlarge finds no row. The shared pricing-mode.md hierarchy keyed its first rung on SERVICE presence, so that case fell through labeled 'cached' with no number behind it. Rung 1b in pricing-mode.md now covers it.",
+    "_who_owes_what": "A skill's sizing tables and this file are a PAIR: every instance_type/instance_class/node_type a sizing table can emit needs a row here, or the estimate has a hole. The pair is not enforced by any tool today. heroku never diverged because its sizing table and these rates were co-authored; a skill whose sizing tables were written from source-cloud SKUs will diverge on day one.",
+    "_do_not_paper_over": "Do NOT substitute a neighbouring row for a missing one (an m5 rate for an m6i design, an rds_postgresql row for a DocumentDB class). A near-miss rate is indistinguishable from a correct one in the output and is never caught. Query the MCP, or mark the line unpriced."
+  },
+  "_absent_services": {
+    "_comment": "Services a consuming skill's design can emit that have NO rates here or in the gcp-to-aws pricing cache. Listed so the hole is visible in the data rather than discovered mid-estimate. Each needs an awspricing MCP lookup; until then the estimate marks the line unavailable and excludes it from totals. NEVER fabricate a rate for one of these.",
+    "documentdb": "Azure Cosmos DB (Mongo API) maps to DocumentDB. No documentdb section exists. db.t3.medium is a DOCUMENTDB instance class here \u2014 do not read it from rds_postgresql.instances: different service, and those rates are baked-in Multi-AZ. MCP: AmazonDocDB.",
+    "fsx_windows": "Azure Files (SMB) maps to FSx for Windows File Server. No fsx section exists. Needs per-GiB-month SSD/HDD, single-AZ vs multi-AZ, and throughput capacity. MCP: AmazonFSx.",
+    "ec2_windows_license": "See ec2._windows_note. MCP: AmazonEC2 with operatingSystem=Windows."
   }
 }

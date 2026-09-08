@@ -21,6 +21,48 @@ Read `references/vendored/pricing/aws-infra-pricing.json`. Check
 Each service object carries its rates and (where relevant) a
 `multi_az_handling` key. Look rates up from the file — never hardcode them.
 
+## Step 0a-i: Check the target REGION against the cache's region
+
+Read `_meta.region` and compare it with the design's target region. When they
+differ, every rate in the file belongs to a different region than the one being
+designed — commonly 5–12% low for European regions on compute and RDS.
+
+- **MCP reachable:** reprice via MCP, **passing the target region on every
+  `get_pricing` call**. A server-level `AWS_REGION` in `.mcp.json` is only that
+  server's default; it does not follow the design.
+- **MCP unreachable:** proceed with the cached rates, but state the mismatch
+  next to every total ("rates are `<cache region>`; the target is `<target>`")
+  and widen the stated accuracy band accordingly.
+
+Never present one region's rates as another region's without saying so.
+
+## Step 0a-ii: Check the RATE ROW, not just the service
+
+A service can be present in the file while the specific rate row a design needs
+is absent: `ec2` is there, `ec2.instances["m6i.2xlarge"]` may not be. **Service
+presence is not rate availability**, and the hierarchy below keys on the row, not
+the section.
+
+Before pricing anything, resolve every concrete rate key the design requires —
+each `instance_type`, `instance_class`, `node_type`, `broker_instance_type` — and
+collect those with no row. A missing row then routes exactly like a missing
+service: rung 2 (MCP), then rung 5.
+
+**Never substitute a neighbouring row for a missing one** — an `m5` rate for an
+`m6i` design, an `rds_postgresql` class for a DocumentDB one, a Linux rate for a
+Windows-licensed instance. A near-miss rate is indistinguishable from a correct
+one in the output, so the error is silent and permanent. This is the gap a
+skill's sizing tables open when they are authored separately from these rates,
+which is the normal case for a skill whose sizes come from source-cloud SKUs.
+
+**A line whose rate is only PARTLY available is `"partial"`**, not `"cached"`:
+its base rate resolved but a required component did not (the commonest case is
+an instance priced Linux when the design says `license_model: "License
+Included"`). Report the figure as a **floor**, name the missing component, and
+exclude the line from any total presented as decision-grade. Rounding a partial
+line up to `"cached"` hides a known understatement; rounding it down to
+`"unavailable"` throws away a real number.
+
 ## Step 0b: MCP availability check (only if cache stale or service not listed)
 
 Attempt the awspricing MCP with **up to 2 retries** (3 total attempts,
@@ -42,23 +84,38 @@ Before any calculation, surface the status:
 - Cache stale + MCP unavailable: "Pricing source: stale cache only (updated
   [date]). The awspricing MCP server is unreachable. Proceeding with cached
   pricing; accuracy ±5-10% for infrastructure."
-- Service not in cache + MCP unavailable: "Some services not in pricing cache
-  and MCP unreachable. Those services will show `pricing_source: unavailable`
-  in the estimate."
+- Service or rate row not in cache + MCP unavailable: "Some services not in
+  pricing cache and MCP unreachable. Those services will show
+  `pricing_source: unavailable` in the estimate."
+- Target region differs from `_meta.region` + MCP unavailable: "Rates are
+  [cache region]; your target is [target region]. Proceeding with [cache
+  region] rates — treat the totals as indicative, not regional."
 
-## Pricing hierarchy (per-service lookup order)
+## Pricing hierarchy (per-RATE-ROW lookup order)
 
-| Priority | Source                                               | Condition                                                                                      | `pricing_source` value |
-| -------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------- |
-| 1        | `references/vendored/pricing/aws-infra-pricing.json` | Service found in the pricing file                                                              | `"cached"`             |
-| 2        | MCP API (`get_pricing`)                              | Service NOT in the file, MCP available                                                         | `"live"`               |
-| 3        | Pricing file after MCP failure                       | MCP attempted but failed, service IS in file                                                   | `"cached_fallback"`    |
-| 4        | Formula constants / well-known published rate        | NOT in file, MCP failed, but the cost engine's own formulas carry the rate (state it verbatim) | `"estimated"`          |
-| 5        | Unavailable                                          | NOT in file, MCP failed, no formula constant either                                            | `"unavailable"`        |
+"Found in the pricing file" below means **the concrete rate row resolved**, per
+Step 0a-ii — not merely that the service's section exists.
+
+| Priority | Source                                               | Condition                                                                                       | `pricing_source` value |
+| -------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------- |
+| 1        | `references/vendored/pricing/aws-infra-pricing.json` | Rate row found in the pricing file                                                              | `"cached"`             |
+| 1b       | Same, base rate only                                 | Base row found but a required component is not priced (e.g. a Windows licence adder)            | `"partial"`            |
+| 2        | MCP API (`get_pricing`)                              | Rate row NOT in the file, MCP available                                                         | `"live"`               |
+| 3        | Pricing file after MCP failure                       | MCP attempted but failed, rate row IS in file                                                   | `"cached_fallback"`    |
+| 4        | Formula constants / well-known published rate        | NOT in file, MCP failed, but the cost engine's own formulas carry the rate (state it verbatim)  | `"estimated"`          |
+| 5        | Unavailable                                          | NOT in file, MCP failed, no formula constant either                                             | `"unavailable"`        |
 
 Row 4 is the documented home of the `services_by_source.estimated` bucket the
 shared schema and assemblers carry: a service priced from a rate the cost
 engine itself states (never a guessed or remembered number) is `"estimated"`,
-always accompanied by a warning naming the rate and its source. Only a service
-with no cache entry, no MCP, AND no stated formula rate is `"unavailable"` and
-excluded from totals.
+always accompanied by a warning naming the rate and its source. **A rate the
+model recalls rather than reads is not a formula constant** — it is rung 5.
+
+Only a line with no cache row, no MCP, AND no stated formula rate is
+`"unavailable"` and excluded from totals.
+
+Row 1b lines are excluded from any total presented as decision-grade and
+reported as a floor with the missing component named, per Step 0a-ii. Track them
+in `pricing_source.services_by_source.partial[]` — the shared
+`estimation-infra.schema.json` does not constrain that object's keys, so this
+needs no schema change.
