@@ -1,83 +1,51 @@
 {
   "phase": "design",
-  "timestamp": "2026-09-07T00:40:00Z",
+  "timestamp": "2026-09-08T02:20:00Z",
   "source_inventory": "azure-resource-inventory.json",
   "target_region": "eu-west-1",
   "clusters": [
     {
-      "cluster_id": "rg-data-tf-catalog",
-      "tier": "data",
-      "pattern_id": "unclassified",
-      "pattern_status": "catalog_absent",
-      "target_architecture": null,
-      "rationale": "A single Cosmos DB account with the Mongo API and no edges to anything else in the estate. It was carved out of the rg-data seed because nothing in that group connects to it, and it is primary-eligible in its own right (rank 6). No pattern recognition was attempted: references/design-refs/patterns.md is not on disk, so this cluster's architectural shape is unclassified rather than described.",
-      "constraints_imposed": []
-    },
-    {
       "cluster_id": "rg-app-tf-web",
-      "tier": "compute",
       "pattern_id": "unclassified",
       "pattern_status": "catalog_absent",
       "target_architecture": null,
-      "rationale": "The customer-facing web workload. One S1 App Service Plan with two workers carries five web apps (storefront, admin, checkout, docs, webhooks); the storefront app addresses the PostgreSQL flexible server and the Redis cache by app-setting interpolation, which is why rg-app and rg-data merged into one workload despite the horizontal resource-group layout. The VNet, its two subnets, the route table, the bastion host, the Key Vault, the Log Analytics workspace and the Application Insights component attached to this cluster as supporting fragments with no primary-eligible resource of their own. No pattern recognition was attempted: patterns.md is not on disk.",
+      "rationale": "One workload spanning rg-app and rg-data. The S1 App Service Plan and its five web apps are one compute unit (hosted_on edges); the storefront app addresses the Postgres Flexible Server and the Redis cache through app settings (data_ref edges), which is what merged the two resource groups, and a private endpoint fronts the same Postgres server. The VNet, its two subnets, the route table, the Bastion host, the Key Vault, the Log Analytics workspace and the Application Insights component attached to this component because they carry no primary-eligible resource of their own. Target shape: one Elastic Beanstalk environment on the plan's capacity, one RDS PostgreSQL instance, one ElastiCache Redis cluster, one MSK cluster, in one VPC with the source address space preserved. No target_architecture string is asserted because design-refs/patterns.md is not on disk, so no pattern recognition was attempted.",
       "constraints_imposed": []
     },
     {
       "cluster_id": "rg-app-tf-func",
-      "tier": "compute",
       "pattern_id": "unclassified",
       "pattern_status": "catalog_absent",
       "target_architecture": null,
-      "rationale": "An event-driven image-resize workload: a Y1 consumption plan hosting one function app, which addresses the assets storage account, whose SMB file share is a containment child. It split out of the rg-app seed because nothing connects it to the web workload. No pattern recognition was attempted: patterns.md is not on disk.",
+      "rationale": "A second compute unit inside rg-app that has no relationship to the web workload: the Y1 consumption plan, the one function app hosted on it, the storage account that function addresses, and the SMB file share contained in that account. It became a separate cluster because rg-app's internal edge graph has two components each containing a primary-eligible App Service Plan. Target shape: Lambda for the functions, S3 for the blob surface, FSx for Windows File Server for the SMB share. No pattern recognition was attempted (patterns.md absent).",
+      "constraints_imposed": []
+    },
+    {
+      "cluster_id": "rg-data-tf-catalog",
+      "pattern_id": "unclassified",
+      "pattern_status": "catalog_absent",
+      "target_architecture": null,
+      "rationale": "The Cosmos DB account is a workload of its own: nothing in the estate references it, so no edge attaches it to the storefront or to the function app. It is primary-eligible (rank 6), which is why it was promoted rather than folded into rg-data's Postgres component. Target shape: one Amazon DocumentDB cluster, because the account's API is Mongo. No pattern recognition was attempted (patterns.md absent).",
       "constraints_imposed": []
     },
     {
       "cluster_id": "rg-shared-tf-reporting",
-      "tier": "compute",
       "pattern_id": "unclassified",
       "pattern_status": "catalog_absent",
       "target_architecture": null,
-      "rationale": "A standalone Windows reporting VM and its NIC. The IoT Hub and the rg-shared resource group attached here as fragments with no primary-eligible resource of their own; the IoT Hub has zero edges and is genuinely unrelated to the VM, so its presence in this cluster is an artefact of the clustering algorithm's fragment-attachment rule, not evidence of a relationship. No pattern recognition was attempted: patterns.md is not on disk.",
+      "rationale": "The Windows reporting VM and its NIC, with the IoT Hub and the rg-shared resource group attached as edgeless fragments. It is separate from the idle plan in the same resource group because there is no edge between them - the split is justified by the absence of a relationship. Target shape: one EC2 instance with a gp3 root volume, its ENI created by the instance; the IoT Hub is deferred. No pattern recognition was attempted (patterns.md absent).",
       "constraints_imposed": []
     },
     {
       "cluster_id": "rg-shared-tf-legacy",
-      "tier": "compute",
       "pattern_id": "unclassified",
       "pattern_status": "catalog_absent",
       "target_architecture": null,
-      "rationale": "A P1v3 Windows App Service Plan with zero apps on it. It split out of the rg-shared seed because it has no edge to the reporting VM. This is idle capacity: money being spent with no workload behind it, and the single clearest cost-optimization finding in the estate.",
+      "rationale": "A single Windows P1v3 App Service Plan with zero apps on it. It is its own cluster because it is primary-eligible and shares no edge with the reporting VM. This is idle capacity - it is money being spent with no workload behind it - and it is raised as a cost-optimization finding rather than presented as a workload. No pattern recognition was attempted (patterns.md absent).",
       "constraints_imposed": []
     }
   ],
   "services": [
-    {
-      "service_id": "docdb-catalog",
-      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.DocumentDB/databaseAccounts/tf:catalog",
-      "azure_type": "Microsoft.DocumentDB/databaseAccounts",
-      "aws_service": "DocumentDB",
-      "aws_config": {
-        "engine": "docdb",
-        "instance_class": "db.t3.medium",
-        "instance_count": 1,
-        "source_api": "MongoDB (config.kind == \"MongoDB\", config.capabilities contains \"EnableMongo\")",
-        "source_consistency_level": "Session",
-        "finding_consistency": "Cosmos's Session consistency has no DocumentDB equivalent. DocumentDB offers primary-read (strong-ish) and secondary-read (eventual) preferences; if the application depends on read-your-writes it must read from the primary. This is a feature-parity finding, not a sizing difference.",
-        "sizing_note": "No knowledge/design table covers DocumentDB instance sizing. cosmos-dynamodb-conversion.json exists but applies only to the Core (SQL) API path, which this account is not. The instance class below came from model knowledge, not from a lookup."
-      },
-      "confidence": "deterministic",
-      "fast_path_row": "Microsoft.DocumentDB/databaseAccounts",
-      "routing_provenance": "table",
-      "sizing_provenance": "model_prior",
-      "sizing_source": {
-        "kind": "MongoDB",
-        "capabilities": [
-          "EnableMongo"
-        ],
-        "throughput": "not declared in the source"
-      },
-      "rationale": "DocumentDB, because the account speaks the MongoDB wire protocol and that protocol determines the only drop-in target \u2014 a standard pairing that holds regardless of the surrounding architecture. The instance size is NOT sourced from a table: no DocumentDB sizing table exists in this skill, and the source declares no provisioned throughput to size from."
-    },
     {
       "service_id": "vpc-core",
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/virtualNetworks/tf:core",
@@ -90,67 +58,67 @@
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.Network/virtualNetworks",
       "routing_provenance": "table",
-      "rationale": "VPC, preserving your existing 10.20.0.0/16 address space so no application re-addressing is needed. A virtual network is a VPC regardless of what runs inside it."
+      "rationale": "A VNet is a VPC regardless of what runs in it, so this is a table lookup rather than a design decision. The source address space 10.20.0.0/16 is preserved so existing private addressing and any peering plans still hold."
     },
     {
-      "service_id": "subnet-apps",
+      "service_id": "vpc-subnet-apps",
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/virtualNetworks/tf:core/subnets/snet-apps",
       "azure_type": "Microsoft.Network/virtualNetworks/subnets",
       "aws_service": "VPC subnet",
       "aws_config": {
         "cidr_block": "10.20.1.0/24",
         "vpc": "vpc-core",
-        "placement_note": "Carries the web workload and the reporting VM's ENI. No delegation or service endpoint is declared on the source, so no VPC endpoint or route-table note follows from it."
+        "route_table": "vpc-route-table-egress"
       },
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.Network/virtualNetworks/subnets",
       "routing_provenance": "table",
-      "rationale": "VPC subnet, keeping the 10.20.1.0/24 prefix. Subnet layout carries across unchanged."
+      "rationale": "A subnet is a subnet. The source declares no delegation and no service endpoints, so nothing here becomes a placement constraint or a VPC endpoint. The route-table association carried over from the Terraform association resource becomes this subnet's route-table attachment."
     },
     {
-      "service_id": "subnet-data",
+      "service_id": "vpc-subnet-data",
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/virtualNetworks/tf:core/subnets/snet-data",
       "azure_type": "Microsoft.Network/virtualNetworks/subnets",
       "aws_service": "VPC subnet",
       "aws_config": {
         "cidr_block": "10.20.2.0/24",
-        "vpc": "vpc-core",
-        "placement_note": "The private endpoint fronting PostgreSQL sits here today; on AWS the RDS instance's subnet group is the equivalent placement."
+        "vpc": "vpc-core"
       },
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.Network/virtualNetworks/subnets",
       "routing_provenance": "table",
-      "rationale": "VPC subnet, keeping the 10.20.2.0/24 prefix."
+      "rationale": "A subnet is a subnet. This is where the Postgres private endpoint sits today, so it is the natural home for the RDS instance's subnet group on the target."
     },
     {
-      "service_id": "route-table-egress",
+      "service_id": "vpc-route-table-egress",
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/routeTables/rt-egress",
       "azure_type": "Microsoft.Network/routeTables",
       "aws_service": "VPC route table",
       "aws_config": {
+        "vpc": "vpc-core",
         "associated_subnets": [
-          "subnet-apps"
+          "vpc-subnet-apps"
         ],
-        "routes": "The source declares no azurerm_route resources, so there are no route entries to carry across; the table exists and is associated with snet-apps."
+        "routes": []
       },
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.Network/routeTables",
       "routing_provenance": "table",
-      "rationale": "VPC route table. A route table is a route table regardless of what it serves. This resource came from the downloaded Azure/naming registry module under .terraform/modules/."
+      "rationale": "A route table is a route table regardless of what it serves. The source declares no azurerm_route resources, so there are no route entries to carry across - only the association to snet-apps."
     },
     {
-      "service_id": "session-manager-jump",
+      "service_id": "systems-manager-session-manager-jump",
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/bastionHosts/bas-jump",
       "azure_type": "Microsoft.Network/bastionHosts",
       "aws_service": "Systems Manager Session Manager",
       "aws_config": {
         "emits_no_instance": true,
-        "note": "No EC2 instance is created for this. Session Manager needs no bastion host and no inbound port; the reporting VM gets the SSM Agent and an instance profile instead."
+        "source_sku": "Basic"
       },
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.Network/bastionHosts",
       "routing_provenance": "table",
-      "rationale": "Systems Manager Session Manager. Azure Bastion exists to give browser-based RDP/SSH without public IPs, and Session Manager is the direct analogue \u2014 it needs no host and is free, so the Basic-SKU bastion charge disappears entirely."
+      "rationale": "Azure Bastion exists to give browser-based RDP/SSH without public IPs. Session Manager is the direct analogue, needs no host of its own, and is free - so this replaces a paid Basic Bastion with no AWS compute line item at all."
     },
     {
       "service_id": "secrets-manager-main",
@@ -160,13 +128,15 @@
       "aws_config": {
         "source_sku": "standard",
         "kms_added": false,
-        "kms_rationale": "The vault SKU is standard (not premium, which would imply HSM-backed keys) and the inventory carries no Microsoft.KeyVault/vaults/keys or /certificates child, so no KMS custom key store and no ACM certificate follow from it.",
-        "referenced_by": "The storefront web app reads one secret from this vault by @Microsoft.KeyVault reference (app setting VAULT_TOKEN). Only the reference was captured; no secret value was read at any point."
+        "acm_added": false,
+        "referenced_by": [
+          "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:storefront"
+        ]
       },
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.KeyVault/vaults",
       "routing_provenance": "table",
-      "rationale": "Secrets Manager. Your apps already read secrets by reference rather than by embedded value, which is the pattern Secrets Manager expects, so the change is to the reference syntax and not to the application's secret-handling model."
+      "rationale": "The vault holds secrets and nothing else - no Microsoft.KeyVault/vaults/keys or /certificates children are declared - so Secrets Manager alone covers it and no KMS key or ACM certificate is added. The storefront app already reads it through a Key Vault reference, which becomes a Secrets Manager lookup on the target. The vault is sku standard, so no HSM-backed custom key store decision arises."
     },
     {
       "service_id": "s3-assets",
@@ -174,43 +144,72 @@
       "azure_type": "Microsoft.Storage/storageAccounts",
       "aws_service": "S3",
       "aws_config": {
-        "source_account_tier": "Standard",
+        "storage_class": "STANDARD",
         "source_replication": "LRS",
-        "source_account_kind": "StorageV2",
-        "storage_class": "S3 Standard",
-        "static_website": {
-          "declared_on_source": true,
-          "index_document": "index.html",
-          "cloudfront_not_added": "The fast-path row's note says a static_website block adds CloudFront AT THE PATTERN LAYER. references/design-refs/patterns.md is not on disk, so no pattern recognition ran and CloudFront has deliberately NOT been added. A static-site design would normally pair S3 with CloudFront; that addition is pending the pattern catalog and is a known gap, not a decision that CloudFront is unnecessary."
-        }
+        "target_durability_note": "S3 Standard is multi-AZ within the region by default, which is more redundancy than LRS, at no extra charge",
+        "block_public_access": true,
+        "static_website_declared": {
+          "index_document": "index.html"
+        },
+        "lifecycle_rules": []
       },
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.Storage/storageAccounts",
       "routing_provenance": "table",
-      "rationale": "S3 for the account's blob surface. LRS is single-region redundancy, which S3 Standard already exceeds within a region, so there is no replication configuration to carry across. The account's file share is a separate resource with its own target and does not inherit this one."
+      "rationale": "account_kind is StorageV2, so the account has a blob surface and maps to S3 unconditionally. The account declares a static_website block; the fast-path row notes that CloudFront is added at the pattern layer, and design-refs/patterns.md is NOT on disk in this build, so no CloudFront distribution is asserted here - the static-website intent is recorded and left for the pattern layer. The account's SMB file share is a separate resource with its own target and does not inherit this one."
     },
     {
-      "service_id": "fsx-windows-reports",
+      "service_id": "fsx-for-windows-file-server-reports",
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Storage/storageAccounts/tf:assets/fileServices/default/shares/reports",
       "azure_type": "Microsoft.Storage/storageAccounts/fileServices/shares",
       "aws_service": "FSx for Windows File Server",
       "aws_config": {
         "storage_capacity_gib": 512,
-        "storage_type": "SSD",
-        "throughput_capacity_mbps": 32,
         "deployment_type": "SINGLE_AZ_2",
-        "sizing_note": "512 GiB is carried verbatim from the source share's quota, so the capacity figure is sourced. The throughput capacity and deployment type are NOT: no knowledge/design table covers FSx sizing, and there is no right-sizing section for a deterministic storage row. Those two numbers came from model knowledge.",
-        "ad_join_note": "SMB shares are normally AD-joined. FSx for Windows File Server requires either AWS Managed Microsoft AD or a self-managed AD; the source estate declares no directory resource, so the directory dependency is an unpriced prerequisite."
+        "storage_type": "SSD"
       },
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.Storage/storageAccounts/fileServices/shares",
       "routing_provenance": "table",
       "sizing_provenance": "model_prior",
-      "sizing_source": {
-        "enabled_protocol": "SMB",
-        "quota_gib": 512
+      "sizing_note": "storage_capacity_gib 512 is the source share's quota carried across verbatim - there is no sizing_provenance token for 'carried from the source', so this entry is stamped model_prior, which is the honest choice of the four available. deployment_type SINGLE_AZ_2 and storage_type SSD came from the model's own knowledge of FSx: no knowledge/design/*.json table covers Azure Files -> FSx sizing, and throughput_capacity is deliberately omitted rather than invented.",
+      "rationale": "enabled_protocol is SMB, and the fast-path row is protocol-driven and nothing else, so this is FSx for Windows File Server rather than EFS. SMB shares are usually AD-joined, which is why FSx for Windows File Server rather than FSx for OpenZFS. Note that FSx is a materially different cost shape from an Azure Files quota - it provisions capacity and throughput rather than billing consumption against a quota ceiling."
+    },
+    {
+      "service_id": "elasticache-redis-session",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.Cache/Redis/tf:session",
+      "azure_type": "Microsoft.Cache/Redis",
+      "aws_service": "ElastiCache Redis",
+      "aws_config": {
+        "node_type": "cache.t3.small",
+        "num_cache_nodes": 1,
+        "source_sku": "Standard C1 (family C, capacity 1)",
+        "cluster_mode": "disabled"
       },
-      "rationale": "FSx for Windows File Server, because the share's enabled_protocol is SMB. Protocol is the whole decision here: an NFS share would have gone to EFS. Note that single-AZ was selected to match the estate's stated single-AZ availability posture."
+      "confidence": "deterministic",
+      "fast_path_row": "Microsoft.Cache/Redis",
+      "routing_provenance": "table",
+      "sizing_provenance": "model_prior",
+      "sizing_note": "There is NO knowledge/design/*.json sizing table for Microsoft.Cache/Redis - the repo ships appservice-eb, vm-ec2, aks-eks, flexible-server-rds, cosmos-dynamodb and disk-ebs tables and nothing for Redis. cache.t3.small came from the model's own knowledge that Standard C1 is a 1 GB cache and cache.t3.small is the nearest-not-smaller ElastiCache node. The t3 (x86) family rather than t4g was chosen because design_constraints.cpu_architecture is x86_64; note that constraint was forced by a Windows VM and no file says whether it should reach a managed cache at all.",
+      "rationale": "Azure Cache for Redis maps to ElastiCache Redis unconditionally - the target does not depend on the surrounding architecture. The source is plain Microsoft.Cache/Redis, not redisEnterprise, so there are no Redis modules (RediSearch, RedisJSON, RedisTimeSeries) to lose and this is a drop-in. The storefront app addresses it today through a CACHE_ENDPOINT app setting, which becomes an ElastiCache endpoint on the target."
+    },
+    {
+      "service_id": "documentdb-catalog",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.DocumentDB/databaseAccounts/tf:catalog",
+      "azure_type": "Microsoft.DocumentDB/databaseAccounts",
+      "aws_service": "DocumentDB",
+      "aws_config": {
+        "instance_class": "db.t3.medium",
+        "instance_count": 1,
+        "source_api": "Mongo (kind MongoDB, capabilities EnableMongo)",
+        "source_consistency_level": "Session"
+      },
+      "confidence": "deterministic",
+      "fast_path_row": "Microsoft.DocumentDB/databaseAccounts",
+      "routing_provenance": "table",
+      "sizing_provenance": "model_prior",
+      "sizing_note": "knowledge/design/cosmos-dynamodb-conversion.json covers the Core (SQL) API only - its _when guard in design.md is 'kind is GlobalDocumentDB' - so it does not apply to a Mongo-API account and was not loaded. No table covers Cosmos-Mongo -> DocumentDB instance sizing. db.t3.medium came from the model's own knowledge that it is the smallest DocumentDB instance class, consistent with SKILL.md's dev-tier posture. instance_count 1 follows preferences.data.availability = single-az.",
+      "rationale": "The account's API is Mongo, and the wire protocol determines the only drop-in target, so DocumentDB is a table lookup rather than a rubric outcome - it is NOT DynamoDB, which is the Core (SQL) API's target. Because this is a per-API lookup and not the Core path, no RU/s -> WCU/RCU conversion is involved and Clarify's Cosmos read/write question was correctly N/A. Finding: the source runs Session consistency, which DocumentDB does not offer; DocumentDB gives you primary-node reads (read-your-writes) or eventually-consistent replica reads, so verify the application does not depend on Session semantics specifically."
     },
     {
       "service_id": "msk-telemetry",
@@ -220,102 +219,39 @@
       "aws_config": {
         "broker_instance_type": "kafka.t3.small",
         "number_of_broker_nodes": 2,
-        "source_sku": "Standard",
-        "source_capacity_throughput_units": 2,
-        "kafka_enabled": true,
-        "sizing_note": "No knowledge/design table covers MSK broker sizing, and there is no right-sizing section for a deterministic messaging row. The broker type and count came from model knowledge, mapped loosely from 2 Event Hubs throughput units.",
-        "migration_note": "Because Kafka protocol was already enabled, consumers change a broker endpoint rather than a client library. That is the whole reason this went to MSK and not Kinesis."
+        "source_sku": "Standard, capacity 2 throughput units, kafka_enabled true"
       },
       "confidence": "deterministic",
       "fast_path_row": "Microsoft.EventHub/namespaces",
       "routing_provenance": "table",
       "sizing_provenance": "model_prior",
-      "sizing_source": {
-        "sku": "Standard",
-        "capacity": 2,
-        "kafka_enabled": true
-      },
-      "rationale": "MSK, because kafka_enabled is true on the namespace. Protocol is the entire decision and there is no throughput threshold involved: your consumers already speak Kafka, so they point at MSK bootstrap brokers instead of an Event Hubs Kafka endpoint. Had Kafka been disabled this would have been Kinesis Data Streams and a client rewrite."
+      "sizing_note": "No knowledge/design/*.json table covers Event Hubs throughput units -> MSK broker sizing. kafka.t3.small and a 2-broker cluster came from the model's own knowledge (t3.small is MSK's smallest broker and 2 is its minimum broker count), not from a lookup. The source's 2 throughput units were NOT converted to broker capacity by any rule.",
+      "rationale": "kafka_enabled is true on the source namespace, so consumers already speak the Kafka protocol and MSK is a broker-endpoint change rather than a client rewrite - that is why protocol is the whole rubric here and Kinesis Data Streams (the alternative branch) is not the answer. Throughput drives sizing, which is an Estimate concern, not the target choice."
     },
     {
-      "service_id": "elasticache-session",
-      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.Cache/Redis/tf:session",
-      "azure_type": "Microsoft.Cache/Redis",
-      "aws_service": "ElastiCache Redis",
-      "aws_config": {
-        "node_type": "cache.t3.small",
-        "num_cache_nodes": 1,
-        "source_sku": "Standard",
-        "source_family": "C",
-        "source_capacity": 1,
-        "source_size_gib": 1,
-        "sizing_note": "No knowledge/design table covers ElastiCache node sizing, and there is no right-sizing section for a deterministic cache row. cache.t3.small (2 GiB) came from model knowledge against a source of roughly 1 GiB.",
-        "modules_note": "Plain Azure Cache for Redis carries no Redis modules, so ElastiCache is a drop-in; no RediSearch / RedisJSON / RedisTimeSeries parity gap applies."
-      },
-      "confidence": "deterministic",
-      "fast_path_row": "Microsoft.Cache/Redis",
-      "routing_provenance": "table",
-      "sizing_provenance": "model_prior",
-      "sizing_source": {
-        "sku_name": "Standard",
-        "family": "C",
-        "capacity": 1
-      },
-      "rationale": "ElastiCache Redis. Azure Cache for Redis and ElastiCache Redis are the same engine, so the storefront app changes a connection endpoint and nothing else. The node size is NOT sourced from a table \u2014 this skill carries no ElastiCache sizing table."
-    },
-    {
-      "service_id": "rds-postgres-store",
-      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.DBforPostgreSQL/flexibleServers/tf:store",
-      "azure_type": "Microsoft.DBforPostgreSQL/flexibleServers",
-      "aws_service": "RDS PostgreSQL",
-      "aws_config": {
-        "instance_class": "db.m6g.large",
-        "multi_az": false,
-        "engine": "postgres",
-        "engine_version": "16",
-        "allocated_storage_gib": 64,
-        "storage_type": "gp3",
-        "backup_retention_days": 14,
-        "architecture_note": "db.m6g is Graviton. That does not contradict the estate's x86_64 constraint: flexible-server-rds-sizing.json states that graviton.md's escape path lists RDS SQL Server, not PostgreSQL, and the engine is AWS-managed so there is no source-code implication. The x86 equivalent recorded in the table is db.m6i.large if x86 is required for another reason.",
-        "cutover": "dms"
-      },
-      "confidence": "inferred",
-      "rubric_applied": "database.md",
-      "routing_provenance": "index_md",
-      "sizing_provenance": "table",
-      "sizing_source": {
-        "sku_name": "GP_Standard_D2s_v3",
-        "storage_mb": 65536,
-        "version": "16",
-        "backup_retention_days": 14
-      },
-      "rationale": "RDS PostgreSQL single-AZ, because you selected single-az availability \u2014 that answer is a post-rubric override gate and it, not the rubric, picked RDS over Aurora. If the cost of this line surprises you, the availability answer is the input to revisit. Storage is carried across at 64 GiB unchanged (allocated storage is never right-sized downward, because shrinking it is not an online RDS operation) and the 14-day backup retention is carried verbatim. The instance class is a real table lookup: GP_Standard_D2s_v3 is 2 vCPU / 8 GiB and db.m6g.large matches on both axes."
-    },
-    {
-      "service_id": "eb-web-plan",
+      "service_id": "elastic-beanstalk-web",
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web",
       "azure_type": "Microsoft.Web/serverfarms",
       "aws_service": "Elastic Beanstalk",
       "aws_config": {
-        "platform": "Node.js on 64bit Amazon Linux 2023",
         "instance_type": "t3.small",
         "instance_count": 2,
         "min_instances": 2,
         "max_instances": 2,
         "cpu_architecture": "x86_64",
-        "environment_count": 1,
-        "deployment_note": "All five apps deploy as five application versions onto ONE environment; they share its capacity exactly as they share the S1 plan today. No isolation split was requested, so no additional environments and no additional compute cost.",
-        "app_settings_note": "The storefront app's five app-setting NAMES (CACHE_ENDPOINT, DATABASE_HOST, DATABASE_URL, STRIPE_SECRET_KEY, VAULT_TOKEN) become environment properties or Secrets Manager references. No values were read from the source at any point.",
-        "runtime_source": "Only the storefront app declares a runtime (node_version 20-lts). The other four declare an empty site_config, so their runtime is unknown from Terraform and a single-platform environment is an assumption that a live capture or the app code would confirm."
+        "platform_family": "Node.js on Amazon Linux 2023",
+        "platform_note": "Only the storefront app declares an application_stack (node_version 20-lts); the other four sites declare an empty site_config, so their runtime is not discoverable from the Terraform and must be confirmed before the environment platform is fixed.",
+        "https_only": true,
+        "scaling_policy": "none scheduled - traffic_pattern is steady"
       },
       "confidence": "inferred",
-      "rubric_applied": "compute.md",
       "routing_provenance": "index_md",
+      "rubric_applied": "compute.md",
       "sizing_provenance": "table",
       "sizing_source": {
         "sku_name": "S1",
         "worker_count": 2,
-        "os_type": "Linux"
+        "table": "knowledge/design/appservice-eb-sizing.json -> plans.S1 (azure 1 vCPU / 1.75 GiB -> aws t3.small 2 vCPU / 2 GiB); instance_count from worker_count per instance_count.rule, never from the app count"
       },
       "hosted_app_azure_ids": [
         "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:storefront",
@@ -325,210 +261,234 @@
         "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:webhooks"
       ],
       "is_compute_unit": true,
-      "rationale": "Elastic Beanstalk, because criterion 2.2 (operational model) fired first: an App Service Plan hosting web apps is a managed platform, and Elastic Beanstalk preserves the posture you already pay for rather than handing you a container lifecycle mid-migration. Your recorded compute_target preference is also elastic_beanstalk, so criterion 2.3 agrees. Sizing comes from the plan's SKU and worker count, NOT from the five apps: S1 is 1 vCPU / 1.75 GiB, t3.small is 2 vCPU / 2 GiB, times two workers. Mapping each app separately would have produced five compute line items for capacity you buy once."
+      "rationale": "Elastic Beanstalk, because the source is a managed App Service Plan hosting web apps (compute.md criterion 2.2) and no compute-target preference was stated - the recorded value elastic_beanstalk is Clarify's documented default, still disposition PROPOSED, so criterion 2.3 did not fire. All five apps fan IN to this one environment: on Azure they share the plan's S1 x2 capacity and cost one S1, and giving each its own environment would multiply the compute line by five. You did not ask for an isolation split, so none was applied."
     },
     {
-      "service_id": "lambda-func-plan",
+      "service_id": "lambda-func",
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:func",
       "azure_type": "Microsoft.Web/serverfarms",
       "aws_service": "Lambda",
       "aws_config": {
-        "function_count": 1,
+        "compute_model": "per-invocation",
         "instance_type": null,
-        "capacity_model": "per-execution",
-        "architecture": "x86_64",
-        "storage_dependency": "The function reads the assets storage account, which becomes S3; the function's IAM role replaces the storage account access key the source passes in.",
-        "eliminator_note": "No Lambda eliminator fired on the evidence available: nothing in the Terraform indicates a >15-minute invocation, a Durable Function orchestrator or entity binding, always_on on a non-consumption plan, or a writable filesystem beyond /tmp. Those are absences of evidence rather than positive confirmations \u2014 application code was not analysed on this run."
+        "function_count": 1,
+        "memory_mb": null,
+        "memory_note": "Lambda memory is a per-function setting, not an instance type. The source consumption plan provisions no worker capacity, so there is no source figure to carry across and none was invented.",
+        "architecture": "x86_64"
       },
       "confidence": "inferred",
-      "rubric_applied": "compute.md",
       "routing_provenance": "index_md",
+      "rubric_applied": "compute.md",
       "sizing_provenance": "table",
       "sizing_source": {
         "sku_name": "Y1",
         "worker_count": 1,
-        "os_type": "Linux",
-        "consumption": true,
-        "capacity_note": "A Y1 consumption plan carries no worker capacity that maps to an instance; appservice-eb-sizing.json's Y1 row records instance_type null and target Lambda explicitly, so there is nothing to size and the function count is not a reason to size the functions individually."
+        "table": "knowledge/design/appservice-eb-sizing.json -> plans.Y1 (consumption: instance_type null, target Lambda). There is no instance to size; capacity is per-execution."
       },
       "hosted_app_azure_ids": [
         "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:imageresize"
       ],
       "is_compute_unit": true,
-      "rationale": "Lambda, because criterion 2.2 fired: this is a Y1 consumption plan and every site hosted on it is a function app. The entry is on the PLAN, not on the function \u2014 a consumption plan is still the compute unit, and the hosted site's kind is an input to the plan's target choice rather than a reason to give the function its own line. Memory per function is Lambda configuration, not an instance type, which is why no size appears here."
+      "rationale": "Lambda, because every site hosted on this plan is a function app (kind contains functionapp) and Y1 is a consumption plan (compute.md criterion 2.2). No eliminator fired: nothing in the configuration indicates a >15-minute invocation, a Durable Function binding, always_on, or a writable filesystem beyond /tmp - though none of those is positively ruled out from Terraform alone. The compute line belongs to the PLAN, not to the function app: a Y1 plan hosting one function is still one compute unit."
     },
     {
-      "service_id": "eb-legacy-plan-idle",
+      "service_id": "elastic-beanstalk-legacy",
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Web/serverfarms/tf:legacy",
       "azure_type": "Microsoft.Web/serverfarms",
       "aws_service": "Elastic Beanstalk",
       "aws_config": {
-        "platform": "IIS on 64bit Windows Server 2022",
         "instance_type": "m6i.large",
         "instance_count": 1,
         "cpu_architecture": "x86_64",
-        "idle": true,
-        "windows_licensing": "license_included",
-        "recommendation": "Do not migrate this. It hosts zero apps, so on AWS it would be a Windows EC2 instance running nothing at License Included rates. Delete it on Azure or drop it from the target design; it is included here so the like-for-like line is honest, not because it should exist."
+        "platform_family": "Windows Server (IIS)",
+        "idle": true
       },
       "confidence": "inferred",
-      "rubric_applied": "compute.md",
       "routing_provenance": "index_md",
+      "rubric_applied": "compute.md",
       "sizing_provenance": "table",
       "sizing_source": {
         "sku_name": "P1v3",
         "worker_count": 1,
-        "os_type": "Windows"
+        "table": "knowledge/design/appservice-eb-sizing.json -> plans.P1v3 (azure 2 vCPU / 8 GiB -> aws m6i.large 2 vCPU / 8 GiB). The row notes m6i.large rather than the cheaper t3.large because Pv3 is a production tier; if this plan is dev/test, t3.large is defensible and is a workshop knob."
       },
       "hosted_app_azure_ids": [],
       "is_compute_unit": true,
-      "rationale": "Elastic Beanstalk on a Windows Server platform, sized from the plan's own P1v3 SKU (2 vCPU / 8 GiB -> m6i.large) and its single worker. It is mapped rather than dropped so the 1:1 comparison stays honest, but it hosts no apps and is flagged as idle capacity \u2014 this is the clearest saving in the estate. The Elastic Beanstalk Windows-container eliminator does not apply: EB supports Windows Server platforms, just not Windows containers."
+      "rationale": "COST FINDING FIRST: this Windows P1v3 plan hosts zero apps. You are paying for a production-tier Windows App Service Plan with no workload on it, and the cheapest migration of it is to not migrate it. It is mapped and sized so the like-for-like total is honest, but it is flagged as idle capacity rather than priced as running. Elastic Beanstalk is the target because the source is a managed App Service Plan (criterion 2.2); os_type is Windows, so an EB Windows Server platform, and Graviton is not offered. Note the plan matches neither of index.md's two serverfarms rows cleanly - it hosts no sites at all - so the web-app row was used rather than treating a vacuously-true functionapp condition as a Lambda signal."
     },
     {
-      "service_id": "ec2-reporting-vm",
+      "service_id": "ec2-reporting",
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Compute/virtualMachines/tf:reporting",
       "azure_type": "Microsoft.Compute/virtualMachines",
       "aws_service": "EC2",
       "aws_config": {
         "instance_type": "m6i.xlarge",
+        "instance_count": 1,
         "cpu_architecture": "x86_64",
         "operating_system": "Windows Server 2022",
-        "licensing_model": "license_included",
+        "license_model": "License Included",
         "tenancy": "default",
-        "cutover": "mgn",
-        "cutover_blocked": true,
-        "access_note": "Systems Manager Session Manager replaces the Azure Bastion host, so this instance needs the SSM Agent and an instance profile and no inbound RDP.",
         "root_volume": {
           "volume_type": "gp3",
           "size_gib": null,
           "size_source": "image_default_unstated",
-          "source": "inline os_disk block, storage_account_type Premium_LRS",
-          "_why": "Premium_LRS maps to gp3 by knowledge/design/disk-ebs-sizing.json tier_mapping - a lookup, not a judgement. size_gib is null because the source sets no disk_size_gb, so the size is the image default and is NOT discoverable from Terraform. A remembered default would be indistinguishable from a measured one and Estimate would price it as fact."
-        }
+          "source_storage_account_type": "Premium_LRS",
+          "source_caching": "ReadWrite",
+          "baseline_iops": 3000,
+          "baseline_throughput_mib_s": 125
+        },
+        "network_interface": "created by the instance from the source NIC's subnet_id (snet-apps)",
+        "cutover": "mgn"
       },
       "confidence": "inferred",
-      "rubric_applied": "compute.md",
       "routing_provenance": "index_md",
+      "rubric_applied": "compute.md",
       "sizing_provenance": "table",
       "sizing_source": {
         "size": "Standard_D4s_v5",
-        "os_type": "Windows",
-        "image_publisher": "MicrosoftWindowsServer",
-        "image_offer": "WindowsServer",
-        "image_sku": "2022-datacenter-azure-edition"
+        "table": "knowledge/design/vm-ec2-sizing.json -> Standard_D4s_v5 (azure 4 vCPU / 16 GiB -> aws m6i.xlarge 4 vCPU / 16 GiB); root volume tier via knowledge/design/disk-ebs-sizing.json -> tier_mapping.Premium_LRS -> gp3"
       },
-      "rationale": "EC2, because criterion 2.2 fired: a virtual machine is a virtual machine. Standard_D4s_v5 is 4 vCPU / 16 GiB and m6i.xlarge matches on both axes \u2014 a real table lookup, not an estimate. x86_64 is forced by Windows, so Graviton is not offered. Windows is License Included per your answer, which keeps tenancy default and avoids the Dedicated Hosts commitment BYOL would require. CRITICAL: you selected MGN for cutover, but this VM's image is Azure Edition and MGN will refuse it until the guest is re-imaged to a standard Windows Server edition. That is a prerequisite, not a preference."
+      "is_compute_unit": true,
+      "rationale": "EC2, because the source is a virtual machine (compute.md criterion 2.2); EC2 is never eliminated and nothing else was a candidate. You chose License Included, so the Windows licence is bundled into the hourly rate and tenancy stays default - no Dedicated Hosts, no Software Assurance tracking. The root volume is the instance's, NOT a separate EBS line item: its size is the marketplace image's default, which the Terraform does not state, so size_gib is left null with size_source image_default_unstated rather than substituting a remembered 127 GiB. The SQL-on-VM specialist gate did NOT fire: image_publisher is MicrosoftWindowsServer and neither the offer nor the sku names a SQL Server edition. BLOCKER, see warnings: the image is 2022-datacenter-azure-edition and MGN - the cutover you chose - refuses it until the guest is re-imaged."
+    },
+    {
+      "service_id": "rds-postgresql-store",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.DBforPostgreSQL/flexibleServers/tf:store",
+      "azure_type": "Microsoft.DBforPostgreSQL/flexibleServers",
+      "aws_service": "RDS PostgreSQL",
+      "aws_config": {
+        "instance_class": "db.m6g.large",
+        "engine": "postgres",
+        "engine_version": "16",
+        "multi_az": false,
+        "allocated_storage_gib": 64,
+        "storage_type": "gp3",
+        "backup_retention_period": 14,
+        "cpu_architecture": "arm64",
+        "cutover": "dms"
+      },
+      "confidence": "inferred",
+      "routing_provenance": "index_md",
+      "rubric_applied": "database.md",
+      "sizing_provenance": "table",
+      "sizing_source": {
+        "sku_name": "GP_Standard_D2s_v3",
+        "storage_mb": 65536,
+        "version": "16",
+        "backup_retention_days": 14,
+        "table": "knowledge/design/flexible-server-rds-sizing.json -> skus.GP_Standard_D2s_v3 (azure 2 vCPU / 8 GiB -> aws db.m6g.large 2 vCPU / 8 GiB; x86_equivalent db.m6i.large). Storage: 65536 MB -> 64 GiB carried across per storage.rule, above the 20 GiB RDS minimum and never rounded down. Engine version 16 carried per engine_version.rule; RDS PostgreSQL offers 16, so no forced upgrade."
+      },
+      "rationale": "RDS PostgreSQL single-AZ, because YOU SELECTED single-az at the availability gate - that answer overrides whatever the rubric would have chosen and is what selects RDS over Aurora. If this database line surprises you, that is the answer to revisit. Your source pg-<prefix>-store is configured high_availability { mode = ZoneRedundant } with a standby in zone 2 today, so single-AZ is a deliberate resilience downgrade; it is recorded as a finding in warnings, not absorbed silently. db.m6g is Graviton and that is the table's own default for RDS PostgreSQL - graviton.md's x86 escape path lists RDS SQL Server, not PostgreSQL, and the engine is AWS-managed so there is no source-code implication. If you need x86 for policy reasons, db.m6i.large is the recorded equivalent. Backup retention of 14 days is carried across verbatim as a stated requirement, not a sizing knob."
     }
   ],
   "deferred": [
     {
-      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Devices/iothubs/tf:telemetry_ingest",
-      "azure_type": "Microsoft.Devices/iothubs",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Devices/IotHubs/tf:telemetry_ingest",
+      "azure_type": "Microsoft.Devices/IotHubs",
       "aws_service": "Deferred \u2014 specialist engagement",
       "reason": "IoT Hub / DPS -> AWS IoT Core. Device provisioning and fleet identity are their own project, and IoT is out of this skill's stated scope.",
-      "recommendation": "Engage your AWS account team; this workload needs a migration assessment.",
-      "routing_provenance": "namespace_rule",
-      "note": "This type has no row in fast-path-services.json and no row in design-refs/index.md. Its canonical type was itself DERIVED at discovery (azurerm_iothub is absent from arm-type-canonicalization.md), and the namespace Microsoft.Devices resolved via fast-path-services.json -> namespace_routing to kind 'gate' with a null route. It is an S1 IoT Hub with capacity 1, so it is cost-bearing: the estimate carries no line item for it and that absence must not read as a free service."
+      "recommendation": "Engage your AWS account team; this workload needs a migration assessment. It is an S1 IoT Hub with capacity 1, so it is cost-bearing today and the AWS estimate carries no line item for it - a missing cost here is a deferral, not a free service.",
+      "routing_provenance": "namespace_rule"
     }
   ],
   "pending_rubric": [],
   "warnings": [
     {
-      "code": "azure_edition_windows_server",
-      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Compute/virtualMachines/tf:reporting",
-      "severity": "blocker",
-      "detail": "AWS Application Migration Service (MGN) refuses an Azure Edition Windows Server image \u2014 it carries Azure-specific platform integration and must be re-imaged to a standard Windows Server edition before any replication can start. The recorded vm_cutover answer is mgn, so this blocker sits directly across the chosen cutover path: either re-image the guest before replication, or switch to a golden-AMI rebuild."
+      "code": "skipped_no_aws_equivalent",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app",
+      "detail": "AWS has no resource-group equivalent, so rg-app produces no target; its grouping intent becomes account structure and resource tags you apply by hand, and nothing in the generated infrastructure will reproduce it."
     },
     {
-      "code": "availability_downgrade_from_source",
-      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.DBforPostgreSQL/flexibleServers/tf:store",
-      "severity": "review",
-      "detail": "Your PostgreSQL flexible server runs ZoneRedundant today with a standby in availability zone 2, and you selected single-az for the target, so the design gives up automatic zone failover you are currently paying for. That is a deliberate downgrade and it roughly halves the database line; if it was not intended, change data.availability to multi-az and re-run Design."
+      "code": "skipped_no_aws_equivalent",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data",
+      "detail": "AWS has no resource-group equivalent, so rg-data produces no target; its grouping intent becomes account structure and resource tags you apply by hand."
     },
     {
-      "code": "idle_app_service_plan",
-      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Web/serverfarms/tf:legacy",
-      "severity": "cost_optimization",
-      "detail": "This P1v3 Windows plan hosts zero apps. You are paying for one Windows worker with nothing on it, and on AWS it would become a Windows EC2 instance at License Included rates running nothing. Deleting it is a saving on both clouds and needs no migration work."
+      "code": "skipped_no_aws_equivalent",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared",
+      "detail": "AWS has no resource-group equivalent, so rg-shared produces no target; its grouping intent becomes account structure and resource tags you apply by hand."
     },
     {
-      "code": "routed_by_namespace_rule",
-      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Devices/iothubs/tf:telemetry_ingest",
-      "detail": "No authored row covers Microsoft.Devices/iothubs in fast-path-services.json or design-refs/index.md. The provider namespace Microsoft.Devices matched namespace_routing with kind 'gate' and a null route, so this resource was deferred to a specialist rather than mapped. The disposition was derived from a structural rule, not from curated judgement."
+      "code": "skipped_config_source",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Network/networkInterfaces/tf:reporting",
+      "detail": "Read for its properties then skipped: it contributed the VNet-colocation edge (ip_configuration.subnet_id -> snet-apps) that places the reporting VM's EC2 instance, and its ENI is created by that instance rather than being a target of its own."
+    },
+    {
+      "code": "skipped_config_source",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.Network/privateEndpoints/tf:store",
+      "detail": "Read for its edges then skipped: it contributed the private_link edge to Microsoft.DBforPostgreSQL/flexibleServers/tf:store (subresource postgresqlServer) and a network edge to snet-data. That app-to-data edge is what merged rg-app and rg-data into one cluster. On the target its intent is expressed as the RDS instance's subnet group plus a security group, not as a separate resource."
+    },
+    {
+      "code": "skipped_observability",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.OperationalInsights/workspaces/tf:core",
+      "detail": "Log Analytics workspace (PerGB2018, 30-day retention). Observability is re-established on the target rather than migrated: this becomes CloudWatch Logs log groups with a 30-day retention policy, and there is NO import path for the telemetry already retained - that data stays in Azure or is exported by hand before you turn the workspace off.",
+      "report_note": "cloudwatch_fallback"
+    },
+    {
+      "code": "skipped_observability",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Insights/components/tf:storefront",
+      "detail": "Application Insights component (application_type web, linked to the tf:core Log Analytics workspace). Where it lands is CloudWatch - metrics, Logs, and Application Signals - but that is not a mapping: the instrumentation is re-established, existing telemetry does not import, and the dashboards and alert rules are authored against the target's own metrics.",
+      "report_note": "cloudwatch_fallback"
     },
     {
       "code": "app_consumed_by_plan",
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:storefront",
       "plan_azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web",
-      "detail": "This web app is a deployment onto its App Service Plan, not a compute unit of its own, so it emits no line item. Its Node 20 runtime and its five app-setting names were contributed to the plan's Elastic Beanstalk configuration."
+      "detail": "Folded into its App Service Plan's Elastic Beanstalk environment rather than getting its own compute line; it contributes its Node 20 runtime, its https_only setting, and its app-setting NAMES to that environment's configuration."
     },
     {
       "code": "app_consumed_by_plan",
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:admin",
       "plan_azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web",
-      "detail": "Folded into its App Service Plan and emits no line item; it shares the plan's capacity today and shares the Elastic Beanstalk environment's capacity on the target. It declares no runtime in Terraform."
+      "detail": "Folded into its App Service Plan's Elastic Beanstalk environment rather than getting its own compute line; it declares an empty site_config, so it contributes no runtime and its stack must be confirmed."
     },
     {
       "code": "app_consumed_by_plan",
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:checkout",
       "plan_azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web",
-      "detail": "Folded into its App Service Plan and emits no line item. It declares no runtime in Terraform."
+      "detail": "Folded into its App Service Plan's Elastic Beanstalk environment rather than getting its own compute line; it declares an empty site_config, so its stack must be confirmed."
     },
     {
       "code": "app_consumed_by_plan",
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:docs",
       "plan_azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web",
-      "detail": "Folded into its App Service Plan and emits no line item. It declares no runtime in Terraform."
+      "detail": "Folded into its App Service Plan's Elastic Beanstalk environment rather than getting its own compute line; it declares an empty site_config, so its stack must be confirmed."
     },
     {
       "code": "app_consumed_by_plan",
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:webhooks",
       "plan_azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web",
-      "detail": "Folded into its App Service Plan and emits no line item. It declares no runtime in Terraform."
+      "detail": "Folded into its App Service Plan's Elastic Beanstalk environment rather than getting its own compute line; it declares an empty site_config, so its stack must be confirmed."
     },
     {
       "code": "app_consumed_by_plan",
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:imageresize",
       "plan_azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:func",
-      "detail": "This function app is folded into its Y1 consumption plan and emits no line item of its own. Its kind (functionapp) is what routed the plan to Lambda; on the target it becomes a Lambda function rather than a separate compute unit."
+      "detail": "Folded into its App Service Plan rather than getting its own entry - function apps included. The Y1 consumption plan is the compute unit and this site's kind (functionapp,linux) is what routed that plan to Lambda; it also contributes the storage-account dependency the function needs for its own runtime state."
     },
     {
-      "code": "skipped_config_source",
-      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.Network/privateEndpoints/tf:store",
-      "detail": "Read for its relationship, then skipped: a private endpoint is never an AWS target. It contributed the private_link edge from itself to the PostgreSQL flexible server, and it named which sub-resource was fronted (postgresqlServer). On AWS the equivalent is placing the RDS instance in private subnets with a security group, not a separate resource."
+      "code": "idle_app_service_plan",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Web/serverfarms/tf:legacy",
+      "severity": "cost_optimization",
+      "detail": "This Windows P1v3 plan hosts zero apps: you are paying for production-tier Windows App Service capacity with no workload behind it. It is mapped and sized so the like-for-like comparison is honest, but the cheapest action is to delete it on Azure and not migrate it at all - which removes an m6i.large-equivalent from the AWS estimate too."
     },
     {
-      "code": "skipped_config_source",
-      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Network/networkInterfaces/tf:reporting",
-      "detail": "Read for its relationship, then skipped: an ENI is created by the EC2 instance that owns it and is never a standalone target. It contributed the network edge placing the reporting VM in the snet-apps subnet, which is what tells the design which subnet the EC2 instance belongs in."
+      "code": "azure_edition_windows_server",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Compute/virtualMachines/tf:reporting",
+      "severity": "blocker",
+      "detail": "Its image is 2022-datacenter-azure-edition. AWS Application Migration Service refuses an Azure Edition Windows Server image: it carries Azure-specific platform integration (Hotpatch, SMB over QUIC, Azure Extended Networking) and must be re-imaged to a standard Windows Server edition before replication can start. This is not a licensing choice and not a question - it is a prerequisite. You selected mgn as the VM cutover strategy and this is the estate's only VM, so no VM can be replicated until the re-image is done; the alternative is to rebuild the guest from a golden AMI instead."
     },
     {
-      "code": "skipped_observability",
-      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.OperationalInsights/workspaces/tf:core",
-      "report_note": "cloudwatch_fallback",
-      "detail": "Observability is re-established on the target rather than migrated. This PerGB2018 workspace with 30-day retention becomes CloudWatch Logs with a matching retention setting, and there is NO import path for the telemetry already stored in it \u2014 plan for a period where historical queries only work on Azure."
+      "code": "availability_downgrade_from_source",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.DBforPostgreSQL/flexibleServers/tf:store",
+      "severity": "review",
+      "detail": "The source is zone-redundant (high_availability.mode ZoneRedundant, standby in zone 2) and the target is RDS single-AZ, because single-az is what you selected at the availability gate. You lose automatic failover and the synchronous standby you are paying for today. That is a decision, not an oversight - RDS Multi-AZ roughly doubles the database line if you want it back."
     },
     {
-      "code": "skipped_observability",
-      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Insights/components/tf:storefront",
-      "report_note": "cloudwatch_fallback",
-      "detail": "This web-type Application Insights component (linked to the core Log Analytics workspace) has no AWS mapping target. CloudWatch metrics, CloudWatch Logs and Application Signals are where equivalent instrumentation lands, but the existing traces and metrics cannot be imported and the application's instrumentation SDK changes."
-    },
-    {
-      "code": "skipped_no_aws_equivalent",
-      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app",
-      "detail": "AWS has no resource-group equivalent. rg-app becomes account structure and resource tags, applied manually \u2014 there is nothing to provision and nothing to cost."
-    },
-    {
-      "code": "skipped_no_aws_equivalent",
-      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data",
-      "detail": "AWS has no resource-group equivalent. rg-data becomes account structure and resource tags, applied manually."
-    },
-    {
-      "code": "skipped_no_aws_equivalent",
-      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared",
-      "detail": "AWS has no resource-group equivalent. rg-shared becomes account structure and resource tags, applied manually."
+      "code": "routed_by_namespace_rule",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Devices/IotHubs/tf:telemetry_ingest",
+      "detail": "This type has no authored row in fast-path-services.json and no row in design-refs/index.md. Its provider namespace Microsoft.Devices IS declared in namespace_routing, where it carries kind: gate, so the resource was routed to deferred[] by the namespace rule rather than by a curated per-type row. The disposition is derived, not authored - visible here so it can be reviewed. Note the ARM type itself was also derived at Discover (azure_type_provenance: derived, azurerm_iothub is absent from arm-type-canonicalization.md)."
     }
   ],
-  "_what_this_is": "GOLDEN - a COMPLETING design, produced by capability run 4 (fresh isolated agent, answer keys prohibited). It replaces after-design-halted/, which became UNREACHABLE on 2026-09-07: azurerm_iothub now derives to Microsoft.Devices/iotHubs and Microsoft.Devices is a namespace_routing gate, so the untranslated-type STOP cannot fire on this corpus. A golden for a state the skill can no longer produce is worse than no golden."
+  "_what_this_is": "GOLDEN Design output, from capability run 5. A COMPLETING design: 16 mapped, 1 deferred, 0 pending_rubric. Replaced my hand-authored root_volume edit with the run's own, which the run produced independently and in more detail \u2014 13.4e: a golden must be TRACED, never authored."
 }

@@ -1,5 +1,5 @@
 {
-  "_comment": "Pinned facts for azure-to-aws CLARIFY over the azure-iac-terraform corpus, with clarify-answers.json standing in for the user. Same selection rule as the sibling asserters: only facts where a plausible improvisation and the correct answer DIVERGE.",
+  "_comment": "The COMPLETING clarify branch. Identical to expected-clarify.json except for the two facts that define the branch: spend is ANSWERED, so no ESSENTIAL row is unanswered and clarify_status is COMPLETE. Its sibling pins the BLOCKED branch, where the scripted user declines spend and the phase must gate.",
   "_limitation": "This tests BRANCHING, not conversation. Wording, batching and tone need a human. Which rows fire, which are ESSENTIAL, and which are N/A is what a scripted user can check \u2014 and it is where the defects live, because a firing rule is a judgement.",
   "preferences_file": "preferences.json",
   "inventory_file": "azure-resource-inventory.json",
@@ -79,8 +79,11 @@
     },
     "baseline.azure_monthly_spend": {
       "disposition": "ESSENTIAL",
-      "value": null,
-      "why": "no billing export was discovered, so there is nothing to detect it from, and spend cannot be inferred. It stays ESSENTIAL and unanswered \u2014 see the essential gate."
+      "value": 4200,
+      "why": "The scripted user STATES spend on this branch, which is the only difference from the blocked branch and the whole reason this golden exists. No billing export was discovered, so the value is user_stated and could not have been detected.",
+      "requires_keys": [
+        "context"
+      ]
     },
     "identity": {
       "disposition": "PROPOSED",
@@ -100,11 +103,9 @@
     "_requires_keys_why": "requires_keys follows the DISPOSITION, per schema-preferences.md: DETECTED needs `source` (what in the estate was read), N/A needs `reason`, ESSENTIAL needs `context`. Aligned 2026-09-08 - several rows demanded `reason` on a DETECTED row, which is the N/A key, so the assertion was asking for the wrong field."
   },
   "essential_gate": {
-    "_why": "An ESSENTIAL row with a null value IS the completion gate. The scripted user declines to state spend, so the phase must NOT complete. A run that emits HANDOFF_OK here has invented consent, and no shape assertion can catch that \u2014 the artifact is perfectly well-formed.",
-    "expected_unanswered": [
-      "baseline.azure_monthly_spend"
-    ],
-    "expected_status": "BLOCKED_ON_ESSENTIAL"
+    "_why": "The inverse of the blocked branch's assertion, and just as important. Every ESSENTIAL row is answered here, so the phase MUST complete - a run that gates anyway is refusing a decision the user made, which is the mirror of inventing consent.",
+    "expected_unanswered": [],
+    "expected_status": "COMPLETE"
   },
   "defaults_not_promoted": {
     "_why": "A value taken from its default must still read PROPOSED. DETECTED means READ FROM THE ESTATE. Design's rationale prints 'you chose Elastic Beanstalk' differently from 'we assumed Elastic Beanstalk', and the report prints the difference \u2014 but only if this file recorded which happened. A row that is DETECTED with value == default and no stated source is a promoted default.",
@@ -151,5 +152,16 @@
       "primary_access_key"
     ],
     "_why": "preferences has no reason to hold even app-setting NAMES, let alone values. The inventory already discards values; copying anything secret-shaped out of it here would reintroduce the exposure."
+  },
+  "conflicting_answer": {
+    "_why": "The estate's only VM runs 2022-datacenter-azure-edition, which the azure_edition_windows_server hard_blocker suppresses MGN for. The scripted user answers mgn anyway. Per clarify-assemble.md the answer is recorded AS GIVEN with a conflict key, the blocker goes to licensing.blockers[], and status stays COMPLETE - the customer answered, and a blocker is a PREREQUISITE, not a competing preference. Silently rewriting the answer and faking a gate failure both hide a decision they need to make.",
+    "row": "design_constraints.vm_cutover",
+    "expected_value": "mgn",
+    "requires_keys": [
+      "conflict"
+    ],
+    "blocker_code_in": "licensing.blockers",
+    "expected_blocker_code": "azure_edition_windows_server",
+    "status_must_remain": "COMPLETE"
   }
 }

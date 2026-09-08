@@ -31,7 +31,7 @@
       "value": "x86_64",
       "default": "x86_64",
       "forced_by": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Compute/virtualMachines/tf:reporting",
-      "reason": "Windows guest \u2014 graviton.md's escape path applies, so this is not a choice"
+      "source": "Windows guest \u2014 graviton.md's escape path applies, so this is not a choice"
     },
     "compute_target": {
       "disposition": "PROPOSED",
@@ -64,7 +64,8 @@
       "disposition": "ESSENTIAL",
       "value": "single-az",
       "default": null,
-      "source_ha_context": "tf:store: high_availability mode ZoneRedundant, standby zone 2"
+      "source_ha_context": "tf:store: high_availability mode ZoneRedundant, standby zone 2",
+      "context": "The source PostgreSQL flexible server is zone-redundant (high_availability.mode ZoneRedundant). Choosing single-az is a deliberate downgrade and Design will surface it as a finding; multi-az-ha would select Aurora instead of RDS."
     },
     "db_cutover": {
       "disposition": "ESSENTIAL",
@@ -91,7 +92,7 @@
       "disposition": "DETECTED",
       "value": false,
       "default": false,
-      "reason": "source is Microsoft.Cache/Redis, not redisEnterprise \u2014 plain Azure Cache has no modules"
+      "source": "source is Microsoft.Cache/Redis, not redisEnterprise \u2014 plain Azure Cache has no modules"
     }
   },
   "baseline": {
@@ -129,7 +130,7 @@
       "disposition": "DETECTED",
       "value": false,
       "default": false,
-      "reason": "no Azure Hybrid Benefit signal in the inventory. Recorded because AHUB does NOT travel: if it were in use, the customer pays a reduced Azure rate with no AWS equivalent, so the honest comparison is against the UNREDUCED rate. Comparing against the discounted rate makes AWS look worse than it is."
+      "source": "no Azure Hybrid Benefit signal in the inventory. Recorded because AHUB does NOT travel: if it were in use, the customer pays a reduced Azure rate with no AWS equivalent, so the honest comparison is against the UNREDUCED rate. Comparing against the discounted rate makes AWS look worse than it is."
     },
     "blockers": [
       {
@@ -178,7 +179,7 @@
         "disposition": "DETECTED",
         "value": "unclassified",
         "default": "unclassified",
-        "reason": "patterns.md is absent (build step 4), so there is no recognised pattern to confirm"
+        "source": "patterns.md is absent (build step 4), so there is no recognised pattern to confirm"
       }
     },
     {
@@ -187,7 +188,7 @@
         "disposition": "DETECTED",
         "value": "unclassified",
         "default": "unclassified",
-        "reason": "patterns.md is absent (build step 4), so there is no recognised pattern to confirm"
+        "source": "patterns.md is absent (build step 4), so there is no recognised pattern to confirm"
       }
     },
     {
@@ -196,7 +197,7 @@
         "disposition": "DETECTED",
         "value": "unclassified",
         "default": "unclassified",
-        "reason": "patterns.md is absent (build step 4), so there is no recognised pattern to confirm"
+        "source": "patterns.md is absent (build step 4), so there is no recognised pattern to confirm"
       }
     },
     {
@@ -205,7 +206,7 @@
         "disposition": "DETECTED",
         "value": "unclassified",
         "default": "unclassified",
-        "reason": "patterns.md is absent (build step 4), so there is no recognised pattern to confirm"
+        "source": "patterns.md is absent (build step 4), so there is no recognised pattern to confirm"
       }
     },
     {

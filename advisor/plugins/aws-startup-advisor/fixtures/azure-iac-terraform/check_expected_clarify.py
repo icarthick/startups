@@ -97,6 +97,36 @@ def check_dispositions(prefs: dict, exp: dict) -> None:
             )
 
 
+def check_conflicting_answer(prefs: dict, exp: dict) -> None:
+    """A user answer a hard_blocker suppresses is recorded AS GIVEN, and does not gate."""
+    spec = exp.get("conflicting_answer")
+    if not spec:
+        return
+    row = get(prefs, spec["row"])
+    if row is None:
+        FAILS.append(f"no row at {spec['row']!r} to check the conflicting answer. {spec['_why']}")
+        return
+    check(row.get("value") == spec["expected_value"],
+          f"{spec['row']}: value is {row.get('value')!r}, expected {spec['expected_value']!r}. "
+          f"The answer is recorded AS GIVEN — silently substituting a different one hides a "
+          f"decision the customer has to make. {spec['_why']}")
+    for k in spec.get("requires_keys", []):
+        check(bool(row.get(k)),
+              f"{spec['row']}: has no {k!r}. Recording the answer without recording what "
+              f"suppresses it leaves the conflict invisible. {spec['_why']}")
+    node: object = prefs
+    for part in spec["blocker_code_in"].split("."):
+        node = node.get(part) if isinstance(node, dict) else None
+    blockers = node if isinstance(node, list) else []
+    codes = {b.get("code") for b in blockers if isinstance(b, dict)}
+    check(spec["expected_blocker_code"] in codes,
+          f"{spec['blocker_code_in']} has no {spec['expected_blocker_code']!r} entry (got {sorted(codes)}). "
+          f"The blocker is a PREREQUISITE and must be recorded even though it does not change the answer.")
+    check(prefs.get("clarify_status") == spec["status_must_remain"],
+          f"clarify_status is {prefs.get('clarify_status')!r}, expected "
+          f"{spec['status_must_remain']!r}. A conflicting answer does NOT gate the phase.")
+
+
 def check_essential_gate(prefs: dict, exp: dict) -> None:
     spec = exp["essential_gate"]
     unanswered: list[str] = []
@@ -141,7 +171,6 @@ def check_defaults_not_promoted(prefs: dict, exp: dict) -> None:
                     and node.get("default") is not None
                     and not node.get("source")
                     and not node.get("forced_by")
-                    and not node.get("reason")
                 ):
                     offenders.append(path)
                 return
@@ -152,7 +181,13 @@ def check_defaults_not_promoted(prefs: dict, exp: dict) -> None:
                 walk(v, f"{path}[{n}]")
 
     walk(prefs, "")
-    check(not offenders, f"{offenders} are DETECTED with value == default and no stated source. {spec['_why']}")
+    check(
+        not offenders,
+        f"{offenders} are DETECTED with value == default and carry no `source`. "
+        f"The key is `source` for a DETECTED row and `forced_by` when a blocker removed the "
+        f"choice — see schema-preferences.md. NOT `note`, `reason`, `mapped_from` or `detail`: "
+        f"capability run 5 used `note` for nine rows whose content was entirely correct and this "
+        f"failed on the key NAME, because nothing specified it. {spec['_why']}")
 
 
 def check_isolation_rows(prefs: dict, inv: dict, exp: dict) -> None:
@@ -217,12 +252,15 @@ def check_no_secrets(prefs: dict, exp: dict) -> None:
 
 
 def main() -> int:
-    if len(sys.argv) != 2:
+    if len(sys.argv) not in (2, 3):
         print(__doc__)
         return 2
     run_dir = Path(sys.argv[1])
 
-    exp = load(HERE / "expected-clarify.json", "expected-clarify.json")
+    # Optional 2nd arg selects the expectation set, so one asserter serves both the BLOCKED
+    # and the COMPLETING branch. Defaults to the blocked one, which is the historical behaviour.
+    spec_name = sys.argv[2] if len(sys.argv) == 3 else "expected-clarify.json"
+    exp = load(HERE / spec_name, spec_name)
     if exp is None:
         _report()
         return 1
@@ -244,6 +282,7 @@ def main() -> int:
     check_dispositions(prefs, exp)
     check_essential_gate(prefs, exp)
     check_defaults_not_promoted(prefs, exp)
+    check_conflicting_answer(prefs, exp)
     check_isolation_rows(prefs, inv, exp)
     check_licensing_firing(prefs, exp)
     check_cluster_rows(prefs, cl_dir, exp)
@@ -253,7 +292,7 @@ def main() -> int:
         _report()
         return 1
     _print_notes()
-    print("PASS — expected-clarify.json assertions hold")
+    print(f"PASS — {spec_name} assertions hold")
     return 0
 
 

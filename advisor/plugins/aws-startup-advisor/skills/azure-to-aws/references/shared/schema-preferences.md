@@ -2,6 +2,37 @@
 
 Contract for the Clarify artifact. `clarify-assemble.md` is its single creator.
 
+## The justification key is `source`, and it is REQUIRED on `DETECTED`
+
+A row's shape is `disposition`, `value`, `default`, plus **exactly one** justification key.
+Which key depends on the disposition:
+
+| Disposition | Required key | Holds |
+| ----------- | ------------ | ----- |
+| `DETECTED` | **`source`** | *What in the estate was read.* "every resource is westeurope", "source is `Microsoft.Cache/Redis`, not redisEnterprise" |
+| `PROPOSED` | none required | the value came from the documented default, and `default` already says so |
+| `ESSENTIAL` | `context` when there is useful framing | what the user needs in order to answer. `unanswered: true` + `blocks_phase: true` when left null |
+| `N/A` | **`reason`** | why the category or row does not apply |
+| any, when a blocker forced it | **`forced_by`** | the `hard_blockers` key that removed the choice |
+
+**`DETECTED` means READ FROM THE ESTATE, so it must say what it read.** A `DETECTED` row
+whose `value` equals its `default` and which carries no `source` is indistinguishable from a
+**promoted default**, and that distinction is the whole point of decision 13.5c: Design's
+rationale prints "you chose Elastic Beanstalk" differently from "we assumed Elastic
+Beanstalk", and the report prints the difference — but only if this file recorded which
+happened.
+
+**Use these key names and no others.** Not `note`, not `mapped_from`, not `detail`, not
+`why`. Capability run 5 used `note` and `mapped_from` for nine rows whose content was
+entirely correct, and the assertion failed on the key name rather than the substance —
+because nothing here said which name to use. Between that run and the committed golden there
+were **nine different justification key names in play**. A field a fixture keys on has to be
+named by a rule, exactly as `service_id` does in `schema-design-aws.md`.
+
+Extra keys are allowed alongside the required one when they carry genuinely different
+information — `residency_warning`, `source_ha_context`, `conflict` — but they never
+substitute for it.
+
 ## Disposition vocabulary
 
 Every row carries one of four dispositions, and the distinction is load-bearing:

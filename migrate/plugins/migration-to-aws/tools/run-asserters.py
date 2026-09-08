@@ -49,6 +49,8 @@ ASSERTERS = {
     # _interactive: true, so `clarify-answers.json` stands in for the user; the asserter tests
     # BRANCHING (which rows fire, which are ESSENTIAL, which are N/A), never the conversation.
     "azure-iac-terraform/check_expected_clarify.py": "azure-iac-terraform/after-clarify",
+    # second branch of the same phase: BLOCKED above, COMPLETING here. Both are real states.
+    "azure-iac-terraform/check_expected_clarify_complete.py": "azure-iac-terraform/after-clarify-complete",
 }
 
 

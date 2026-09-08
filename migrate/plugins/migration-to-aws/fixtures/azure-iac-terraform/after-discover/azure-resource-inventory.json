@@ -1,7 +1,7 @@
 {
   "phase": "discover",
   "metadata": {
-    "discovery_timestamp": "2026-09-07T00:00:00Z",
+    "discovery_timestamp": "2026-09-08T01:40:00Z",
     "discovery_sources": [
       "terraform"
     ],
@@ -67,76 +67,6 @@
       "drift": []
     },
     {
-      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/virtualNetworks/tf:core",
-      "azure_type": "Microsoft.Network/virtualNetworks",
-      "azure_type_provenance": "table",
-      "name": "tf:core",
-      "resource_group": "rg-app",
-      "subscription_id": "<subscription-unknown>",
-      "location": "westeurope",
-      "source": "terraform",
-      "config": {
-        "name_expression": "vnet-${var.prefix}-core",
-        "address_space": [
-          "10.20.0.0/16"
-        ],
-        "tf_file": "network.tf",
-        "tf_resource_name": "core",
-        "tf_address": "azurerm_virtual_network.core"
-      },
-      "tags": {},
-      "edges": [],
-      "drift": []
-    },
-    {
-      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/virtualNetworks/tf:core/subnets/snet-apps",
-      "azure_type": "Microsoft.Network/virtualNetworks/subnets",
-      "azure_type_provenance": "table",
-      "name": "snet-apps",
-      "resource_group": "rg-app",
-      "subscription_id": "<subscription-unknown>",
-      "location": "westeurope",
-      "source": "terraform",
-      "config": {
-        "address_prefixes": [
-          "10.20.1.0/24"
-        ],
-        "tf_file": "network.tf",
-        "tf_resource_name": "apps",
-        "tf_address": "azurerm_subnet.apps"
-      },
-      "tags": {},
-      "edges": [
-        {
-          "type": "network",
-          "to": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/routeTables/rt-egress",
-          "via": "route_table_id"
-        }
-      ],
-      "drift": []
-    },
-    {
-      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/virtualNetworks/tf:core/subnets/snet-data",
-      "azure_type": "Microsoft.Network/virtualNetworks/subnets",
-      "azure_type_provenance": "table",
-      "name": "snet-data",
-      "resource_group": "rg-app",
-      "subscription_id": "<subscription-unknown>",
-      "location": "westeurope",
-      "source": "terraform",
-      "config": {
-        "address_prefixes": [
-          "10.20.2.0/24"
-        ],
-        "tf_file": "network.tf",
-        "tf_resource_name": "data",
-        "tf_address": "azurerm_subnet.data"
-      },
-      "tags": {},
-      "edges": [],
-      "drift": []
-    },
-    {
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/routeTables/rt-egress",
       "azure_type": "Microsoft.Network/routeTables",
       "azure_type_provenance": "table",
@@ -166,131 +96,12 @@
       "location": "westeurope",
       "source": "terraform",
       "config": {
+        "sku": "Basic",
         "tf_file": ".terraform/modules/naming/main.tf",
         "tf_resource_name": "jump",
         "tf_address": "azurerm_bastion_host.jump",
         "tf_module": "module.naming",
         "tf_module_source": "registry.terraform.io/Azure/naming/azurerm"
-      },
-      "tags": {},
-      "edges": [],
-      "drift": []
-    },
-    {
-      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Network/networkInterfaces/tf:reporting",
-      "azure_type": "Microsoft.Network/networkInterfaces",
-      "azure_type_provenance": "table",
-      "name": "tf:reporting",
-      "resource_group": "rg-shared",
-      "subscription_id": "<subscription-unknown>",
-      "location": "westeurope",
-      "source": "terraform",
-      "config": {
-        "name_expression": "nic-${var.prefix}-reporting",
-        "tf_file": "network.tf",
-        "tf_resource_name": "reporting",
-        "tf_address": "azurerm_network_interface.reporting"
-      },
-      "tags": {},
-      "edges": [
-        {
-          "type": "network",
-          "to": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/virtualNetworks/tf:core/subnets/snet-apps",
-          "via": "ip_configuration.subnet_id"
-        }
-      ],
-      "drift": []
-    },
-    {
-      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.Network/privateEndpoints/tf:store",
-      "azure_type": "Microsoft.Network/privateEndpoints",
-      "azure_type_provenance": "table",
-      "name": "tf:store",
-      "resource_group": "rg-data",
-      "subscription_id": "<subscription-unknown>",
-      "location": "westeurope",
-      "source": "terraform",
-      "config": {
-        "name_expression": "pe-${var.prefix}-store",
-        "subresource_names": [
-          "postgresqlServer"
-        ],
-        "tf_file": "network.tf",
-        "tf_resource_name": "store",
-        "tf_address": "azurerm_private_endpoint.store"
-      },
-      "tags": {},
-      "edges": [
-        {
-          "type": "network",
-          "to": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/virtualNetworks/tf:core/subnets/snet-data",
-          "via": "subnet_id"
-        },
-        {
-          "type": "private_link",
-          "to": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.DBforPostgreSQL/flexibleServers/tf:store",
-          "via": "private_service_connection.private_connection_resource_id"
-        }
-      ],
-      "drift": []
-    },
-    {
-      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.KeyVault/vaults/tf:main",
-      "azure_type": "Microsoft.KeyVault/vaults",
-      "azure_type_provenance": "table",
-      "name": "tf:main",
-      "resource_group": "rg-app",
-      "subscription_id": "<subscription-unknown>",
-      "location": "westeurope",
-      "source": "terraform",
-      "config": {
-        "name_expression": "kv-${var.prefix}",
-        "sku_name": "standard",
-        "tf_file": "network.tf",
-        "tf_resource_name": "main",
-        "tf_address": "azurerm_key_vault.main"
-      },
-      "tags": {},
-      "edges": [],
-      "drift": []
-    },
-    {
-      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.OperationalInsights/workspaces/tf:core",
-      "azure_type": "Microsoft.OperationalInsights/workspaces",
-      "azure_type_provenance": "table",
-      "name": "tf:core",
-      "resource_group": "rg-app",
-      "subscription_id": "<subscription-unknown>",
-      "location": "westeurope",
-      "source": "terraform",
-      "config": {
-        "name_expression": "log-${var.prefix}-core",
-        "sku": "PerGB2018",
-        "retention_in_days": 30,
-        "tf_file": "network.tf",
-        "tf_resource_name": "core",
-        "tf_address": "azurerm_log_analytics_workspace.core"
-      },
-      "tags": {},
-      "edges": [],
-      "drift": []
-    },
-    {
-      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Insights/components/tf:storefront",
-      "azure_type": "Microsoft.Insights/components",
-      "azure_type_provenance": "table",
-      "name": "tf:storefront",
-      "resource_group": "rg-app",
-      "subscription_id": "<subscription-unknown>",
-      "location": "westeurope",
-      "source": "terraform",
-      "config": {
-        "name_expression": "appi-${var.prefix}-storefront",
-        "application_type": "web",
-        "workspace_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.OperationalInsights/workspaces/tf:core",
-        "tf_file": "network.tf",
-        "tf_resource_name": "storefront",
-        "tf_address": "azurerm_application_insights.storefront"
       },
       "tags": {},
       "edges": [],
@@ -569,14 +380,20 @@
         "image_publisher": "MicrosoftWindowsServer",
         "image_offer": "WindowsServer",
         "image_sku": "2022-datacenter-azure-edition",
+        "source_image_reference": {
+          "publisher": "MicrosoftWindowsServer",
+          "offer": "WindowsServer",
+          "sku": "2022-datacenter-azure-edition",
+          "version": "latest"
+        },
+        "os_disk": {
+          "storage_account_type": "Premium_LRS",
+          "caching": "ReadWrite",
+          "disk_size_gb": null
+        },
         "tf_file": "compute.tf",
         "tf_resource_name": "reporting",
-        "tf_address": "azurerm_windows_virtual_machine.reporting",
-        "os_disk": {
-          "caching": "ReadWrite",
-          "storage_account_type": "Premium_LRS",
-          "disk_size_gb": null
-        }
+        "tf_address": "azurerm_windows_virtual_machine.reporting"
       },
       "tags": {},
       "edges": [
@@ -586,6 +403,54 @@
           "via": "network_interface_ids"
         }
       ],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Network/networkInterfaces/tf:reporting",
+      "azure_type": "Microsoft.Network/networkInterfaces",
+      "azure_type_provenance": "table",
+      "name": "tf:reporting",
+      "resource_group": "rg-shared",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "name_expression": "nic-${var.prefix}-reporting",
+        "tf_file": "network.tf",
+        "tf_resource_name": "reporting",
+        "tf_address": "azurerm_network_interface.reporting"
+      },
+      "tags": {},
+      "edges": [
+        {
+          "type": "network",
+          "to": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/virtualNetworks/tf:core/subnets/snet-apps",
+          "via": "ip_configuration.subnet_id"
+        }
+      ],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Devices/IotHubs/tf:telemetry_ingest",
+      "azure_type": "Microsoft.Devices/IotHubs",
+      "azure_type_provenance": "derived",
+      "name": "tf:telemetry_ingest",
+      "resource_group": "rg-shared",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "name_expression": "iot-${var.prefix}-ingest",
+        "sku": {
+          "name": "S1",
+          "capacity": 1
+        },
+        "tf_file": "unsupported.tf",
+        "tf_resource_name": "telemetry_ingest",
+        "tf_address": "azurerm_iothub.telemetry_ingest"
+      },
+      "tags": {},
+      "edges": [],
       "drift": []
     },
     {
@@ -660,6 +525,7 @@
             "failover_priority": 0
           }
         ],
+        "offer_type": "Standard",
         "tf_file": "data.tf",
         "tf_resource_name": "catalog",
         "tf_address": "azurerm_cosmosdb_account.catalog"
@@ -736,23 +602,165 @@
       "drift": []
     },
     {
-      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Devices/iothubs/tf:telemetry_ingest",
-      "azure_type": "Microsoft.Devices/iothubs",
-      "azure_type_provenance": "derived",
-      "name": "tf:telemetry_ingest",
-      "resource_group": "rg-shared",
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/virtualNetworks/tf:core",
+      "azure_type": "Microsoft.Network/virtualNetworks",
+      "azure_type_provenance": "table",
+      "name": "tf:core",
+      "resource_group": "rg-app",
       "subscription_id": "<subscription-unknown>",
       "location": "westeurope",
       "source": "terraform",
       "config": {
-        "name_expression": "iot-${var.prefix}-ingest",
-        "sku": {
-          "name": "S1",
-          "capacity": 1
+        "name_expression": "vnet-${var.prefix}-core",
+        "address_space": [
+          "10.20.0.0/16"
+        ],
+        "tf_file": "network.tf",
+        "tf_resource_name": "core",
+        "tf_address": "azurerm_virtual_network.core"
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/virtualNetworks/tf:core/subnets/snet-apps",
+      "azure_type": "Microsoft.Network/virtualNetworks/subnets",
+      "azure_type_provenance": "table",
+      "name": "snet-apps",
+      "resource_group": "rg-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "address_prefixes": [
+          "10.20.1.0/24"
+        ],
+        "tf_file": "network.tf",
+        "tf_resource_name": "apps",
+        "tf_address": "azurerm_subnet.apps"
+      },
+      "tags": {},
+      "edges": [
+        {
+          "type": "network",
+          "to": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/routeTables/rt-egress",
+          "via": "route_table_id"
+        }
+      ],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/virtualNetworks/tf:core/subnets/snet-data",
+      "azure_type": "Microsoft.Network/virtualNetworks/subnets",
+      "azure_type_provenance": "table",
+      "name": "snet-data",
+      "resource_group": "rg-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "address_prefixes": [
+          "10.20.2.0/24"
+        ],
+        "tf_file": "network.tf",
+        "tf_resource_name": "data",
+        "tf_address": "azurerm_subnet.data"
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.Network/privateEndpoints/tf:store",
+      "azure_type": "Microsoft.Network/privateEndpoints",
+      "azure_type_provenance": "table",
+      "name": "tf:store",
+      "resource_group": "rg-data",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "name_expression": "pe-${var.prefix}-store",
+        "subresource_names": [
+          "postgresqlServer"
+        ],
+        "tf_file": "network.tf",
+        "tf_resource_name": "store",
+        "tf_address": "azurerm_private_endpoint.store"
+      },
+      "tags": {},
+      "edges": [
+        {
+          "type": "private_link",
+          "to": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.DBforPostgreSQL/flexibleServers/tf:store",
+          "via": "private_service_connection.private_connection_resource_id"
         },
-        "tf_file": "unsupported.tf",
-        "tf_resource_name": "telemetry_ingest",
-        "tf_address": "azurerm_iothub.telemetry_ingest"
+        {
+          "type": "network",
+          "to": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/virtualNetworks/tf:core/subnets/snet-data",
+          "via": "subnet_id"
+        }
+      ],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.KeyVault/vaults/tf:main",
+      "azure_type": "Microsoft.KeyVault/vaults",
+      "azure_type_provenance": "table",
+      "name": "tf:main",
+      "resource_group": "rg-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "name_expression": "kv-${var.prefix}",
+        "sku_name": "standard",
+        "tf_file": "network.tf",
+        "tf_resource_name": "main",
+        "tf_address": "azurerm_key_vault.main"
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.OperationalInsights/workspaces/tf:core",
+      "azure_type": "Microsoft.OperationalInsights/workspaces",
+      "azure_type_provenance": "table",
+      "name": "tf:core",
+      "resource_group": "rg-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "name_expression": "log-${var.prefix}-core",
+        "sku": "PerGB2018",
+        "retention_in_days": 30,
+        "tf_file": "network.tf",
+        "tf_resource_name": "core",
+        "tf_address": "azurerm_log_analytics_workspace.core"
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Insights/components/tf:storefront",
+      "azure_type": "Microsoft.Insights/components",
+      "azure_type_provenance": "table",
+      "name": "tf:storefront",
+      "resource_group": "rg-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "terraform",
+      "config": {
+        "name_expression": "appi-${var.prefix}-storefront",
+        "application_type": "web",
+        "workspace_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.OperationalInsights/workspaces/tf:core",
+        "tf_file": "network.tf",
+        "tf_resource_name": "storefront",
+        "tf_address": "azurerm_application_insights.storefront"
       },
       "tags": {},
       "edges": [],
@@ -770,6 +778,9 @@
     "modules_unresolved": [
       "module.cdn (Azure/cdn/azurerm 3.1.0)"
     ],
+    "modules_resolved": [
+      "module.naming -> .terraform/modules/naming (registry.terraform.io/Azure/naming/azurerm 0.4.0)"
+    ],
     "derived_types": [
       "azurerm_iothub"
     ],
@@ -779,24 +790,25 @@
   "warnings": [
     {
       "code": "subscription_id_unresolved",
-      "identifier": "provider.azurerm",
-      "detail": "The provider block declares no subscription_id, so every reconstructed azure_id carries the literal <subscription-unknown> placeholder and cannot be matched against a live tenant capture without re-running discovery with the subscription supplied."
+      "identifier": "provider \"azurerm\"",
+      "detail": "The provider block sets no subscription_id (it comes from ARM_SUBSCRIPTION_ID in the environment), so every reconstructed azure_id carries the literal <subscription-unknown> placeholder and cannot be matched against a live az capture."
     },
     {
       "code": "name_expression_unresolved",
-      "identifier": "22 resources across network.tf, compute.tf, data.tf, unsupported.tf",
-      "detail": "These resources' name attributes are Terraform expressions interpolating var.prefix, so each name is recorded as tf:<local_name> and its azure_id is NOT a real ARM resource ID: none of them can be drift-matched against a live az capture. Affected tf_addresses: azurerm_virtual_network.core, azurerm_network_interface.reporting, azurerm_private_endpoint.store, azurerm_key_vault.main, azurerm_log_analytics_workspace.core, azurerm_application_insights.storefront, azurerm_service_plan.web, azurerm_linux_web_app.storefront, azurerm_linux_web_app.admin, azurerm_linux_web_app.checkout, azurerm_linux_web_app.docs, azurerm_linux_web_app.webhooks, azurerm_service_plan.func, azurerm_linux_function_app.imageresize, azurerm_service_plan.legacy, azurerm_windows_virtual_machine.reporting, azurerm_postgresql_flexible_server.store, azurerm_redis_cache.session, azurerm_cosmosdb_account.catalog, azurerm_storage_account.assets, azurerm_eventhub_namespace.telemetry, azurerm_iothub.telemetry_ingest."
+      "identifier": "22 resources across compute.tf, data.tf, network.tf, unsupported.tf",
+      "detail": "These resources' name attributes are interpolated expressions, so name is tf:<local_name> and the reconstructed azure_id is NOT a real ARM resource ID \u2014 they cannot be drift-matched against a live capture: azurerm_service_plan.web, azurerm_service_plan.func, azurerm_service_plan.legacy, azurerm_linux_web_app.storefront, azurerm_linux_web_app.admin, azurerm_linux_web_app.checkout, azurerm_linux_web_app.docs, azurerm_linux_web_app.webhooks, azurerm_linux_function_app.imageresize, azurerm_windows_virtual_machine.reporting, azurerm_network_interface.reporting, azurerm_virtual_network.core, azurerm_private_endpoint.store, azurerm_key_vault.main, azurerm_log_analytics_workspace.core, azurerm_application_insights.storefront, azurerm_postgresql_flexible_server.store, azurerm_redis_cache.session, azurerm_cosmosdb_account.catalog, azurerm_storage_account.assets, azurerm_eventhub_namespace.telemetry, azurerm_iothub.telemetry_ingest."
     },
     {
       "code": "module_not_resolved",
-      "identifier": "module.cdn (source Azure/cdn/azurerm, version 3.1.0)",
-      "detail": "The module's source is a registry address that has not been downloaded into .terraform/modules/, so its resources were not discovered and any CDN / Front Door surface it declares is missing from this inventory and from every cost figure derived from it."
+      "identifier": "module.cdn (Azure/cdn/azurerm 3.1.0)",
+      "detail": "The module source is a registry address whose content is not present in the workspace, so its resources were not discovered and any CDN / Front Door capacity it declares is missing from this inventory and from every downstream estimate."
     },
     {
       "code": "private_endpoint_consumed",
       "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.Network/privateEndpoints/tf:store",
-      "detail": "This private endpoint was read for its relationship and is not itself a mapping target; it produced a private_link edge to the PostgreSQL flexible server tf:store, which is what places the app and its database in one workload."
+      "detail": "Read for its edges and skipped as a mapping target; it produced the private_link edge to Microsoft.DBforPostgreSQL/flexibleServers/tf:store (subresource postgresqlServer), which is what merges rg-app and rg-data into one cluster."
     }
   ],
-  "unclustered": []
+  "unclustered": [],
+  "_what_this_is": "GOLDEN Discover inventory, from capability run 5 (fresh isolated agent, answer keys prohibited, pointed only at SKILL.md). 30 resources: 31 declared minus the association-only one. azurerm_iothub is DERIVED and retained, not dropped."
 }

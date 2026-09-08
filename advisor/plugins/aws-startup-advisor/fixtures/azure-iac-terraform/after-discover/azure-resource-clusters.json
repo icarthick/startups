@@ -23,12 +23,12 @@
         "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Insights/components/tf:storefront",
         "/subscriptions/<subscription-unknown>/resourceGroups/rg-data",
         "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.DBforPostgreSQL/flexibleServers/tf:store",
-        "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.Network/privateEndpoints/tf:store",
         "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.Cache/Redis/tf:session",
-        "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.EventHub/namespaces/tf:telemetry"
+        "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.EventHub/namespaces/tf:telemetry",
+        "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.Network/privateEndpoints/tf:store"
       ],
       "member_roles": {
-        "/subscriptions/<subscription-unknown>/resourceGroups/rg-app": "configuration",
+        "/subscriptions/<subscription-unknown>/resourceGroups/rg-app": "idle",
         "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:storefront": "deployment",
         "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:admin": "deployment",
         "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/sites/tf:checkout": "deployment",
@@ -42,11 +42,11 @@
         "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Network/bastionHosts/bas-jump": "network",
         "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.OperationalInsights/workspaces/tf:core": "observability",
         "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Insights/components/tf:storefront": "observability",
-        "/subscriptions/<subscription-unknown>/resourceGroups/rg-data": "configuration",
+        "/subscriptions/<subscription-unknown>/resourceGroups/rg-data": "idle",
         "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.DBforPostgreSQL/flexibleServers/tf:store": "data",
-        "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.Network/privateEndpoints/tf:store": "network",
         "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.Cache/Redis/tf:session": "data",
-        "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.EventHub/namespaces/tf:telemetry": "data"
+        "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.EventHub/namespaces/tf:telemetry": "data",
+        "/subscriptions/<subscription-unknown>/resourceGroups/rg-data/providers/Microsoft.Network/privateEndpoints/tf:store": "network"
       },
       "primary": "/subscriptions/<subscription-unknown>/resourceGroups/rg-app/providers/Microsoft.Web/serverfarms/tf:web",
       "justification": "merge:cross_group_edges",
@@ -113,12 +113,12 @@
         "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared",
         "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Compute/virtualMachines/tf:reporting",
         "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Network/networkInterfaces/tf:reporting",
-        "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Devices/iothubs/tf:telemetry_ingest"
+        "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Devices/IotHubs/tf:telemetry_ingest"
       ],
       "member_roles": {
-        "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared": "configuration",
+        "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared": "idle",
         "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Network/networkInterfaces/tf:reporting": "network",
-        "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Devices/iothubs/tf:telemetry_ingest": "idle"
+        "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Devices/IotHubs/tf:telemetry_ingest": "idle"
       },
       "primary": "/subscriptions/<subscription-unknown>/resourceGroups/rg-shared/providers/Microsoft.Compute/virtualMachines/tf:reporting",
       "justification": "split:no_internal_edges",
