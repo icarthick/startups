@@ -2085,10 +2085,101 @@ Note the third row generalises: **`_assert` postconditions cannot catch an order
 bug**, because a wrong-but-self-consistent artifact satisfies every relationship it
 declares. Only reading the procedure catches it.
 
-### 18.7 Still open after this session
+### 18.7 [ADDED] Capability run 6 — and it beat the author twice
 
-1. **Three rates** — DocumentDB, FSx for Windows, the Windows licence adder. Blocked
-   on `uvx`/MCP. Until then their lines are excluded and both totals are floors, which
+Fresh isolated agent, full chain, **goldens structurally unreachable** (the copied
+tree contains no `fixtures/` at all — an improvement on honour-based prohibition).
+All four phases `HANDOFF_OK`. 1,414 lines of notes at
+`/local/home/carthick/dev/capability-run-6/`. **Prohibitions fully complied with**,
+and it was tempted exactly where the brief predicted — wanting the asserter to settle
+whether IoT Hub is untranslated — and recorded the temptation instead.
+
+It tested the skill as of `aa40184`, so several complaints name fields specified
+afterwards in `ce744d5` / `3855410`. That is independent convergence and is recorded
+as such, not claimed as foresight.
+
+**Two answers it got right and the author got wrong:**
+
+| | Author | Run 6 | Why the run is right |
+| - | ------ | ----- | -------------------- |
+| `complexity_tier` | `medium` | **`large`** | `complexity-tiers.json` makes `service_count_gte: 9` a LARGE condition with `match: "any"`, and there are 16 services. The expected file justified `medium` as *"service count 17 is above the Medium band"* — and above the medium band **is** large. The oracle pinned a wrong answer and mutation-tested `small` as the error, while `large` would also have failed |
+| `compliance` | `"none"` | **`null`** | **No Clarify fragment produces a compliance row.** `"none"` fabricates an answer to an unasked question |
+
+The second has two consequences now stated rather than absorbed:
+`compliance_present` is a permanently unevaluable `large` condition on this skill,
+and **Part 8's hard trigger 1 opens with a permanently-true clause** ("compliance is
+unknown"), so only its second clause does any work.
+
+**Its most serious finding, missed entirely by the author: a rate that describes the
+WRONG CONFIGURATION.** `rds_postgresql.instances` rates are Multi-AZ
+(`multi_az_handling: baked_in`); the design is single-AZ. So the largest line in the
+estate — **59% of the priced total** — is roughly **2× too HIGH**, there is no
+single-AZ table, and halving a Multi-AZ rate would invent one.
+
+This is worse than a missing rate, because **the arithmetic looks complete**. The
+first golden called the line *"if anything conservative"*, which is the wrong
+framing: overstating the largest line makes AWS look MORE expensive and can invert a
+migrate/stay recommendation just as surely as understating it.
+
+> **The generalisation worth keeping: a total can be wrong in BOTH directions at
+> once.** Exclusions push every total down; a wrong-configuration rate pushes the
+> biggest line up. Calling the result a "floor" is then false, and netting the two
+> off is worse — they do not cancel in any knowable amount. `accuracy_confidence`
+> now states both.
+
+**Other fixes it drove:** a **closed warning vocabulary** for Estimate (Discover and
+Design both declare theirs closed; Estimate had none, so the run invented five codes
+and declared them — correct behaviour under a missing rule, wrong state for the rule);
+**tier→weeks bands** (the gate renders `~[N-M] weeks`, `complexity-tiers.json` says
+timelines live in the consuming prose, and the consuming prose had none — the run
+flagged `12-18` as *"a number no file supplies"*); and the **`cached_stale` vs
+`cached_fallback` tiebreak** in the shared file, where three rules named two values
+for the normal case.
+
+It also found **a crash in the oracle** — the fourth oracle bug a capability run has
+produced. A tolerance bound by a walrus inside an `if` left the asserter crashing on
+an artifact that took the other branch. **A crashing oracle is worse than a failing
+one: it says nothing at all about the artifact.**
+
+**63/63 mutations** after the additions.
+
+### 18.8 [ADDED] Findings run 6 raised OUTSIDE Estimate, not yet fixed
+
+Its top-ranked item is not in this step's scope and is the highest-value thing left:
+
+1. **`disk-ebs-sizing.json`'s `_when` gate excludes the case its own body calls the
+   "MOST COMMON CASE".** A VM's `os_disk` is an inline block, so no
+   `Microsoft.Compute/disks` resource exists — which is exactly what the gate
+   requires. The run **knowingly broke `SKILL.md:60`'s MUST NOT** to load the file,
+   and disclosed it, because the alternative was fabricating an EBS type. This is
+   §17.6's unsatisfiable-instruction shape again, and the fix is one line.
+2. **`clustering-algorithm.md` disagrees with its own worked example — 5 clusters vs
+   the 4 it predicts.** §13.4e firing a **fourth** time. Two NEW sub-findings: the
+   example silently needs a VM→NIC edge no extraction rule produces, and silently
+   excludes resource groups from containment — **which is §17.9 #2, independently
+   rediscovered for the third time.** The file *asks* the reader to re-trace it and
+   then contradicts the trace.
+3. **Three stale enums** — `azure_type_provenance` (`discover.md:36`),
+   `untranslated_types` (`discover.md:37`), `routing_provenance`
+   (`schema-design-aws.md:282`). Each would fail a postcondition on an artifact that
+   follows the extraction rules exactly.
+4. **Two sizing tables do not exist** (ElastiCache, MSK), so two dollar figures —
+   $91.40, 19.7% of the run's total — rest on sizes the model chose. Zero figures came
+   from an unsourced RATE; these are unsourced SIZES, which is the softer failure §14
+   describes but still unasserted.
+5. `references/shared/graviton.md` is cited by four files and does not exist.
+6. `design-assemble.md` rule 5 requires an MCP server `SKILL.md` does not declare.
+7. Whether a PROPOSED-from-default value counts as a user preference is unstated, and
+   it changes both the compute target for a class of plan and what `value` holds in
+   every PROPOSED row. One sentence in `schema-preferences.md` closes both.
+8. `INTERPRETER.md` is declared skill-agnostic and then names another skill as owner;
+   `_exec` names worker files absent from the tree.
+
+### 18.9 Still open after this session
+
+1. **Four rate gaps** — DocumentDB, FSx for Windows, the Windows licence adder, and
+   **a single-AZ RDS table** (§18.7). The first three are blocked on `uvx`/MCP; the
+   fourth is a table nobody has, and it is the largest single inaccuracy in the output. Until then their lines are excluded and both totals are floors, which
    means **the corpus estimate is a floor and its 89% apparent saving is not a
    credible finding** — the artifact says so in `cost_comparison.credibility_caveat`.
 2. **The sizing-table / rate-card pair is unguarded.** ~50 types the sizing tables can
