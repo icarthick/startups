@@ -1936,3 +1936,169 @@ The ones that changed the design:
    three rates, and the ~50 other types azure's sizing tables can emit that the rate card has
    no row for.
 6. `NOTES.md` §1.3–1.9 and §2.x remain unaddressed — roughly 24 findings.
+
+---
+
+## 18. [ADDED] Estimate, 2026-09-08 (session 6)
+
+Step 5c. Eight commits. The phase went from a 38-line skeleton to 1,037 lines
+across three files, and the thing worth recording is not the content — it is that
+**five defects were found by checking claims rather than by running anything**,
+including two in artifacts this plan asserted were fine.
+
+### 18.1 [CORRECTED] The pricing blocker was six gaps and two contract defects, not three rows
+
+§17.9 #5 said three instance types had no rate. Measured against the corpus, that
+understated it by half and mis-identified one:
+
+| Claimed | Actual |
+| ------- | ------ |
+| `m6i.large`, `m6i.xlarge` missing | **Already in the file** as `eks.node_rates_monthly` 70.08 / 140.16 — these hourly rates x 730. Not missing, *unreachable*: the EB/EC2 formula reads `ec2.instances[...]` |
+| `db.t3.medium` missing from RDS | It is a **DocumentDB** class. There is no `documentdb` section at all, and reading it from `rds_postgresql.instances` would be wrong twice — wrong service, and those rates are baked-in Multi-AZ |
+| — | **FSx for Windows** — no section anywhere. Unlisted |
+| — | **Lambda** — no section, and the file's own `_comment` called Lambda "gcp-specific". azure maps consumption-plan Function Apps to Lambda, so that was false. Resolved: harvested verbatim from gcp's cache |
+| — | **The Windows licence adder.** `ec2.instances` is documented Linux/x86. The design emits `license_model: "License Included"` on a Windows `m6i.xlarge` and Clarify's licensing category fires. Pricing it at the Linux rate understates the estate's most expensive compute line by ~2x, in the direction that flatters AWS. **Worse than all three named**, and unlisted |
+
+Underneath, the real finding: **the shared pricing hierarchy was keyed at SERVICE
+granularity.** `pricing-mode.md` rung 1 fired on *"Service found in the pricing
+file"*. `ec2` is in the file; `m6i.xlarge` is not — so the documented behaviour was
+to label a missing number `cached` and continue. heroku never hit it because its
+sizing table and its rates were co-authored; azure's eight sizing tables were
+written from Azure SKUs and diverge on day one (**only 4 of ~35 emittable EC2 types
+and 9 of 28 RDS classes have a row**).
+
+Also fixed: **region**. Every rate is `us-east-1` with no multiplier while the corpus
+targets `eu-west-1` — and Clarify's residency warning is about that same hop, so a
+reader is primed to think the region was handled. And the cache has been past its own
+staleness window since 2026-08-18, so every azure run is `cached_stale` from the
+outset.
+
+`uvx` is not installed, so the awspricing MCP is unreachable here. **Add it to the
+absent-tools list** with mise, dprint, markdownlint, gitleaks and terraform. The three
+remaining rates therefore could not be fetched and were not invented — which is what
+gcp's own `pricing-fallback.md` demands: *"Never emit fabricated prices. A missing cost
+estimate is better than a wrong one."*
+
+### 18.2 [DECIDED] Three reasons a line leaves the totals, and a materiality rule
+
+Two states could not express the corpus:
+
+| `exclusion_reason` | Meaning | Corpus |
+| ------------------ | ------- | ------ |
+| `no_rate` | no rate row anywhere, MCP unreachable | DocumentDB, FSx |
+| `partial_rate` | base rate resolved, a required COMPONENT did not | both Windows lines |
+| `no_quantity` | every rate resolved, no quantity to multiply | Lambda |
+
+Lambda is the instructive one: its `pricing_source` is legitimately `cached` while
+its `exclusion_reason` is `no_quantity`. Conflating "no rate" with "no quantity"
+loses the distinction between a gap in our data and a gap in the customer's.
+
+**The rule: price what is quantified; exclude only when the PRIMARY driver is
+unpriced.** MSK keeps its line (brokers quantified, per-broker storage not); a
+Windows instance loses its (the licence is ~half). This is a materiality judgement
+and it is stated as one, so it can be argued with rather than discovered.
+
+### 18.3 [ADDED] The $0 delta, and why it is the phase's most dangerous number
+
+On a Terraform-only estate the right-sizing delta is **legitimately $0** — and a $0
+is exactly what a phase that never computed it also produces.
+
+Separating the two kinds of right-sizing is what made this sayable:
+**utilization-based** needs metrics (and `rightsizing-thresholds.json`'s
+`_precondition` forbids applying its P95 bands to a declared SKU), while
+**declared-waste-based** needs none. With no metrics the sizing tables map
+like-for-like, so `aws_config` already equals the lift on every priced line.
+
+So the explanation is REQUIRED and required to say WHY, `declared_waste_found` is
+recorded separately, and the idle P1v3 Windows plan with zero apps survives as a
+finding even though it moves no dollars — it is excluded as `partial_rate`, so it
+could not have moved them either way.
+
+### 18.4 [CORRECTED] Plan §8 was half right about the shared schema, and the artifact failed it
+
+§8 said `estimation-infra.schema.json` *"has no `additionalProperties: false` ... so
+no schema change is needed."* True for ADDING. It says nothing about `required`, and
+the first artifact violated the schema three ways:
+
+1. `projected_costs.required` is `[aws_monthly_premium, aws_monthly_balanced,
+   aws_monthly_optimized]` and the dual output **replaced** them. They are a
+   different axis — scenarios vary resilience and pricing model, the dual output
+   varies sizing — and neither substitutes for the other.
+2. `breakdown` is declared `type: object` (keyed by service, with a `total`, as
+   heroku and gcp emit). It was an array.
+3. `accuracy_confidence` is declared a string. It was an object.
+
+**`_validate_json` catches none of these** — it checks parseability, not conformance.
+A phase can declare a schema in `_knowledge`, satisfy every postcondition it wrote
+for itself, and still emit an artifact the shared contract rejects. That is a general
+hole, not an azure one.
+
+Reconciled without a shared change: **Balanced IS the right-sized total** (emitted
+equal, not computed twice), Premium adds the multi-AZ uplift only for
+`multiplier_x2` lines that are not already multi-AZ, and Optimized discounts only the
+RI/SP-eligible subtotal — $329.79 of $465.09 here. A blanket 30% would have
+discounted $135.30 with no commitment product behind it, and **MSK is the trap**: it
+looks like something an RI covers and has none.
+
+The oracle now reads the schema's `required` list **at assert time** rather than
+restating it, so the fixture cannot drift from the contract it enforces.
+
+### 18.5 [ADDED] The tolerance model, and why the tiers are the point
+
+The first fixture in the repo that cannot use exact assertions.
+
+| Tier | What | Why it is the right shape |
+| ---- | ---- | ------------------------- |
+| **1 — exact** | everything that is not a dollar figure | rates drift; contracts do not, and every defect five capability runs found was of this kind |
+| **2 — relational, exact to 1e-6** | totals reconcile to their own lines; delta = lift − right_sized; annual = monthly x 12; `financial_summary` is the negation of `cost_comparison`; per-cluster sums | properties of the ARTIFACT, not the price list, so they survive any refresh |
+| **3 — banded** | per-line figures against `[min, max]` **recorded**, never recomputed | a rate refresh that moves a line out of band becomes a reviewable diff |
+
+Rejected: **a blanket percentage on the grand total** — the one number where two
+compensating errors cancel and one rate change fails everything. And
+**recomputing expected values from the vendored card**, which never goes stale but
+shares the run's input, so it catches arithmetic slips and nothing else: not a Linux
+rate used for a Windows box, not an RDS class read for a DocumentDB line. Those are
+the defects the fixture exists for.
+
+Envelopes are per line by what the line is made of — 10% for rate x count, 35% for a
+usage heuristic, 15% for the total. **A band tighter than the coarsest input is
+theatre**, and the coarsest input here is a log-volume guess.
+
+**Verified rather than asserted:** a simulated +7% rate refresh passes with zero
+relational failures; +25% fails 10 bands with zero relational failures.
+
+### 18.6 [ADDED] What checking found that running would not have
+
+Five defects, none of which a completing run would have surfaced:
+
+| Found by | Defect |
+| -------- | ------ |
+| Auditing asserted fields against the refs | **11 fields the oracle asserted and no skill file defined** — §15.4's class for the FIFTH time, caught pre-ship this round rather than by a capability run afterwards |
+| Validating the golden against its declared schema | §18.4's three violations |
+| Reading my own file end to end | **Totals came before the observability line that belongs in them.** An agent following "execute in order" would understate every total by the CloudWatch figure while every reconciliation check still passed, because the total would agree with the lines it was built from |
+| Checking whether Design still halts | `run-asserters.py` and §14 both said Design GATE_FAILs so Estimate was unreachable. **Both gates §16.4 named are gone** — derivation cleared `untranslated_types`, the rubrics cleared `pending_rubric` — and neither was closed by the work proposed for it |
+| Mutation-testing the oracle | Two bugs IN THE ORACLE, both §16.1's shape: a case-insensitive match on `FTE` hits "a**fte**r", and the no-labor check scanned the disclaimer that states the rule, so an artifact correctly saying "no engineer-weeks here" failed for containing the words |
+
+**54 mutations, all caught with a message naming the rule violated.**
+
+Note the third row generalises: **`_assert` postconditions cannot catch an ordering
+bug**, because a wrong-but-self-consistent artifact satisfies every relationship it
+declares. Only reading the procedure catches it.
+
+### 18.7 Still open after this session
+
+1. **Three rates** — DocumentDB, FSx for Windows, the Windows licence adder. Blocked
+   on `uvx`/MCP. Until then their lines are excluded and both totals are floors, which
+   means **the corpus estimate is a floor and its 89% apparent saving is not a
+   credible finding** — the artifact says so in `cost_comparison.credibility_caveat`.
+2. **The sizing-table / rate-card pair is unguarded.** ~50 types the sizing tables can
+   emit have no row. `_rate_row_coverage._who_owes_what` records the obligation; no
+   tool enforces it. This is a §15.2 pairing check waiting to be written.
+3. **`preferences.licensing` undercounts Windows workloads.** It records 1 workload /
+   4 vCPU because `clarify-licensing.md`'s firing rule reads only
+   `Microsoft.Compute/virtualMachines`; the Windows App Service Plan also carries
+   Windows licensing on the target. Estimate uses 2 / 6 and says why, but Clarify's
+   rule is the thing that should change.
+4. **The reservation `$0` rule is untested and unreachable**, by construction. It stays
+   as a contract for when the billing source lands.
+5. §17.9 #1–#4 and #6 unchanged; NOTES.md §1.3–1.9 and §2.x still ~24 findings.
