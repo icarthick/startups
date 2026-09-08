@@ -1409,8 +1409,8 @@ by the user-override behaviour or by a variant inventory with
 | Step | What | State |
 | ---- | ---- | ----- |
 | 5a | Clarify's four infra categories | **done** — `bdd20ae` |
-| 5c | **Estimate — NEXT.** Dual output, the decision gate that writes `run_mode`, the licensing delta, and the ~9 `knowledge/design/*.json` sizing tables. First phase whose fixtures need TOLERANCES rather than exact assertions | next |
-| 5d | `patterns.md` — not a gate, but the report leads with cluster-level rationale and there is none without it | |
+| 5c | **Estimate — DONE** (2026-09-08, §18). Dual output, the decision gate that writes `run_mode`, the licensing delta, `estimate-defaults.json`, and the first tolerance-based fixture. The sizing tables landed earlier in §17.6 | **done** |
+| 5d | `patterns.md` — not a gate, but the report leads with cluster-level rationale and there is none without it | **next**, with 5e |
 | 5e | Generate — Terraform output, migration guide, report, scripts. Completes the corpus end to end | |
 | 5b | `networking.md` (7) + `messaging.md` (5) + thin `storage.md` / `identity.md`. Needed before any REAL repo, blocks nothing on the corpus; parallelises with 5c–5f and needs corpus extension to be testable | |
 | 5f | `workshop` + `feedback` sidebars (`workshop` carries `_gates: generate`) | |
@@ -1914,9 +1914,12 @@ The ones that changed the design:
    cannot all be satisfied, and both runs broke the name-expression ban to satisfy the worked
    example.
 4. **`cluster_id` has `service_id`'s stability requirement and none of its specification.**
-5. **Three instance types the design emits have no rate** in the vendored pricing table
-   (`m6i.xlarge`, `m6i.large`, `db.t3.medium`) — the sizing tables emit current-generation
-   types while the table carries m5/r5. That file is byte-synced across three skills, so
-   extending it is a shared change. **Estimate cannot produce trustworthy numbers until this
-   is resolved.**
+5. ~~**Three instance types the design emits have no rate**~~ — **RESOLVED 2026-09-08, and
+   the count was wrong.** It was six gaps and two contract defects, not three rows. See §18.1.
+   `m6i.large`/`m6i.xlarge` were already in the file as EKS monthly rates and merely
+   unreachable; `db.t3.medium` is a **DocumentDB** class, not an RDS one; and FSx for Windows,
+   Lambda and the **Windows licence adder** were absent and unlisted. Lambda came from gcp's
+   cache; the other three are `unavailable` until the MCP is reachable. **Still open:** those
+   three rates, and the ~50 other types azure's sizing tables can emit that the rate card has
+   no row for.
 6. `NOTES.md` §1.3–1.9 and §2.x remain unaddressed — roughly 24 findings.

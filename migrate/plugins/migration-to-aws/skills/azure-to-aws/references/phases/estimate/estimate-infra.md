@@ -207,6 +207,33 @@ Rates come from the named keys in
 | **CloudWatch** | Part 2C | — |
 | **VPC, subnets, route tables, Systems Manager Session Manager** | `$0`. Emit the line at zero with a `basis` note rather than omitting it, so the reader can see it was considered rather than forgotten | — |
 
+### The breakdown line shape
+
+One entry per designed service, in `projected_costs.breakdown[]`. The field names
+are fixed, because both totals and every downstream reader key on them:
+
+```json
+{
+  "service_id": "<from aws-design.json services[].service_id>",
+  "aws_service": "<from the design>",
+  "lift_monthly": "<Part 2A figure, or null>",
+  "right_sized_monthly": "<Part 2B figure, or null>",
+  "pricing_source": "<cached | partial | live | cached_fallback | estimated | unavailable>",
+  "basis": "<REQUIRED — the rate keys and arithmetic behind the figure, or why there is none>",
+  "components": { "<sub-line>": "<figure or null>" },
+  "assumptions": ["<any quantity taken from estimate-defaults.json or a rate file's _basis rather than from the estate>"],
+  "exclusion_reason": "<no_rate | partial_rate | no_quantity — ABSENT when the line is priced>",
+  "excluded_from_total": "<true only alongside an exclusion_reason>",
+  "missing_component": "<REQUIRED for partial_rate — names what is unpriced>",
+  "is_floor": "<true for a partial_rate line>"
+}
+```
+
+`basis` is required on **every** line, including the `$0` ones — "a VPC is not
+billed" is the answer to a question a reader would otherwise have to assume.
+`components` must sum to the line's own figure wherever it is present, or the
+breakdown contradicts itself.
+
 **Lambda has rates but no invocation data.** The rates are in the pricing file, so
 this is not a missing-rate case: IaC declares no request volume, and a source
 consumption plan provisions no worker capacity, so there is no source-side figure
@@ -335,11 +362,20 @@ Read them from there; do not supply a remembered figure.
    detected in the source; otherwise it contributes a cost that traces back to no
    evidence.
 
-Emit as a single entry with `volume_source: "heuristic"` and a **±35%** band, and
-label it: "Azure Monitor includes a Log Analytics allowance; CloudWatch charges
-from the first GB. Actual cost depends on log verbosity and retention." This
-entry REPLACES any CloudWatch row a supporting-services line would otherwise add
-— never double-count.
+Emit as a **single** breakdown line, `service_id: "observability-cloudwatch"`,
+carrying `volume_source: "heuristic"`, `band_percent: 35`, and the resulting
+`low` and `high` alongside its `right_sized_monthly`, with `components` broken out
+as `log_ingestion`, `log_storage`, `custom_metrics`, `alarms` and `tracing`. Label
+it: "Azure Monitor includes a Log Analytics allowance; CloudWatch charges from the
+first GB. Actual cost depends on log verbosity and retention."
+
+It is the one line that is **not** a designed service, so it has no entry in
+`aws-design.json services[]` and must not be counted as one. It is also
+estate-wide, so its `per_cluster` attribution is `cluster_id: null` rather than a
+cluster picked arbitrarily.
+
+This entry REPLACES any CloudWatch row a supporting-services line would otherwise
+add — never double-count.
 
 The ALB line's LCU count comes from the same file
 (`alb_lcu_estimate.default_lcus`), for the same reason.
@@ -370,10 +406,50 @@ When Part 1 produced a baseline from any rung except `unavailable`, present:
     "monthly": "<lift_total - right_sized_total>",
     "annual": "<x12>",
     "basis": "<'declared_waste' | 'utilization' | 'both' | 'none'>",
-    "explanation": "<REQUIRED — and REQUIRED to say WHY whenever monthly is 0>"
-  }
+    "explanation": "<REQUIRED — and REQUIRED to say WHY whenever monthly is 0>",
+    "declared_waste_found": ["<REQUIRED whenever the IaC declares waste, even when it moves no dollars>"],
+    "what_would_change_this": "<what evidence would make the delta non-zero>"
+  },
+  "per_cluster": [
+    {
+      "cluster_id": "<a cluster_id from aws-design.json clusters[], or null for an estate-wide line>",
+      "right_sized_monthly": "<sum of this cluster's priced lines>",
+      "is_floor": "<true when any of this cluster's lines was excluded>",
+      "lines": ["<service_id, ...>"],
+      "note": "<REQUIRED when the figure is 0 and the cluster is not actually free>"
+    }
+  ]
 }
 ```
+
+`declared_waste_found` is not optional decoration. The idle-capacity finding is
+often the estate's clearest cost problem, and it can be real while moving no
+dollars — because the design flagged it rather than removing it, or because its
+line was excluded. Losing it on the grounds that the delta is zero drops the
+finding a customer would most want.
+
+**Every `per_cluster` figure of `$0.00` needs its `note`.** A cluster whose every
+line was excluded reads as free, and it is not — it is unpriced. The per-cluster
+figures plus any `cluster_id: null` estate-wide line must sum to the right-sized
+total.
+
+Also emit `financial_summary`, which restates the headline in the opposite sign
+convention because report readers expect "savings" to be positive:
+
+```json
+"financial_summary": {
+  "azure_monthly": "<baseline or null>",
+  "aws_monthly_right_sized": "<right_sized_total>",
+  "aws_monthly_is_floor": "<true when any line was excluded>",
+  "monthly_savings_right_sized": "<azure - aws; the NEGATION of cost_comparison.right_sized.monthly_difference>"
+}
+```
+
+The two sign conventions are the trap: `cost_comparison` and `roi_analysis` use
+`difference = AWS − Azure` (negative means AWS cheaper), and
+`financial_summary` uses `savings = Azure − AWS` (positive means AWS cheaper).
+They are the same fact and must be exact negations of each other. Never print
+either as a bare signed value.
 
 **Sign convention:** `difference = AWS − Azure`, so a negative number means AWS
 is cheaper. Never print a bare signed value; always label it, e.g. "AWS is $X/mo
@@ -419,9 +495,14 @@ Two facts to carry across from `preferences.licensing`:
   "ahub_in_use": false,
   "monthly_delta": null,
   "delta_basis": "<the rate and where it came from, or why this is null>",
-  "note": "<per the table above>"
+  "note": "<per the table above>",
+  "blockers_are_not_costs": ["<one entry per licensing.blockers[] entry, naming it and why it is a prerequisite>"]
 }
 ```
+
+`blockers_are_not_costs` entries must carry **no dollar figure**. Putting one
+there converts a scheduling fact into a fabricated cost, which is exactly the
+confusion the key exists to prevent.
 
 `monthly_delta` is `null` whenever the Windows rate is unavailable. A null with a
 stated reason is honest. A remembered per-vCPU figure is not, however plausible

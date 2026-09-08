@@ -34,7 +34,20 @@ designed — commonly 5–12% low for European regions on compute and RDS.
   next to every total ("rates are `<cache region>`; the target is `<target>`")
   and widen the stated accuracy band accordingly.
 
-Never present one region's rates as another region's without saying so.
+Never present one region's rates as another region's without saying so. Record the
+comparison on the artifact so a reader does not have to infer it:
+
+```json
+"pricing_source": {
+  "cache_region": "<_meta.region>",
+  "target_region": "<the design's target region>",
+  "region_mismatch": "<true when they differ>",
+  "region_mismatch_note": "<REQUIRED when true — states the direction and rough size of the error>"
+}
+```
+
+`region_mismatch: false` on an estate whose target differs from the cache region
+is a false statement, not a simplification.
 
 ## Step 0a-ii: Check the RATE ROW, not just the service
 
