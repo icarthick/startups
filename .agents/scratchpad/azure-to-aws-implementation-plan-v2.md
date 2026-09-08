@@ -1725,3 +1725,198 @@ The work was stacked on `feat/telemetry-hooks`. It now sits directly on `awslabs
   four-session-old blocker were caused by telemetry landing advisor-only; `main` has no
   telemetry in either tree, so they vanish. **That blocker is resolved, not deferred.**
 - `lint:md` and `fmt:check` remain **UNVERIFIED** — dprint and markdownlint are absent.
+
+---
+
+## 17. [ADDED] The knowledge architecture, 2026-09-07 / 09-08
+
+Nine commits, and one idea underneath all of them. §16 recorded the branch restructure;
+this records what changed about how the skill *knows* things.
+
+**The question that drove it, from the owner:** *"Building this for all types is impossible
+and not a good design. We need deterministic mappings for those we are absolutely sure
+about, and rely on the LLM for the rest."* Then, sharper: *"We don't have such limitations
+in gcp-to-aws, and that workflow works for several customers today."*
+
+Both were right, and checking why gcp works settled the design.
+
+### 17.1 [CORRECTED] gcp does not have broader knowledge — it has no VETO
+
+Measured, because the assumption was the opposite of the truth:
+
+| | gcp-to-aws | azure-to-aws (before) |
+| - | ---------- | --------------------- |
+| types listed | **28** (`index.md` 22 + `fast-path.md` 19, union 28) | **65** `index.md` rows + **92** fast-path rows |
+| unknown-type router | name **substring** → category | forbidden — *"Do NOT guess a category from the type NAME"* |
+| can a type be rejected? | **no** | yes, by a 55-entry namespace list |
+| missing-rubric halt | **no such rule** | yes |
+
+So azure had **more than double** the per-type coverage and stopped more often. gcp answers
+every case not because its knowledge is complete but because **a rubric is always
+reachable**: 9 categories, all on disk, a permissive router, and nothing that can veto.
+
+gcp's router is also weak in a way worth not copying: `"log" → monitoring` also matches
+`google_dia`**`log`**`flow_agent`. Azure has a structural signal for free — the provider
+namespace.
+
+### 17.2 [DECIDED] The canonicalization table is an EXCEPTION list, capped
+
+Measured against its own 132 rows:
+
+- **105 (79%)** have a resource segment a pattern derives
+- **104** of those also have a namespace already declared in `namespace_routing`
+- **27 (20%)** carry information no pattern can produce
+
+Four fifths of the file restated a rule, at **13%** coverage of the `azurerm` surface,
+decaying every provider release. The 27 that matter are the traps it already documented:
+`linux_web_app → sites`, `service_plan → serverfarms`, `public_ip → publicIPAddresses`,
+`lb → loadBalancers`, `api_management → service`, `application_insights → components`,
+`stream_analytics_job → streamingjobs`.
+
+**Derivation is now the default path**, table first — that ordering is what makes it safe,
+because the cases where a guess goes wrong are the enumerated ones. The same selection rule
+the fixture oracles always used (*pin only where a plausible improvisation and the correct
+answer diverge*), applied to the table for the first time.
+
+**The growth cap makes it mechanical rather than aspirational.** `max_derivable_rows: 105`
+is a ceiling that must only ever fall; `min_divergent_rows: 27` is a floor so pruning cannot
+delete the informative rows; and every namespace in the table must exist in
+`namespace_routing` or the two artefacts contradict each other. That third check found a
+real contradiction on its first run — `Microsoft.DevTestLab` had no namespace rule.
+
+### 17.3 [DECIDED] Two derived rules, then a model-chosen category, then a STOP
+
+Precedence after every table and `index.md` have missed:
+
+1. **`child_type_rule`** — a type with 2+ segments after the provider whose parent has a
+   disposition is a `config_source` of that parent. Derived from evidence: **27 of the 33**
+   `config_source` rows are child types and **0 of the 19** `noise` rows are, so the
+   disposition was always computable from the type path.
+2. **`namespace_routing`** — 55 provider namespaces → 30 rubric routes, 16 skips, 8 gates.
+3. **A model-chosen category** — pick the best-fit rubric on disk and apply its six criteria.
+4. **STOP** — only where the model genuinely cannot say what a service does.
+
+**[CORRECTED same day.]** Step 3 did not exist at first: an unrecognised namespace STOPped,
+and the file said *"Do NOT guess a category."* That reproduced the original defect one level
+up — 14 of 15 sampled plausible namespaces were absent, so `Microsoft.Maps/accounts` halted a
+run despite being unambiguous. **A 55-namespace gate is the same failure as a 1,089-type
+table.** The cross-check is now a SIGNAL, not a veto.
+
+### 17.4 [DECIDED] The line: facts versus opinions
+
+> **Fall back to the model for FACTS about Azure. Never for this project's OPINIONS.**
+
+Facts: what a service is, a SKU's vCPU count, which category a namespace belongs to. Wrong
+answers fail loudly and cost one table row.
+
+Opinions, with the model's cold answer next to the skill's:
+
+| Case | A model asked cold | The rubric | Why |
+| ---- | ------------------ | ---------- | --- |
+| Postgres, `ZoneRedundant` source | **Aurora** | **RDS single-AZ** + a downgrade finding | the source says what they BOUGHT, not what they need; inferring Aurora from silence inflates the estimate with no visible cause |
+| App Service Plan | **Fargate** | **Elastic Beanstalk** | containers change two variables at once mid-migration |
+| CPU architecture | **Graviton** | **x86_64** | Windows/.NET prevalence; a withdrawn recommendation costs more trust than one never made |
+| Human identity | **Entra federation** | **fresh IAM Identity Center** | federation leaves the migration depending on the cloud being left |
+
+A wrong opinion produces a complete, plausible, internally consistent design that satisfies
+every shape assertion and quietly contradicts the product's positions. That asymmetry — not
+"table vs model" — is why the missing-rubric halt stays and the namespace veto went.
+
+### 17.5 [ADDED] Provenance is what makes fallback reviewable
+
+Three required fields, all added because the risk of derivation is not wrongness but
+**invisibility**:
+
+| Field | On | Values |
+| ----- | -- | ------ |
+| `azure_type_provenance` | every `resources[]` entry | `table` · `derived` · `derived_uncorroborated` · `user_confirmed` |
+| `routing_provenance` | every `services[]` entry | `table` · `index_md` · `child_type_rule` · `namespace_rule` · `model_category` |
+| `sizing_provenance` | every entry carrying a size | `table` · `measured` · `user_stated` · `model_prior` |
+
+**No derived route may ever carry `confidence: deterministic`** — asserted separately.
+
+This is the one place azure deliberately diverges from gcp: gcp records **no** provenance for
+a pattern-routed category, so a guessed category is indistinguishable from a curated one in
+its artifact. Mimic the behaviour, not the blind spot.
+
+### 17.6 [ADDED] Eight sizing tables, and the two numbers they contradicted
+
+Five of six tables the rubrics NAMED did not exist, so every instance size was a pretrained
+association — and the instruction was unsatisfiable: *"state the dev-tier default and say the
+table is absent rather than inventing a number"* forbade exactly what it required.
+
+Every row now records vCPU **and** memory for **both** sides, so a reviewer checks the
+arithmetic without trusting the author. Writing them immediately contradicted the golden:
+
+| Source | Golden had | Table says |
+| ------ | ---------- | ---------- |
+| `S1` (1 vCPU / 1.75 GiB) | `t3.medium` (2/4) | **`t3.small`** (2/2) |
+| `GP_Standard_D2s_v3` (2 / 8 GiB) | `db.t4g.medium` (2/4) | **`db.m6g.large`** (2/8) |
+| `Standard_D4s_v5` (4 / 16 GiB) | `m6i.xlarge` | unchanged, correct |
+
+The RDS one shipped at **half** the source memory. The third being right is the point: an
+unasserted number is not the same as a correct one.
+
+Also corrected: §0 records the EBS breakpoint as *"gp3 to 80K IOPS"*. A single gp3 volume
+caps at **16,000**; 80,000 is an instance-level aggregate.
+
+### 17.7 [ADDED] Five rubrics landed; category coverage is now gcp-equivalent
+
+`networking.md`, `messaging.md`, `analytics.md`, `storage.md`, `identity.md`. Only `ai.md`
+remains as a routing-row gap, and it is deferred with AI (step 6). Each carries the trap that
+makes its category non-obvious:
+
+- **networking** — the **double-balancer trap**: an EB environment provisions its own ALB, so
+  mapping an App Gateway whose backend is a web app to a *second* ALB double-counts it. Same
+  shape as the App Service Plan fan-in, same silence. Plus: Azure NAT Gateway is **regional**
+  and AWS NAT Gateway is **zonal**, so one resource becomes N.
+- **messaging** — a Service Bus **namespace maps to a SET** derived from its children and
+  carries no cost line of its own unless the answer is Amazon MQ. Eight eliminators, all
+  readable from IaC.
+- **analytics** — for AI Search **the index maps and the pipeline that fills it does not**.
+- **identity** — an explicit **refusal** to translate Azure RBAC into IAM policy: a translated
+  policy is plausible and wrong, and fails as privilege escalation or an outage, silently.
+- **storage** — GRS/GZRS becomes S3 Cross-Region Replication, a NEW cost line Azure bundled
+  into one SKU.
+
+`azapi_resource` is also handled now (it states the canonical ARM type verbatim) — it had
+zero mentions while being common in modern Azure Terraform.
+
+### 17.8 [ADDED] What capability runs 4 and 5 found
+
+Run 4: all three phases completed. Run 5: same, and **Discover and Design passed their
+oracles unmodified** — first time on first contact. Between them, ~30 findings.
+
+The ones that changed the design:
+
+| Finding | Consequence |
+| ------- | ----------- |
+| A **derived** type had no per-type-attributes row, so its SKU was dropped — and `design-infra.md` decides cost-bearing-ness by asking whether `config` has a SKU. A derived cost-bearing resource was **guaranteed to look benign** | the AzAPI rule generalised: always extract `sku`/`tier`/`capacity`, every type, listed or not |
+| `database.md` read availability from `design_constraints.availability`; it lives at **`data.availability`** | invisible, because the absent-answer default is the same answer the corpus expects. On `multi-az-ha` it silently produced RDS where Aurora was chosen |
+| A VM's OS disk is an **inline block**, so no `Microsoft.Compute/disks` resource exists and **every VM estate was missing its root volume** | inline-blocks section; `size_gib: null` when `disk_size_gb` is absent, because a remembered 127 GiB would be priced as fact |
+| Four skill files cited `check_expected_design.py` **by name** as the authority on rules they did not state | de-cited. Reading an asserter invalidates a capability run, so the citation degraded the test method itself |
+| `service_id`, then `cluster_id`, then the **justification key** — three unspecified identifiers a fixture keyed on. Nine different justification key names were in play across one run and one golden | `service_id` derivation rule; the justification key fixed by DISPOSITION; oracles repointed to `azure_id` |
+| The clustering worked example predicts 4 clusters, the algorithm gives **5** | **13.4e firing a third time.** The golden also put an EDGELESS Cosmos account inside a cluster justified `merge:cross_group_edges` |
+
+### 17.9 Still open, and one is a regression
+
+1. **The corpus no longer exercises the untranslated-type halt at all.** `azurerm_iothub`
+   derives, so `unsupported.tf`'s comment is stale and the estate built to test that STOP
+   tests nothing. This is the `azurerm_dev_test_lab` failure mode (13.6) recurring: any
+   fixture depending on a type being ABSENT gets disarmed. Needs a type in a namespace
+   `namespace_routing` does not carry.
+2. **A `Microsoft.Resources/resourceGroups` entry silently disables the split step** — its
+   `azure_id` is a literal prefix of every resource in the group and containment counts for
+   connectivity, so every seed becomes one component. **Both runs** hit this and both had to
+   invent a same-`/providers/`-path restriction. The worked example's corpus omits RG
+   resources; a real repo declares them.
+3. **The Key Vault `secret_ref` edge is unresolvable by the letter of the rules** — four files
+   cannot all be satisfied, and both runs broke the name-expression ban to satisfy the worked
+   example.
+4. **`cluster_id` has `service_id`'s stability requirement and none of its specification.**
+5. **Three instance types the design emits have no rate** in the vendored pricing table
+   (`m6i.xlarge`, `m6i.large`, `db.t3.medium`) — the sizing tables emit current-generation
+   types while the table carries m5/r5. That file is byte-synced across three skills, so
+   extending it is a shared change. **Estimate cannot produce trustworthy numbers until this
+   is resolved.**
+6. `NOTES.md` §1.3–1.9 and §2.x remain unaddressed — roughly 24 findings.
