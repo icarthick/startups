@@ -665,7 +665,7 @@ const asUuid = (value) => (typeof value === "string" && UUID_RE.test(value) ? va
 /**
  * Validate every identifier read back from disk, not only the one the host sends.
  *
- * `eventId` is the only identifier well-formed by construction. `runId` comes from
+ * `runId` comes from
  * the snapshot and `installId` from the consent record — both files live where the
  * customer can see and edit them, and the consent prose itself anticipates
  * hand-written records. The model constrains these to a UUID pattern, and
@@ -718,9 +718,10 @@ const send = async (installId, skill, runId, event, dir, sessionId) => {
     // it cannot measure. The tolerance therefore lives server-side — see the
     // handler's temporal validation.
     occurredAt: Date.now(),
-    // Fresh per emission: a genuine phase re-run is a real second occurrence
-    // and must not dedup away.
-    eventId: randomUUID(),
+    // eventId is minted by the API handler, not here: it exists only for
+    // SQS-redelivery dedup, which the handler satisfies by stamping one per
+    // received request. A genuine phase re-run is a separate POST, so it still
+    // gets a distinct id and lands as its own row.
     pluginTelemetryEvent: {
       migrationActivity: {
         ...rest,
@@ -876,7 +877,8 @@ const processStatusFile = async (skill, absolute, sessionId, installId) => {
   // snapshot back is a read-modify-write whose window spans the network calls, so
   // two overlapping invocations would both see the same "before" state, both mint
   // a runId and both report the same transitions — and neither the diff nor the
-  // eventId key can collapse that, because each process mints its own.
+  // eventId key can collapse that: they arrive as separate requests, each stamped
+  // with its own eventId by the handler.
   const lock = acquireRunLock(ownDir);
   if (!lock) return { outcome: "locked", posted: 0 };
 
