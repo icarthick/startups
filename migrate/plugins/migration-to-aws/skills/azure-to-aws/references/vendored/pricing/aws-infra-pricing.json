@@ -1,6 +1,6 @@
 {
-  "_comment": "Shared AWS infrastructure pricing rates (us-east-1, USD) for the estimate phase. Rates evolve on AWS's cadence, independent of the cost algorithm, so they live here as DATA and the estimate procedure does a lookup, not a guess. Each service carries its rates + a multi_az_handling key; the cost FORMULAS live in the estimate phase's prose (the algorithm is not data). Consumed by the heroku-to-aws and azure-to-aws skills; intended to be shared with gcp-to-aws, which still has its own markdown cache. AI-model / DynamoDB / Redshift / Athena / SageMaker rates are NOT here (they remain in the gcp-to-aws pricing cache). Lambda WAS on that exclusion list and no longer is — azure-to-aws maps consumption-plan Function Apps to Lambda, so the rates were harvested here from gcp's cache.",
-  "_region_warning": "EVERY rate in this file is _meta.region (us-east-1) and there is no multiplier. A design targeting another region is being priced with us-east-1 numbers: eu-west-1 and eu-central-1 run roughly 5-12% higher for compute and RDS, and some services differ more. This file cannot fix that on its own — the consuming estimate MUST compare the design's target region against _meta.region and, when they differ, either reprice via the awspricing MCP (which takes a region parameter; note .mcp.json pins AWS_REGION=us-east-1 as the SERVER default, so the region must be passed per call) or state the mismatch next to every total and widen the accuracy band. Silently presenting us-east-1 figures as a eu-west-1 estimate is the failure this key exists to prevent.",
+  "_comment": "Shared AWS infrastructure pricing rates (us-east-1, USD) for the estimate phase. Rates evolve on AWS's cadence, independent of the cost algorithm, so they live here as DATA and the estimate procedure does a lookup, not a guess. Each service carries its rates + a multi_az_handling key; the cost FORMULAS live in the estimate phase's prose (the algorithm is not data). Consumed by the heroku-to-aws and azure-to-aws skills; intended to be shared with gcp-to-aws, which still has its own markdown cache. AI-model / DynamoDB / Redshift / Athena / SageMaker rates are NOT here (they remain in the gcp-to-aws pricing cache). Lambda WAS on that exclusion list and no longer is \u2014 azure-to-aws maps consumption-plan Function Apps to Lambda, so the rates were harvested here from gcp's cache.",
+  "_region_warning": "EVERY rate in this file is _meta.region (us-east-1) and there is no multiplier. A design targeting another region is being priced with us-east-1 numbers: eu-west-1 and eu-central-1 run roughly 5-12% higher for compute and RDS, and some services differ more. This file cannot fix that on its own \u2014 the consuming estimate MUST compare the design's target region against _meta.region and, when they differ, either reprice via the awspricing MCP (which takes a region parameter; note .mcp.json pins AWS_REGION=us-east-1 as the SERVER default, so the region must be passed per call) or state the mismatch next to every total and widen the accuracy band. Silently presenting us-east-1 figures as a eu-west-1 estimate is the failure this key exists to prevent.",
   "_meta": {
     "last_updated": "2026-07-19",
     "region": "us-east-1",
@@ -45,10 +45,29 @@
       "db.m6g.8xlarge": 5.696,
       "db.m6g.16xlarge": 11.392,
       "db.r6g.16xlarge": 14.5,
-      "db.x2g.16xlarge": 18.05
+      "db.x2g.16xlarge": 18.05,
+      "db.t3.small": 0.068,
+      "db.t3.medium": 0.136,
+      "db.t3.large": 0.272,
+      "db.t3.xlarge": 0.544,
+      "db.m6i.large": 0.382,
+      "db.m6i.xlarge": 0.764,
+      "db.m6i.2xlarge": 1.528,
+      "db.m6i.4xlarge": 3.056,
+      "db.m6i.8xlarge": 6.112,
+      "db.r6i.large": 0.48,
+      "db.r6i.xlarge": 0.96,
+      "db.r6i.2xlarge": 1.92,
+      "db.r6i.4xlarge": 3.84,
+      "db.r6i.8xlarge": 7.68,
+      "db.r6g.large": 0.454,
+      "db.r6g.xlarge": 0.908,
+      "db.r6g.2xlarge": 1.816,
+      "db.r6g.4xlarge": 3.632,
+      "db.r6g.8xlarge": 7.264
     },
     "storage_per_gb_month": 0.23,
-    "_instances_note": "Multi-AZ on-demand hourly, us-east-1. t4g.* verified from the pricing cache; m6g/r6g/x2g families added to MATCH the instance classes the postgres design table can emit \u2014 approximate (~2x single-AZ), verify via the AWS Pricing MCP for a large estimate. Every rds_instance_class the design can emit MUST have a rate here (no unpriced production DBs)."
+    "_instances_note": "Multi-AZ on-demand hourly, us-east-1. t4g.* verified from the pricing cache; m6g/r6g/x2g (Graviton) and t3/m6i/r6i (x86) families added to MATCH the instance classes the postgres design table (flexible-server-rds-sizing.json) can emit \u2014 x86 rows are the azure default (Windows/.NET fleets, non-Graviton), ~5-7% above their Graviton counterparts; approximate (~2x single-AZ), verify via the AWS Pricing MCP for a large estimate. Every rds_instance_class the design can emit MUST have a rate here (no unpriced production DBs)."
   },
   "aurora_postgresql": {
     "multi_az_handling": "intrinsic",
@@ -211,11 +230,11 @@
   },
   "lambda": {
     "_comment": "AWS Lambda rates (us-east-1). HARVESTED VERBATIM from gcp-to-aws references/shared/pricing-cache.md (Last updated 2026-08-24), which is where these lived when this file's _comment still called Lambda 'gcp-specific'. Azure Function Apps on a consumption plan map to Lambda, so the exclusion no longer holds.",
-    "per_request": 0.0000002,
-    "per_gb_second_x86_first_6b": 0.0000166667,
-    "per_gb_second_x86_over_6b": 0.000015,
-    "per_gb_second_arm64_first_6b": 0.0000133334,
-    "per_gb_second_arm64_over_6b": 0.000012,
+    "per_request": 2e-07,
+    "per_gb_second_x86_first_6b": 1.66667e-05,
+    "per_gb_second_x86_over_6b": 1.5e-05,
+    "per_gb_second_arm64_first_6b": 1.33334e-05,
+    "per_gb_second_arm64_over_6b": 1.2e-05,
     "free_tier": "1M requests + 400K GB-seconds per month",
     "multi_az_handling": "intrinsic",
     "_no_invocation_data_note": "Lambda cost is invocation-driven, and IaC declares no invocation count. With no measured request volume there is no figure to compute: emit null with a stated reason rather than a remembered default. A source consumption plan provisions no worker capacity, so there is no source-side number to carry across either."
