@@ -45,10 +45,27 @@ find the connected components. Two things count as connectivity here:
 1. every `edges[]` entry, **treated as undirected** — an app referencing a database and a
    database being referenced are the same relationship. Direction matters for tiering and
    for the report's phrasing, never for connectivity;
-2. **containment**, derived from the `azure_id` prefix. A VNet and its subnets, a storage
-   account and its share, a plan and its slots are connected. Containment is deliberately
-   not an *edge* (`schema-discover-azure.md` says why) but it is unquestionably a
-   relationship, and omitting it here is what over-fragments a seed.
+2. **containment**, derived from the `azure_id` prefix — but ONLY within the
+   `/providers/` chain. A VNet and its subnets, a storage account and its share, a plan
+   and its slots are connected (the child's id extends the parent's *past* the
+   `/providers/` segment). Containment is deliberately not an *edge*
+   (`schema-discover-azure.md` says why) but it is unquestionably a relationship, and
+   omitting it is what over-fragments a seed.
+
+   > **The resource-group scope prefix does NOT count as containment.** A
+   > `Microsoft.Resources/resourceGroups` resource has id
+   > `/subscriptions/<sub>/resourceGroups/<rg>`, which is a literal prefix of *every*
+   > resource in the group — its members' ids all begin
+   > `/subscriptions/<sub>/resourceGroups/<rg>/providers/...`. Counting that prefix as
+   > containment connects the whole seed through the group resource itself, collapses
+   > every component into one, and permanently disables the split step (a real repo that
+   > declares its `azurerm_resource_group` hits this; the worked example's corpus omitted
+   > it and so missed it). Containment holds between two resources ONLY when the child id
+   > extends the parent id *after* a shared `/providers/` segment — never when the
+   > "parent" is the resourceGroups (or subscription) scope itself. Equivalently: the
+   > resourceGroups resource contains nothing for clustering purposes; it clusters as an
+   > ordinary member of its seed and, being a Skip Mapping with no primary rank, attaches
+   > to the largest component as a fragment.
 
 **Split only when TWO OR MORE components each contain a primary-eligible resource** —
 ranks 1–7 in `classification-rules.md`. A component with nothing primary-eligible in it is
@@ -120,10 +137,11 @@ and never from iteration order or an incrementing counter.
 
 ## Worked example
 
-Given `rg-app` {vnet, 2 subnets, storage account, its SMB share, key vault, Log Analytics
-workspace, App Insights, plan-web + 5 web apps, plan-func + 1 function app}, `rg-data`
-{postgres, redis, cosmos, event hub namespace, private endpoint}, `rg-shared` {idle plan,
-Windows VM, its NIC}.
+Given `rg-app` {**its `resourceGroups` resource**, vnet, 2 subnets, storage account, its
+SMB share, key vault, Log Analytics workspace, App Insights, plan-web + 5 web apps,
+plan-func + 1 function app}, `rg-data` {postgres, redis, cosmos, event hub namespace,
+private endpoint}, `rg-shared` {idle plan, Windows VM, its NIC}. Each group here also
+carries its own `azurerm_resource_group` resource, as a real repo does.
 
 1. **Seed** → 3 candidates.
 2. **Split.** `rg-app`'s components, once containment counts: {plan-web + 5 apps + vault
@@ -131,8 +149,11 @@ Windows VM, its NIC}.
    `data_ref` and containment}, {vnet + both subnets}, {Log Analytics}, {App Insights}.
    Only the first two contain a primary-eligible resource (a `serverfarms` plan, rank 2),
    so **only those two are promoted**; the vnet/subnet, Log Analytics, and App Insights
-   fragments attach to the largest component. `rg-shared` splits into {VM + NIC} (rank 3)
-   and {idle plan} (rank 2) — two primary-eligible components, so a real split.
+   fragments attach to the largest component. **The `resourceGroups` resource does NOT
+   connect these components** — its id is the scope prefix, not a `/providers/` parent —
+   so it is a fragment with no primary rank and attaches to the largest component; it does
+   NOT collapse the seed. `rg-shared` splits into {VM + NIC} (rank 3) and {idle plan}
+   (rank 2) — two primary-eligible components, so a real split.
 3. **Merge.** A web app has a `data_ref` to the postgres server and the private endpoint a
    `private_link` to it, so `rg-app`'s first component merges with `rg-data`. The subnet
    `network` edges are ambient and merge nothing, though they are recorded.
