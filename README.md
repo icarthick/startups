@@ -98,6 +98,10 @@ To add a new plugin to the marketplace:
 
 1. Submit a PR — requires approval from `@awslabs/startups-admins` (for marketplace changes) and your team's CODEOWNERS (for plugin content)
 
+## Development
+
+This fork is used to validate DarkFactory's robotic PR authoring on Fargate.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines, the first-time publishing process, and documentation requirements.
