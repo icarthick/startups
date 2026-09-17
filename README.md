@@ -109,3 +109,5 @@ See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for security is
 ## License
 
 This project is licensed under the Apache-2.0 License. See [LICENSE](LICENSE) for details.
+
+_Automated contributions to this fork are authored by DarkFactory for validation._
