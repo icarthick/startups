@@ -102,6 +102,8 @@ To add a new plugin to the marketplace:
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines, the first-time publishing process, and documentation requirements.
 
+New features and skills require an [RFC issue](https://github.com/awslabs/startups/issues/new/choose) before implementation; bug fixes and documentation changes are exempt.
+
 ## Security
 
 See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for security issue notifications.
