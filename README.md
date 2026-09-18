@@ -1,6 +1,7 @@
 # AWS Startups
 
 AI agent plugins, tools, and resources for startup builders on AWS.
+They are installable across multiple AI coding agents — Claude Code, Codex, and (soon) Cursor.
 
 ## Plugins
 
