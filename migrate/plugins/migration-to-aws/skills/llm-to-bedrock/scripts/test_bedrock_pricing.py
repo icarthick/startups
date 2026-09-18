@@ -41,6 +41,19 @@ def test_static_fallback_opus_4_8_rate_is_5_and_25_per_1m():
         assert out["output_per_1k_usd"] == 0.025, model_id
 
 
+def test_static_fallback_sonnet_5_rate_is_3_and_15_per_1m():
+    """Sonnet 5 intro pricing ($2/$10) ended Aug 31 2026; standard rate is $3/$15.
+    Both the bare id and the us. inference profile must carry the updated rate."""
+    for model_id in ("anthropic.claude-sonnet-5", "us.anthropic.claude-sonnet-5"):
+        entry = bp.STATIC_FALLBACK[model_id]
+        assert entry["input_per_1k_usd"] == 0.003, model_id
+        assert entry["output_per_1k_usd"] == 0.015, model_id
+        out = bp.lookup("us-east-1", model_id)
+        assert out["available"] is True
+        assert out["input_per_1k_usd"] == 0.003, model_id
+        assert out["output_per_1k_usd"] == 0.015, model_id
+
+
 def test_static_fallback_partial_match():
     # us.anthropic.claude-sonnet-4-6 (no version suffix) should match
     out = bp._static_fallback("us.anthropic.claude-sonnet-4-6")
