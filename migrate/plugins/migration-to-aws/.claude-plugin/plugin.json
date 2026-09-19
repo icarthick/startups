@@ -56,6 +56,9 @@
     "temporal-cloud",
     "temporal-workers",
     "temporal-to-aws",
-    "durable-execution"
+    "durable-execution",
+    "render",
+    "render-to-aws",
+    "move-off-render"
   ]
 }

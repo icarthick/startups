@@ -47,8 +47,10 @@ run = "markdownlint-cli2 '**/*.md' '#node_modules' --fix"
 description = "Validate phase/fragment/assembler frontmatter (typed, zero-dep; skill-agnostic) for both plugins"
 run = [
   "node migrate/plugins/migration-to-aws/tools/frontmatter-validator/validate.ts migrate/plugins/migration-to-aws/skills/heroku-to-aws",
+  "node migrate/plugins/migration-to-aws/tools/frontmatter-validator/validate.ts migrate/plugins/migration-to-aws/skills/render-to-aws",
   "node migrate/plugins/migration-to-aws/tools/frontmatter-validator/validate.ts migrate/plugins/migration-to-aws/skills/agent-advisor",
   "node advisor/plugins/aws-startup-advisor/tools/frontmatter-validator/validate.ts advisor/plugins/aws-startup-advisor/skills/heroku-to-aws",
+  "node advisor/plugins/aws-startup-advisor/tools/frontmatter-validator/validate.ts advisor/plugins/aws-startup-advisor/skills/render-to-aws",
   "node advisor/plugins/aws-startup-advisor/tools/frontmatter-validator/validate.ts advisor/plugins/aws-startup-advisor/skills/agent-advisor",
 ]
 

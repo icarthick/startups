@@ -30,7 +30,7 @@ import { join } from "node:path";
 
 const SRC = "migrate/plugins/migration-to-aws";
 const DST = "advisor/plugins/aws-startup-advisor";
-const SKILLS = ["agent-advisor", "gcp-to-aws", "heroku-to-aws", "llm-to-bedrock", "tf-best-practices", "shared"];
+const SKILLS = ["agent-advisor", "gcp-to-aws", "heroku-to-aws", "llm-to-bedrock", "render-to-aws", "tf-best-practices", "shared"];
 const listMode = process.argv.includes("--list");
 
 // Files that legitimately differ after normalization — the advisor copies carry

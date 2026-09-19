@@ -1,0 +1,12 @@
+{
+  "description": "Render Background Worker plan → ECS Fargate CPU/memory sizing",
+  "rows": [
+    { "render_plan": "free", "fargate_cpu": 256, "fargate_memory_mb": 512, "reason": "minimal" },
+    { "render_plan": "starter", "fargate_cpu": 512, "fargate_memory_mb": 1024, "reason": "0.5 vCPU" },
+    { "render_plan": "standard", "fargate_cpu": 1024, "fargate_memory_mb": 2048, "reason": "1 vCPU" },
+    { "render_plan": "pro", "fargate_cpu": 2048, "fargate_memory_mb": 4096, "reason": "2 vCPU" },
+    { "render_plan": "pro_plus", "fargate_cpu": 4096, "fargate_memory_mb": 8192, "reason": "4 vCPU" },
+    { "render_plan": "pro_max", "fargate_cpu": 8192, "fargate_memory_mb": 16384, "reason": "8 vCPU" },
+    { "render_plan": "pro_ultra", "fargate_cpu": 16384, "fargate_memory_mb": 32768, "reason": "16 vCPU" }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "migration_id": "0919-render-basic",
+  "skill": "render-to-aws",
+  "metadata": {
+    "discovery_timestamp": "2026-09-19T10:00:00Z",
+    "total_services_discovered": 4,
+    "discovery_sources": ["render_yaml"],
+    "confidence": "high"
+  },
+  "services": [
+    {
+      "service_id": "render:acme-api:web",
+      "service_type": "web_service",
+      "name": "acme-api",
+      "plan": "standard",
+      "region": "oregon",
+      "source": "render_yaml",
+      "config": {
+        "health_check_path": "/health",
+        "num_instances": 1,
+        "env_vars_keys": ["DATABASE_URL", "REDIS_URL", "SECRET_KEY"]
+      }
+    },
+    {
+      "service_id": "render:acme-worker:worker",
+      "service_type": "background_worker",
+      "name": "acme-worker",
+      "plan": "standard",
+      "region": "oregon",
+      "source": "render_yaml",
+      "config": {
+        "num_instances": 2,
+        "env_vars_keys": ["DATABASE_URL", "REDIS_URL"]
+      }
+    },
+    {
+      "service_id": "render:acme-db:postgres",
+      "service_type": "postgres",
+      "name": "acme-db",
+      "plan": "standard",
+      "region": "oregon",
+      "source": "render_yaml",
+      "config": {
+        "postgres_version": "16"
+      }
+    },
+    {
+      "service_id": "render:acme-cache:redis",
+      "service_type": "key_value",
+      "name": "acme-cache",
+      "plan": "starter",
+      "region": "oregon",
+      "source": "render_yaml",
+      "config": {}
+    }
+  ]
+}

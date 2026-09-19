@@ -1,0 +1,25 @@
+{
+  "description": "Render Redis/Key-Value plan → ElastiCache Redis node sizing",
+  "rows": [
+    { "render_plan": "free", "render_memory_mb": 25, "aws_node_type": "cache.t4g.micro", "reason": "minimal" },
+    { "render_plan": "starter", "render_memory_mb": 50, "aws_node_type": "cache.t4g.micro", "reason": "light caching" },
+    {
+      "render_plan": "standard",
+      "render_memory_mb": 200,
+      "aws_node_type": "cache.t4g.small",
+      "reason": "standard cache"
+    },
+    {
+      "render_plan": "pro",
+      "render_memory_mb": 768,
+      "aws_node_type": "cache.t4g.medium",
+      "reason": "production cache"
+    },
+    {
+      "render_plan": "pro_plus",
+      "render_memory_mb": 3072,
+      "aws_node_type": "cache.r6g.large",
+      "reason": "large cache tier"
+    }
+  ]
+}
