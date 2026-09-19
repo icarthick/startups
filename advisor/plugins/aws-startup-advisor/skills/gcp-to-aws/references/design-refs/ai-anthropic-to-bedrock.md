@@ -10,6 +10,8 @@
 
 | Anthropic SDK model | Bedrock model ID                           | Tier     | Input/Output per 1M |
 | ------------------- | ------------------------------------------ | -------- | ------------------- |
+| `claude-fable-5-*`  | `anthropic.claude-fable-5`                 | Frontier | $10 / $50           |
+| `claude-sonnet-5-*` | `anthropic.claude-sonnet-5`                | Flagship | $2 / $10            |
 | `claude-opus-4-*`   | `anthropic.claude-opus-4-6-v1`             | Premium  | $5 / $25            |
 | `claude-sonnet-4-*` | `anthropic.claude-sonnet-4-6`              | Flagship | $3 / $15            |
 | `claude-haiku-4-*`  | `anthropic.claude-haiku-4-5-20251001-v1:0` | Fast     | $1 / $5             |

@@ -37,10 +37,14 @@ def parse_price_dimensions(price_item: dict) -> dict:
 # Used when the PriceList API doesn't return data (e.g. new cross-region inference profile IDs).
 # Source: https://aws.amazon.com/bedrock/pricing/, cross-checked row-by-row against
 # skills/gcp-to-aws/references/shared/pricing-cache.md (its per-1M rates / 1000).
-# Every row below was re-verified against that cache on 2026-08-04; the Opus 4.8 row
+# Every row below was re-verified against that cache on 2026-09-19; the Opus 4.8 row
 # had been copied from Opus 4.1's legacy $15/$75 and was corrected to $5/$25.
 # `mise run pricing:staleness` re-checks this table against the cache.
 STATIC_FALLBACK = {
+    "anthropic.claude-fable-5":                     {"input_per_1k_usd": 0.010, "output_per_1k_usd": 0.050},
+    "us.anthropic.claude-fable-5":                  {"input_per_1k_usd": 0.010, "output_per_1k_usd": 0.050},
+    "anthropic.claude-sonnet-5":                    {"input_per_1k_usd": 0.002, "output_per_1k_usd": 0.010},
+    "us.anthropic.claude-sonnet-5":                 {"input_per_1k_usd": 0.002, "output_per_1k_usd": 0.010},
     "anthropic.claude-haiku-4-5-20251001-v1:0":     {"input_per_1k_usd": 0.001, "output_per_1k_usd": 0.005},
     "us.anthropic.claude-haiku-4-5-20251001-v1:0":  {"input_per_1k_usd": 0.001, "output_per_1k_usd": 0.005},
     "anthropic.claude-sonnet-4-6-20250514-v1:0":    {"input_per_1k_usd": 0.003, "output_per_1k_usd": 0.015},
@@ -99,7 +103,7 @@ def lookup(region: str, model_id: str) -> dict:
     # by display name and frequently lacks entries for new inference profiles.
     fb = _static_fallback(model_id)
     if fb:
-        fb["note"] = ("static pricing table (verified 2026-08-04 against "
+        fb["note"] = ("static pricing table (verified 2026-09-19 against "
                       "aws.amazon.com/bedrock/pricing and the vendored pricing cache)")
         return fb
     import boto3
