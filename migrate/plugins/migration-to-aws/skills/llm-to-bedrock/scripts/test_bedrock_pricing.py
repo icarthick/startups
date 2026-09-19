@@ -41,6 +41,56 @@ def test_static_fallback_opus_4_8_rate_is_5_and_25_per_1m():
         assert out["output_per_1k_usd"] == 0.025, model_id
 
 
+def test_static_fallback_fable_5_rate_is_10_and_50_per_1m():
+    """Fable 5 is $10/$50 per 1M tokens (0.010/0.050 per 1K), Mythos-class frontier model."""
+    for model_id in ("anthropic.claude-fable-5", "us.anthropic.claude-fable-5"):
+        entry = bp.STATIC_FALLBACK[model_id]
+        assert entry["input_per_1k_usd"] == 0.010, model_id
+        assert entry["output_per_1k_usd"] == 0.050, model_id
+        out = bp.lookup("us-east-1", model_id)
+        assert out["available"] is True
+        assert out["input_per_1k_usd"] == 0.010, model_id
+        assert out["output_per_1k_usd"] == 0.050, model_id
+
+
+def test_static_fallback_sonnet_5_rate_is_3_and_15_per_1m():
+    """Sonnet 5 standard rate is $3/$15 per 1M (introductory $2/$10 ended Aug 31 2026)."""
+    for model_id in ("anthropic.claude-sonnet-5", "us.anthropic.claude-sonnet-5"):
+        entry = bp.STATIC_FALLBACK[model_id]
+        assert entry["input_per_1k_usd"] == 0.003, model_id
+        assert entry["output_per_1k_usd"] == 0.015, model_id
+        out = bp.lookup("us-east-1", model_id)
+        assert out["available"] is True
+        assert out["input_per_1k_usd"] == 0.003, model_id
+        assert out["output_per_1k_usd"] == 0.015, model_id
+
+
+def test_static_fallback_opus_4_6_rate_is_5_and_25_per_1m():
+    """Opus 4.6 is $5/$25 per 1M tokens — same tier as Opus 4.5 and 4.8."""
+    for model_id in ("anthropic.claude-opus-4-6-v1", "us.anthropic.claude-opus-4-6-v1"):
+        entry = bp.STATIC_FALLBACK[model_id]
+        assert entry["input_per_1k_usd"] == 0.005, model_id
+        assert entry["output_per_1k_usd"] == 0.025, model_id
+
+
+def test_static_fallback_opus_4_5_rate_is_5_and_25_per_1m():
+    """Opus 4.5 is $5/$25 per 1M tokens — same Opus tier pricing."""
+    for model_id in ("anthropic.claude-opus-4-5-20251101-v1:0",
+                     "us.anthropic.claude-opus-4-5-20251101-v1:0"):
+        entry = bp.STATIC_FALLBACK[model_id]
+        assert entry["input_per_1k_usd"] == 0.005, model_id
+        assert entry["output_per_1k_usd"] == 0.025, model_id
+
+
+def test_static_fallback_sonnet_4_5_rate_is_3_and_15_per_1m():
+    """Sonnet 4.5 is $3/$15 per 1M tokens — same Sonnet tier pricing as Sonnet 4.6."""
+    for model_id in ("anthropic.claude-sonnet-4-5-20250929-v1:0",
+                     "us.anthropic.claude-sonnet-4-5-20250929-v1:0"):
+        entry = bp.STATIC_FALLBACK[model_id]
+        assert entry["input_per_1k_usd"] == 0.003, model_id
+        assert entry["output_per_1k_usd"] == 0.015, model_id
+
+
 def test_static_fallback_partial_match():
     # us.anthropic.claude-sonnet-4-6 (no version suffix) should match
     out = bp._static_fallback("us.anthropic.claude-sonnet-4-6")
