@@ -13,18 +13,18 @@ Present questions with a conversational tone and brief context explaining why ea
 **Rationale:** Geography drives AWS region selection and CDN strategy.
 
 > I need to understand your user base to recommend the right AWS region and CDN strategy.
-> (This question is about where your **users** are — latency and placement. If you have **data residency** obligations, GDPR or similar, that's handled by the compliance question, not this one.)
+> (This question is about where your **users** are — latency and placement only. Data residency obligations such as GDPR are handled by the compliance question.)
 >
 > A) Single region (e.g., US-only, EU-only)
 > B) Multi-region (2–3 regions, e.g., US + EU)
 > C) Global (users worldwide, latency critical)
 > D) I don't know
 
-| Answer        | Recommendation Impact                                                                                                                                                                                                                     |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Single region | Deploy in closest AWS region to users; standard Route 53 routing                                                                                                                                                                          |
-| Multi-region  | Primary region closest to majority; CloudFront for static assets and API caching; Route 53 latency-based routing — multi-region infrastructure deferred to Q6                                                                             |
-| Global        | Primary region by largest user concentration; CloudFront globally distributed; Route 53 geolocation routing — Aurora Global Database and multi-region compute only if Q6 = Catastrophic AND write latency is a confirmed hard requirement |
+| Answer        | Recommendation Impact                                                                                                                                                                                                                                         |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Single region | Deploy in the closest AWS region to users; standard Route 53 routing                                                                                                                                                                                          |
+| Multi-region  | Deploy in the primary region closest to your largest user group; CloudFront for static assets and API caching; Route 53 latency-based routing — multi-region infrastructure deferred to Q6                                                                    |
+| Global        | Deploy in the primary region with the largest user concentration; CloudFront globally distributed; Route 53 geolocation routing — Aurora Global Database and multi-region compute only if Q6 = Catastrophic AND write latency is a confirmed hard requirement |
 
 Interpret:
 
