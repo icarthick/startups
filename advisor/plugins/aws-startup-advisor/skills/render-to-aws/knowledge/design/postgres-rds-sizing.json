@@ -1,0 +1,45 @@
+{
+  "description": "Render Postgres plan → RDS/Aurora instance sizing",
+  "rows": [
+    {
+      "render_plan": "free",
+      "render_storage_gb": 0.1,
+      "aws_instance_class": "db.t4g.micro",
+      "aws_storage_gb": 20,
+      "aws_engine": "postgres",
+      "reason": "dev/free tier"
+    },
+    {
+      "render_plan": "starter",
+      "render_storage_gb": 1,
+      "aws_instance_class": "db.t4g.micro",
+      "aws_storage_gb": 20,
+      "aws_engine": "postgres",
+      "reason": "starter workloads"
+    },
+    {
+      "render_plan": "standard",
+      "render_storage_gb": 25,
+      "aws_instance_class": "db.t4g.small",
+      "aws_storage_gb": 50,
+      "aws_engine": "postgres",
+      "reason": "standard"
+    },
+    {
+      "render_plan": "pro",
+      "render_storage_gb": 96,
+      "aws_instance_class": "db.t4g.medium",
+      "aws_storage_gb": 128,
+      "aws_engine": "postgres",
+      "reason": "production tier"
+    },
+    {
+      "render_plan": "pro_plus",
+      "render_storage_gb": 256,
+      "aws_instance_class": "db.r6g.large",
+      "aws_storage_gb": 300,
+      "aws_engine": "postgres",
+      "aurora_eligible": true
+    }
+  ]
+}

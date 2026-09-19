@@ -1,0 +1,20 @@
+{
+  "description": "render-to-aws default values and scaling factors used in Estimate phase",
+  "log_volume_gb_per_service": {
+    "default": 2,
+    "unit": "GB/month per service",
+    "note": "Estimate for CloudWatch Logs ingestion cost; adjust if user provides actual log volume"
+  },
+  "optimization_savings_ranges": {
+    "conservative": { "min_pct": 0, "max_pct": 5 },
+    "balanced": { "min_pct": 5, "max_pct": 15 },
+    "aggressive": { "min_pct": 15, "max_pct": 30 }
+  },
+  "eb_load_balancer_monthly_usd": 18,
+  "fargate_alb_monthly_usd": 18,
+  "lambda_free_tier_invocations": 1000000,
+  "lambda_free_tier_gb_seconds": 400000,
+  "eventbridge_scheduler_per_invocation_usd": 0.000001,
+  "nat_gateway_monthly_usd": 32,
+  "data_transfer_gb_price_usd": 0.09
+}

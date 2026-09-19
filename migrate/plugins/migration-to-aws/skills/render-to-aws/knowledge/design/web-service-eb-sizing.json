@@ -1,0 +1,62 @@
+{
+  "description": "Render Web Service plan → Elastic Beanstalk EC2 instance type mapping",
+  "source": "render-plan-specs + ec2-instance-matching",
+  "rows": [
+    {
+      "render_plan": "free",
+      "render_cpu": "0.1 CPU",
+      "render_ram_mb": 512,
+      "aws_instance_type": "t3.micro",
+      "arm64_instance": "t4g.micro",
+      "reason": "minimal dev/test"
+    },
+    {
+      "render_plan": "starter",
+      "render_cpu": "0.5 CPU",
+      "render_ram_mb": 512,
+      "aws_instance_type": "t3.micro",
+      "arm64_instance": "t4g.micro",
+      "reason": "light web tier"
+    },
+    {
+      "render_plan": "standard",
+      "render_cpu": "1 CPU",
+      "render_ram_mb": 2048,
+      "aws_instance_type": "t3.small",
+      "arm64_instance": "t4g.small",
+      "reason": "1 vCPU match"
+    },
+    {
+      "render_plan": "pro",
+      "render_cpu": "2 CPU",
+      "render_ram_mb": 4096,
+      "aws_instance_type": "t3.medium",
+      "arm64_instance": "t4g.medium",
+      "reason": "2 vCPU match"
+    },
+    {
+      "render_plan": "pro_plus",
+      "render_cpu": "4 CPU",
+      "render_ram_mb": 8192,
+      "aws_instance_type": "m5.xlarge",
+      "arm64_instance": "m6g.xlarge",
+      "reason": "4 vCPU, 8GB"
+    },
+    {
+      "render_plan": "pro_max",
+      "render_cpu": "8 CPU",
+      "render_ram_mb": 16384,
+      "aws_instance_type": "m5.2xlarge",
+      "arm64_instance": "m6g.2xlarge",
+      "reason": "8 vCPU, 16GB"
+    },
+    {
+      "render_plan": "pro_ultra",
+      "render_cpu": "16 CPU",
+      "render_ram_mb": 32768,
+      "aws_instance_type": "m5.4xlarge",
+      "arm64_instance": "m6g.4xlarge",
+      "reason": "16 vCPU, 32GB"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "description": "Render Cron Job plan → Lambda memory/timeout sizing",
+  "note": "EventBridge Scheduler + Lambda is the default cron target. Lambda max timeout is 900s (15 min). Use ECS Fargate Scheduled Tasks for jobs exceeding 15 minutes or >3GB memory.",
+  "rows": [
+    { "render_plan": "free", "lambda_memory_mb": 512, "lambda_timeout_s": 300, "fargate_fallback": false },
+    { "render_plan": "starter", "lambda_memory_mb": 512, "lambda_timeout_s": 300, "fargate_fallback": false },
+    { "render_plan": "standard", "lambda_memory_mb": 1024, "lambda_timeout_s": 600, "fargate_fallback": false },
+    { "render_plan": "pro", "lambda_memory_mb": 2048, "lambda_timeout_s": 900, "fargate_fallback": false },
+    {
+      "render_plan": "pro_plus",
+      "lambda_memory_mb": 3008,
+      "lambda_timeout_s": 900,
+      "fargate_fallback": true,
+      "fallback_reason": "exceeds Lambda memory practical ceiling; use Fargate Scheduled Tasks"
+    },
+    {
+      "render_plan": "pro_max",
+      "lambda_memory_mb": null,
+      "lambda_timeout_s": null,
+      "fargate_fallback": true,
+      "fallback_reason": "heavy cron; use Fargate Scheduled Tasks"
+    },
+    {
+      "render_plan": "pro_ultra",
+      "lambda_memory_mb": null,
+      "lambda_timeout_s": null,
+      "fargate_fallback": true,
+      "fallback_reason": "heavy cron; use Fargate Scheduled Tasks"
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "migration_id": "0919-render-basic",
+  "skill": "render-to-aws",
+  "phase": "design",
+  "timestamp": "2026-09-19T10:10:00Z",
+  "metadata": {
+    "total_services": 4,
+    "compute_target_default": "elastic_beanstalk"
+  },
+  "services": [
+    {
+      "service_id": "design:acme-api:eb",
+      "source_resource_id": "render:acme-api:web",
+      "render_service": "acme-api",
+      "aws_service": "Elastic Beanstalk",
+      "confidence": "high",
+      "aws_config": {
+        "instance_type": "t3.small",
+        "environment_type": "LoadBalanced",
+        "platform": "Docker running on 64bit Amazon Linux 2023",
+        "min_instances": 1,
+        "max_instances": 4,
+        "health_check_path": "/health"
+      }
+    },
+    {
+      "service_id": "design:acme-worker:fargate",
+      "source_resource_id": "render:acme-worker:worker",
+      "render_service": "acme-worker",
+      "aws_service": "Fargate",
+      "confidence": "high",
+      "aws_config": {
+        "task_cpu": 1024,
+        "task_memory": 2048,
+        "desired_count": 2,
+        "load_balancer": false
+      }
+    },
+    {
+      "service_id": "design:acme-db:rds",
+      "source_resource_id": "render:acme-db:postgres",
+      "render_service": "acme-db",
+      "aws_service": "RDS PostgreSQL",
+      "confidence": "high",
+      "aws_config": {
+        "instance_class": "db.t4g.small",
+        "engine": "postgres",
+        "engine_version": "16",
+        "allocated_storage_gb": 50,
+        "multi_az": true,
+        "storage_type": "gp3"
+      }
+    },
+    {
+      "service_id": "design:acme-cache:elasticache",
+      "source_resource_id": "render:acme-cache:redis",
+      "render_service": "acme-cache",
+      "aws_service": "ElastiCache Redis",
+      "confidence": "high",
+      "aws_config": {
+        "node_type": "cache.t4g.micro",
+        "engine_version": "7.1",
+        "num_cache_nodes": 1,
+        "multi_az": false
+      }
+    }
+  ],
+  "deferred": [],
+  "warnings": [],
+  "vpc_design": {
+    "mode": "new_vpc",
+    "cidr": "10.0.0.0/16",
+    "subnets": [
+      { "az": "us-west-2a", "cidr": "10.0.1.0/24", "type": "private" },
+      { "az": "us-west-2b", "cidr": "10.0.2.0/24", "type": "private" },
+      { "az": "us-west-2a", "cidr": "10.0.101.0/24", "type": "public" },
+      { "az": "us-west-2b", "cidr": "10.0.102.0/24", "type": "public" }
+    ]
+  }
+}

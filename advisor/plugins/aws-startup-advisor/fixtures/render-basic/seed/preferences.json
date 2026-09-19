@@ -1,0 +1,76 @@
+{
+  "migration_id": "0919-render-basic",
+  "skill": "render-to-aws",
+  "metadata": {
+    "timestamp": "2026-09-19T10:05:00Z",
+    "clarify_mode": "fast_path",
+    "questions_asked": ["Q1", "Q2", "Q3", "Q4", "Q12c"],
+    "questions_defaulted": ["Q5", "Q6", "Q6b", "Q6c", "Q7", "Q10", "Q12b", "Q12", "Q13", "Q14", "Q15"],
+    "questions_skipped_not_applicable": ["QR1"]
+  },
+  "global": {
+    "target_region": "us-west-2",
+    "compliance": "none",
+    "availability": "multi-az",
+    "maintenance_window": "flexible",
+    "environment_naming": "production",
+    "migration_approach": "full_cutover",
+    "interim_cutover": false,
+    "target_exit_date": null
+  },
+  "data": {
+    "database_ha": "multi-az",
+    "migration_method": "pg_dump_restore",
+    "estimated_db_size_gb": 25,
+    "db_size_source": "plan_derived",
+    "redis_ha": false,
+    "dns_strategy": "route53"
+  },
+  "network": {
+    "existing_vpc_id": null,
+    "subnet_ids": [],
+    "private_space_detected": false
+  },
+  "operational": {
+    "container_registry": "ecr",
+    "containerization_status": "buildpack_only",
+    "log_retention_days": 30,
+    "alerting": "cloudwatch",
+    "cost_optimization": "balanced"
+  },
+  "design_constraints": {
+    "compute_target": {
+      "default": "elastic_beanstalk",
+      "overrides": [],
+      "chosen_by": "system_recommended",
+      "recommendation": {
+        "value": "elastic_beanstalk",
+        "confidence": "high",
+        "reasons": ["managed PaaS-style web environment preserves Render's managed platform model"]
+      }
+    },
+    "eb_deploy_method": {
+      "value": "github_actions",
+      "chosen_by": "default"
+    }
+  },
+  "defaults_applied": ["Q5", "Q6", "Q6b", "Q6c", "Q7", "Q10", "Q12b", "Q12", "Q13", "Q14", "Q15"],
+  "sources": {
+    "Q1": "user",
+    "Q2": "user",
+    "Q3": "user",
+    "Q4": "user",
+    "Q5": "default",
+    "Q6": "default",
+    "Q6b": "default",
+    "Q6c": "default",
+    "Q7": "default",
+    "Q10": "default",
+    "Q12b": "default",
+    "Q12c": "user",
+    "Q12": "default",
+    "Q13": "default",
+    "Q14": "default",
+    "Q15": "default"
+  }
+}
