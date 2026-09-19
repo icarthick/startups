@@ -51,6 +51,13 @@
 | Pub/Sub     | `google_pubsub_topic`      | `messaging.md` | SNS or SQS         |
 | Cloud Tasks | `google_cloud_tasks_queue` | `messaging.md` | SQS or EventBridge |
 
+## Streaming Services
+
+| GCP Service    | Resource Type                       | Reference File | Typical AWS target                                      |
+| -------------- | ----------------------------------- | -------------- | ------------------------------------------------------- |
+| Cloud Dataflow | `google_dataflow_job`               | `streaming.md` | Kinesis Data Streams + Managed Service for Apache Flink |
+| Cloud Dataflow | `google_dataflow_flex_template_job` | `streaming.md` | Kinesis Data Streams + Managed Service for Apache Flink |
+
 ## AI/ML Services
 
 | GCP Service                | Resource Type       | Reference File            | Typical AWS target      |
