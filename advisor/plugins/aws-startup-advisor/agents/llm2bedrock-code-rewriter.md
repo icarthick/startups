@@ -208,7 +208,7 @@ const model = openai('gpt-4o');
 
 // After
 import { bedrock } from '@ai-sdk/amazon-bedrock';
-const model = bedrock('us.anthropic.claude-sonnet-4-20250514-v1:0');
+const model = bedrock('us.anthropic.claude-sonnet-4-6');
 ```
 
 **LangChain example:**
@@ -220,7 +220,7 @@ llm = ChatOpenAI(model="gpt-4o")
 
 # After
 from langchain_aws import ChatBedrockConverse
-llm = ChatBedrockConverse(model_id="us.anthropic.claude-sonnet-4-20250514-v1:0", region_name="us-east-1")
+llm = ChatBedrockConverse(model_id="us.anthropic.claude-sonnet-4-6", region_name="us-east-1")
 ```
 
 ## Raw SDK (OpenAI, Anthropic, Gemini)
@@ -244,7 +244,7 @@ import boto3
 import json
 bedrock = boto3.client("bedrock-runtime", region_name="us-east-1")
 response = bedrock.converse(
-    modelId="us.anthropic.claude-sonnet-4-20250514-v1:0",
+    modelId="us.anthropic.claude-sonnet-4-6",
     messages=[{"role": "user", "content": [{"text": "Hello"}]}],
     inferenceConfig={"maxTokens": 4096}
 )
@@ -261,7 +261,7 @@ for chunk in stream:
 
 # After
 response = bedrock.converse_stream(
-    modelId="us.anthropic.claude-sonnet-4-20250514-v1:0",
+    modelId="us.anthropic.claude-sonnet-4-6",
     messages=messages_bedrock_format,
     inferenceConfig={"maxTokens": 4096}
 )
@@ -280,7 +280,7 @@ response = client.chat.completions.create(model="gpt-4o", messages=messages, too
 # After (Bedrock Converse API)
 tool_config = {"tools": [{"toolSpec": {"name": "get_weather", "inputSchema": {"json": {...}}}}]}
 response = bedrock.converse(
-    modelId="us.anthropic.claude-sonnet-4-20250514-v1:0",
+    modelId="us.anthropic.claude-sonnet-4-6",
     messages=messages_bedrock_format,
     toolConfig=tool_config,
     inferenceConfig={"maxTokens": 4096}
@@ -485,7 +485,7 @@ AWS_SECRET_ACCESS_KEY=your-secret-key
 # Or use IAM role / SSO — boto3 will auto-detect
 
 # Bedrock Model Configuration
-BEDROCK_MODEL_ID=us.anthropic.claude-sonnet-4-20250514-v1:0
+BEDROCK_MODEL_ID=us.anthropic.claude-sonnet-4-6
 ```
 
 **Mantle express lane exception:** when this run used the Mantle express lane (§8), Mantle authenticates with a bearer token, not SigV4. Write `.env.example` with the token instead of the access-key pair:
