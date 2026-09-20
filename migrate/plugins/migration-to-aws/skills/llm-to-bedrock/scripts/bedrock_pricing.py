@@ -39,15 +39,17 @@ def parse_price_dimensions(price_item: dict) -> dict:
 # skills/gcp-to-aws/references/shared/pricing-cache.md (its per-1M rates / 1000).
 # Every row below was re-verified against that cache on 2026-08-04; the Opus 4.8 row
 # had been copied from Opus 4.1's legacy $15/$75 and was corrected to $5/$25.
+# 2026-09-20: Sonnet 4.6 and Opus 4.8 keys updated to versionless form per AWS model
+# cards (docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-*);
+# the -20250514 stamp belonged to Sonnet 4, not 4.6; Opus 4.8 has no date stamp.
 # `mise run pricing:staleness` re-checks this table against the cache.
 STATIC_FALLBACK = {
     "anthropic.claude-haiku-4-5-20251001-v1:0":     {"input_per_1k_usd": 0.001, "output_per_1k_usd": 0.005},
     "us.anthropic.claude-haiku-4-5-20251001-v1:0":  {"input_per_1k_usd": 0.001, "output_per_1k_usd": 0.005},
-    "anthropic.claude-sonnet-4-6-20250514-v1:0":    {"input_per_1k_usd": 0.003, "output_per_1k_usd": 0.015},
-    "us.anthropic.claude-sonnet-4-6-20250514-v1:0": {"input_per_1k_usd": 0.003, "output_per_1k_usd": 0.015},
+    "anthropic.claude-sonnet-4-6":                  {"input_per_1k_usd": 0.003, "output_per_1k_usd": 0.015},
     "us.anthropic.claude-sonnet-4-6":               {"input_per_1k_usd": 0.003, "output_per_1k_usd": 0.015},
-    "anthropic.claude-opus-4-8-20250610-v1:0":      {"input_per_1k_usd": 0.005, "output_per_1k_usd": 0.025},
-    "us.anthropic.claude-opus-4-8-20250610-v1:0":   {"input_per_1k_usd": 0.005, "output_per_1k_usd": 0.025},
+    "anthropic.claude-opus-4-8":                    {"input_per_1k_usd": 0.005, "output_per_1k_usd": 0.025},
+    "us.anthropic.claude-opus-4-8":                 {"input_per_1k_usd": 0.005, "output_per_1k_usd": 0.025},
     "amazon.nova-micro-v1:0":                       {"input_per_1k_usd": 0.000035, "output_per_1k_usd": 0.00014},
     "amazon.nova-lite-v1:0":                        {"input_per_1k_usd": 0.00006, "output_per_1k_usd": 0.00024},
     "amazon.nova-pro-v1:0":                         {"input_per_1k_usd": 0.0008, "output_per_1k_usd": 0.0032},
