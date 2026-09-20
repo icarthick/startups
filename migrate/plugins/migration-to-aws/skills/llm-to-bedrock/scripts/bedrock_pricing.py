@@ -37,8 +37,9 @@ def parse_price_dimensions(price_item: dict) -> dict:
 # Used when the PriceList API doesn't return data (e.g. new cross-region inference profile IDs).
 # Source: https://aws.amazon.com/bedrock/pricing/, cross-checked row-by-row against
 # skills/gcp-to-aws/references/shared/pricing-cache.md (its per-1M rates / 1000).
-# Every row below was re-verified against that cache on 2026-08-04; the Opus 4.8 row
-# had been copied from Opus 4.1's legacy $15/$75 and was corrected to $5/$25.
+# Every row below was re-verified on 2026-09-20 via AWS Price List API; rates unchanged
+# from the 2026-08-04 verification. Nova Micro/Lite/Pro confirmed at $0.035/$0.06/$0.80
+# per 1M input respectively (per-1K values below = per-1M / 1000).
 # `mise run pricing:staleness` re-checks this table against the cache.
 STATIC_FALLBACK = {
     "anthropic.claude-haiku-4-5-20251001-v1:0":     {"input_per_1k_usd": 0.001, "output_per_1k_usd": 0.005},
@@ -99,7 +100,7 @@ def lookup(region: str, model_id: str) -> dict:
     # by display name and frequently lacks entries for new inference profiles.
     fb = _static_fallback(model_id)
     if fb:
-        fb["note"] = ("static pricing table (verified 2026-08-04 against "
+        fb["note"] = ("static pricing table (verified 2026-09-20 against "
                       "aws.amazon.com/bedrock/pricing and the vendored pricing cache)")
         return fb
     import boto3

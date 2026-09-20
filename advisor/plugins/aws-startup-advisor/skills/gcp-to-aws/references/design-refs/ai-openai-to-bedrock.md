@@ -61,7 +61,7 @@ Percentages below are blended savings using a 2:1 input-to-output token ratio.
 
 ### Pro Models (Extended Reasoning)
 
-> **Lifecycle note:** Nova Premier v1 is **Legacy** (EOL Sep 14, 2026). Nova 2 Pro (Preview) is the Active successor for reasoning-heavy workloads. Pricing differs — see `pricing-cache.md`.
+> **Lifecycle note:** Nova Premier v1 reached **EOL Sep 14, 2026** and is no longer available. Nova 2 Pro (Preview) is the Active successor for reasoning-heavy workloads. Pricing differs — see `pricing-cache.md`.
 
 | OpenAI Model | Price (in/out per 1M) | Best Bedrock Match   | Bedrock Price  | Winner              |
 | ------------ | --------------------- | -------------------- | -------------- | ------------------- |
@@ -87,7 +87,7 @@ Percentages below are blended savings using a 2:1 input-to-output token ratio.
 
 ### Reasoning Models (o-series)
 
-> **Lifecycle note:** Nova Premier v1 is **Legacy** (EOL Sep 14, 2026). Table below uses Nova 2 Pro (Preview) as the Active replacement.
+> **Lifecycle note:** Nova Premier v1 reached **EOL Sep 14, 2026** and is no longer available. Table below uses Nova 2 Pro (Preview) as the Active replacement.
 
 | OpenAI Model                | Price (in/out per 1M) | Best Bedrock Match   | Bedrock Price  | Winner              |
 | --------------------------- | --------------------- | -------------------- | -------------- | ------------------- |
@@ -227,7 +227,7 @@ Tier by complexity: simple → Nova Micro/Llama 4 Scout (60%), moderate → Llam
 
 ### Pro models → Nova 2 Pro
 
-83-98% savings. Strong migration case at any volume. (Nova Premier v1 is Legacy — use Nova 2 Pro instead.)
+83-98% savings. Strong migration case at any volume. (Nova Premier v1 is EOL Sep 14, 2026 — use Nova 2 Pro instead.)
 
 ---
 
