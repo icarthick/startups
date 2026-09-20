@@ -1,6 +1,6 @@
 # AWS Pricing Cache
 
-**Last updated:** 2026-07-17
+**Last updated:** 2026-09-20
 **Region:** us-east-1
 **Currency:** USD
 **Accuracy:** ±5-10% for infrastructure services (sourced from AWS Price List API), ±15-25% for AI models (sourced from public pricing pages)
@@ -397,7 +397,6 @@ See `shared/ai-model-lifecycle.md` for lifecycle details. **Do not recommend Leg
 | Nova Pro (latency optimized)     | —                                        | Amazon    | 1.00       | 4.00        | 300K    | mid       | active                                              |
 | Nova Lite                        | amazon.nova-lite-v1:0                    | Amazon    | 0.06       | 0.24        | 300K    | fast      | active                                              |
 | Nova Micro                       | amazon.nova-micro-v1:0                   | Amazon    | 0.035      | 0.14        | 128K    | budget    | active                                              |
-| Nova Premier                     | amazon.nova-premier-v1:0                 | Amazon    | 2.50       | 12.50       | 1M      | reasoning | excluded (EOL Sep 14, 2026)                         |
 | Mistral Large 3                  | mistral.mistral-large-3-675b-instruct    | Mistral   | 0.50       | 1.50        | 256K    | flagship  | active                                              |
 | DeepSeek-R1                      | deepseek.r1-v1:0                         | DeepSeek  | 1.35       | 5.40        | 128K    | reasoning | active                                              |
 | DeepSeek-V3.1                    | —                                        | DeepSeek  | 0.58       | 1.68        | —       | mid       | active (Sydney only)                                |
@@ -411,6 +410,8 @@ See `shared/ai-model-lifecycle.md` for lifecycle details. **Do not recommend Leg
 | Jurassic-2 Mid                   | —                                        | AI21 Labs | 12.50      | 12.50       | —       | legacy    | legacy                                              |
 | Jurassic-2 Ultra                 | —                                        | AI21 Labs | 18.80      | 18.80       | —       | legacy    | legacy                                              |
 | Jamba-Instruct                   | —                                        | AI21 Labs | 0.50       | 0.70        | —       | mid       | active                                              |
+
+**Removed (past EOL as of Sep 20, 2026):** Nova Premier v1 (`amazon.nova-premier-v1:0`) — EOL Sep 14, 2026 (use Nova 2 Pro); Nova Sonic v1 (`amazon.nova-sonic-v1:0`) — EOL Sep 14, 2026 (use Nova 2 Sonic).
 
 ### Stability AI — Image Generation (per image, US East)
 
@@ -628,7 +629,6 @@ Per 1M input / output tokens unless noted.
 | Amazon Nova Lite                         | 0.06       | 0.24        |
 | Amazon Nova Pro                          | 0.80       | 3.20        |
 | Amazon Nova Pro (latency optimized inf.) | 1.00       | 4.00        |
-| Amazon Nova Premier                      | 2.50       | 12.50       |
 
 #### US East (Ohio) — Standard tier, Global cross-region inference (text + image + video)
 
@@ -669,13 +669,12 @@ Per 1M tokens. **Nova 2 Omni** and **Nova 2 Pro** are **Preview**. Image column 
 
 #### US East (Ohio) — Batch tier (text + image + video), selected models
 
-| Model               | Input $/1M | Output $/1M |
-| ------------------- | ---------- | ----------- |
-| Amazon Nova 2 Lite  | 0.1595     | 1.342       |
-| Amazon Nova Micro   | 0.0175     | 0.07        |
-| Amazon Nova Lite    | 0.03       | 0.12        |
-| Amazon Nova Pro     | 0.40       | 1.60        |
-| Amazon Nova Premier | 1.25       | 6.25        |
+| Model              | Input $/1M | Output $/1M |
+| ------------------ | ---------- | ----------- |
+| Amazon Nova 2 Lite | 0.1595     | 1.342       |
+| Amazon Nova Micro  | 0.0175     | 0.07        |
+| Amazon Nova Lite   | 0.03       | 0.12        |
+| Amazon Nova Pro    | 0.40       | 1.60        |
 
 #### On-demand inference (listed rates, cache read column)
 
@@ -692,7 +691,6 @@ Per 1M tokens. **Nova 2 Omni** and **Nova 2 Pro** are **Preview**. Image column 
 | ---------------------------- | ---------------------- |
 | Amazon Nova 2 Omni (Preview) | $30.00 per 1K requests |
 | Amazon Nova 2 Pro (Preview)  | $30.00 per 1K requests |
-| Amazon Nova Premier          | $30.00 per 1K requests |
 
 #### Creative — US East (N. Virginia)
 
@@ -706,16 +704,16 @@ Per 1M tokens. **Nova 2 Omni** and **Nova 2 Pro** are **Preview**. Image column 
 
 #### Speech — US East (N. Virginia)
 
-> **Lifecycle note:** Nova Sonic v1 is **Legacy** (EOL Sep 14, 2026). Prefer **Nova 2 Sonic** for new migrations. See `shared/ai-model-lifecycle.md`.
+> **Lifecycle note:** Nova Sonic v1 reached **EOL Sep 14, 2026** and is no longer available. Use **Nova 2 Sonic** for new migrations. See `shared/ai-model-lifecycle.md`.
 
 Per 1M tokens.
 
-| Model               | Modality | Input $/1M | Output $/1M | Status                    |
-| ------------------- | -------- | ---------- | ----------- | ------------------------- |
-| Amazon Nova Sonic   | Speech   | 3.40       | 13.60       | legacy (EOL Sep 14, 2026) |
-| Amazon Nova Sonic   | Text     | 0.06       | 0.24        | legacy (EOL Sep 14, 2026) |
-| Amazon Nova 2 Sonic | Speech   | 3.00       | 12.00       | active                    |
-| Amazon Nova 2 Sonic | Text     | 0.33       | 2.75        | active                    |
+| Model               | Modality | Input $/1M | Output $/1M | Status                         |
+| ------------------- | -------- | ---------- | ----------- | ------------------------------ |
+| Amazon Nova Sonic   | Speech   | 3.40       | 13.60       | **removed (EOL Sep 14, 2026)** |
+| Amazon Nova Sonic   | Text     | 0.06       | 0.24        | **removed (EOL Sep 14, 2026)** |
+| Amazon Nova 2 Sonic | Speech   | 3.00       | 12.00       | active                         |
+| Amazon Nova 2 Sonic | Text     | 0.33       | 2.75        | active                         |
 
 #### Multimodal embeddings — US East (N. Virginia)
 

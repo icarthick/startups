@@ -37,21 +37,21 @@ Gemini 3.5 Flash is now GA (May 2026) — the current flagship Flash model. Gemi
 
 ## Bedrock Model Portfolio
 
-| Model             | Best For                                                            | Complexity | Speed  | Context |
-| ----------------- | ------------------------------------------------------------------- | ---------- | ------ | ------- |
-| Claude Sonnet 4.6 | Agentic tasks, tool use                                             | High       | High   | 200K    |
-| Claude Opus 4.6   | Maximum reasoning                                                   | High       | Medium | 200K    |
-| Claude Haiku 4.5  | Simple + fast                                                       | Medium     | High   | 200K    |
-| Llama 4 Maverick  | Cost-effective + multimodal                                         | Medium     | High   | 1M      |
-| Llama 4 Scout     | Ultra-long context, cheapest                                        | Medium     | Medium | 10M     |
-| Nova 2 Pro        | AWS flagship, multimodal                                            | High       | High   | 1M      |
-| Nova 2 Lite       | AWS mid-tier, long context                                          | Medium     | High   | 1M      |
-| Nova Pro          | AWS balanced                                                        | Medium     | High   | 300K    |
-| Nova Lite         | AWS fast + cheapest                                                 | Medium     | High   | 300K    |
-| Nova Micro        | AWS fastest, text-only                                              | Low        | High   | 128K    |
-| Nova Premier      | Complex reasoning — **Legacy** (EOL Sep 14, 2026) prefer Nova 2 Pro | High       | Medium | 1M      |
-| DeepSeek-R1       | Chain-of-thought reasoning                                          | High       | Medium | 128K    |
-| Mistral Large 3   | EU/Multilingual                                                     | High       | Medium | 256K    |
+| Model             | Best For                                                  | Complexity | Speed  | Context |
+| ----------------- | --------------------------------------------------------- | ---------- | ------ | ------- |
+| Claude Sonnet 4.6 | Agentic tasks, tool use                                   | High       | High   | 200K    |
+| Claude Opus 4.6   | Maximum reasoning                                         | High       | Medium | 200K    |
+| Claude Haiku 4.5  | Simple + fast                                             | Medium     | High   | 200K    |
+| Llama 4 Maverick  | Cost-effective + multimodal                               | Medium     | High   | 1M      |
+| Llama 4 Scout     | Ultra-long context, cheapest                              | Medium     | Medium | 10M     |
+| Nova 2 Pro        | AWS flagship, multimodal                                  | High       | High   | 1M      |
+| Nova 2 Lite       | AWS mid-tier, long context                                | Medium     | High   | 1M      |
+| Nova Pro          | AWS balanced                                              | Medium     | High   | 300K    |
+| Nova Lite         | AWS fast + cheapest                                       | Medium     | High   | 300K    |
+| Nova Micro        | AWS fastest, text-only                                    | Low        | High   | 128K    |
+| Nova Premier      | Complex reasoning — **EOL Sep 14, 2026** — use Nova 2 Pro | High       | Medium | 1M      |
+| DeepSeek-R1       | Chain-of-thought reasoning                                | High       | Medium | 128K    |
+| Mistral Large 3   | EU/Multilingual                                           | High       | Medium | 256K    |
 
 ---
 
