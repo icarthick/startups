@@ -1,0 +1,8 @@
+{
+  "_comment": "Expected shape for check_expected_preflight.py. The asserter verifies the structural contract of preflight-report.json (not exact values — those come from a live doc-lookup run). It runs as a SMOKE asserter: no golden run dir is committed, so it verifies the failure path on an empty dir.",
+  "status_valid_values": ["pass", "warn", "blocked"],
+  "required_top_level_fields": ["status", "region", "services_checked", "blockers", "quota_items", "checked_at"],
+  "blockers_item_required_fields": ["service_id", "aws_service", "issue", "detail", "remediation"],
+  "quota_items_item_required_fields": ["service_id", "aws_service", "issue", "detail", "remediation"],
+  "status_consistency": "if blockers is non-empty then status must be blocked; if blockers is empty and quota_items is non-empty then status must be warn; if both are empty then status must be pass"
+}

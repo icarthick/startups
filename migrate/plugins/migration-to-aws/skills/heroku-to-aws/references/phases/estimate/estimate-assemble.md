@@ -115,11 +115,13 @@ After outer-run `HANDOFF_OK` (not an inner workshop reprice):
 
 1. Mark `phases.estimate` → `"completed"`.
 2. Ensure `phases.workshop` exists (seed `"pending"` if the key is missing).
-3. **Do not** set `current_phase` to `"generate"` yet — leave `current_phase` at
+3. Ensure `phases.preflight` exists (seed `"pending"` if the key is missing).
+4. **Do not** set `current_phase` to `"generate"` yet — leave `current_phase` at
    `"estimate"` until the workshop sidebar is resolved (entered then exited, or
-   declined). This matches sidebar semantics: workshop never owns
-   `current_phase`, and mid-workshop fixtures correctly stay on `estimate`.
-4. Offer the what-if workshop below.
+   declined), and until the preflight sidebar is resolved or declined. This
+   matches sidebar semantics: sidebars never own `current_phase`, and
+   mid-sidebar fixtures correctly stay on `estimate`.
+5. Offer the what-if workshop below.
 
 ---
 
@@ -141,8 +143,40 @@ and compare priced scenarios without re-discovering inventory.
   (baseline capture if `scenarios/` missing, then the sheet). Keep
   `current_phase: estimate`; set `phases.workshop` → `"in_progress"`.
 - **B** → Mark `phases.workshop` → `"completed"` (resolved/declined — no
-  `scenarios/` required). Set `current_phase` → `"generate"`. Continue with the
-  Feedback/Generate sidebars in `SKILL.md`.
+  `scenarios/` required). After workshop resolves (A exited or B chosen), offer
+  the preflight sidebar below.
 
 On first workshop entry after this Estimate, `workshop-refresh.md` baseline
 capture snapshots the current artifacts as `scenario-001` before any edits.
+
+---
+
+## Post-Workshop: Preflight Readiness Check Offer
+
+After workshop is resolved (either entered-then-exited via `workshop-assemble.md`,
+or declined with [B] above) — offer the preflight readiness check. Check that
+`phases.preflight` is `"pending"` before presenting (do not re-offer if already
+`"completed"`):
+
+```
+Before generating artifacts, you can run a preflight readiness check:
+verify that the proposed AWS services are available in your target region
+and fit within default account quotas — surface any blockers before Generate.
+
+[A] Run preflight readiness check
+[B] Skip, proceed to Generate
+```
+
+- **A** → Load `references/phases/preflight/preflight.md` (sidebar) and follow
+  it. Keep `current_phase: estimate`; set `phases.preflight` → `"in_progress"`.
+  After the preflight assembler completes and marks `phases.preflight →
+  "completed"` and `current_phase → "generate"`, continue.
+- **B** → Mark `phases.preflight` → `"completed"` (resolved/declined). Set
+  `current_phase` → `"generate"`. Continue with the Feedback/Generate sidebars
+  in `SKILL.md`.
+
+**Fallback for in-flight runs (backward compatibility):** If `.phase-status.json`
+already has `current_phase: "generate"` (a run created before this phase was
+added), that run predates the preflight offer and must not be blocked. The
+`phases.preflight` key will be absent; treat that as already-resolved and proceed
+normally without offering the preflight sidebar.
