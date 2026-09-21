@@ -1,0 +1,33 @@
+{
+  "required_resource_types": [
+    "resource_group",
+    "service_plan",
+    "web_app",
+    "postgresql",
+    "storage_account",
+    "key_vault"
+  ],
+  "required_resource_ids": [
+    "rg:acme-rg",
+    "serviceplan:acme-asp",
+    "webapp:acme-api",
+    "postgres:acme-postgres",
+    "storage:acmeassets",
+    "keyvault:acme-kv"
+  ],
+  "forbidden_fields": [
+    "cluster_id",
+    "creation_order_depth",
+    "edges",
+    "dependencies",
+    "must_migrate_together"
+  ],
+  "required_metadata_fields": [
+    "discovery_timestamp",
+    "total_resources_discovered",
+    "discovery_sources"
+  ],
+  "discovery_sources_must_include": ["terraform"],
+  "total_resources_discovered": 6,
+  "no_secret_values": true
+}

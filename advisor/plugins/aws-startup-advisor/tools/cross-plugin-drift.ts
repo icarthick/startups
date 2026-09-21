@@ -30,7 +30,7 @@ import { join } from "node:path";
 
 const SRC = "migrate/plugins/migration-to-aws";
 const DST = "advisor/plugins/aws-startup-advisor";
-const SKILLS = ["agent-advisor", "gcp-to-aws", "heroku-to-aws", "llm-to-bedrock", "tf-best-practices", "shared"];
+const SKILLS = ["agent-advisor", "azure-to-aws", "gcp-to-aws", "heroku-to-aws", "llm-to-bedrock", "tf-best-practices", "shared"];
 const listMode = process.argv.includes("--list");
 
 // Files that legitimately differ after normalization — the advisor copies carry
@@ -59,6 +59,11 @@ const ALLOWLIST: Record<string, Set<string>> = {
     "scripts/build_diagram.py",
     "scripts/test_build_diagram.py",
     "scripts/test_unit_grouping.py",
+  ]),
+  "azure-to-aws": new Set([
+    "references/vendored/dsl/INTERPRETER.md",
+    "references/vendored/estimate/estimation-infra.schema.json",
+    "references/vendored/state/phase-status.schema.json",
   ]),
   "heroku-to-aws": new Set([
     "references/vendored/dsl/INTERPRETER.md",

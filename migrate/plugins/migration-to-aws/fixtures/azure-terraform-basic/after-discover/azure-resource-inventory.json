@@ -1,0 +1,119 @@
+{
+  "metadata": {
+    "discovery_timestamp": "2026-09-21T10:00:00Z",
+    "total_resources_discovered": 6,
+    "discovery_sources": ["terraform"],
+    "confidence": "full",
+    "confidence_note": null
+  },
+  "resource_groups": [
+    {
+      "name": "acme-rg",
+      "location": "East US"
+    }
+  ],
+  "resources": [
+    {
+      "resource_id": "rg:acme-rg",
+      "resource_type": "resource_group",
+      "resource_group": "acme-rg",
+      "config": {
+        "name": "acme-rg",
+        "location": "East US"
+      },
+      "mapping_status": "supported",
+      "source": "terraform",
+      "tf_file": "main.tf",
+      "tf_resource_name": "main"
+    },
+    {
+      "resource_id": "serviceplan:acme-asp",
+      "resource_type": "service_plan",
+      "resource_group": "acme-rg",
+      "config": {
+        "name": "acme-asp",
+        "sku": "P1v2",
+        "os_type": "Linux",
+        "worker_count": null
+      },
+      "mapping_status": "supported",
+      "source": "terraform",
+      "tf_file": "main.tf",
+      "tf_resource_name": "main"
+    },
+    {
+      "resource_id": "webapp:acme-api",
+      "resource_type": "web_app",
+      "resource_group": "acme-rg",
+      "config": {
+        "name": "acme-api",
+        "service_plan_ref": "serviceplan:acme-asp",
+        "app_setting_keys": ["DATABASE_URL", "REDIS_URL"]
+      },
+      "mapping_status": "supported",
+      "source": "terraform",
+      "tf_file": "main.tf",
+      "tf_resource_name": "api"
+    },
+    {
+      "resource_id": "postgres:acme-postgres",
+      "resource_type": "postgresql",
+      "resource_group": "acme-rg",
+      "config": {
+        "name": "acme-postgres",
+        "sku": "GP_Standard_D2s_v3",
+        "storage_mb": 32768,
+        "engine_version": "15",
+        "admin_login": "acmeadmin",
+        "ha_enabled": false
+      },
+      "mapping_status": "supported",
+      "source": "terraform",
+      "tf_file": "main.tf",
+      "tf_resource_name": "db"
+    },
+    {
+      "resource_id": "storage:acmeassets",
+      "resource_type": "storage_account",
+      "resource_group": "acme-rg",
+      "config": {
+        "name": "acmeassets",
+        "account_tier": "Standard",
+        "replication": "LRS",
+        "account_kind": null
+      },
+      "mapping_status": "supported",
+      "source": "terraform",
+      "tf_file": "main.tf",
+      "tf_resource_name": "assets"
+    },
+    {
+      "resource_id": "keyvault:acme-kv",
+      "resource_type": "key_vault",
+      "resource_group": "acme-rg",
+      "config": {
+        "name": "acme-kv",
+        "sku": "standard",
+        "rbac_enabled": false
+      },
+      "mapping_status": "supported",
+      "source": "terraform",
+      "tf_file": "main.tf",
+      "tf_resource_name": "secrets"
+    }
+  ],
+  "specialist_gates": [],
+  "terraform_metadata": {
+    "found": true,
+    "tf_files_scanned": 1,
+    "resource_types_extracted": [
+      "azurerm_resource_group",
+      "azurerm_service_plan",
+      "azurerm_linux_web_app",
+      "azurerm_postgresql_flexible_server",
+      "azurerm_storage_account",
+      "azurerm_key_vault"
+    ],
+    "parse_warnings": []
+  }
+}

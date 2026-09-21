@@ -1,0 +1,13 @@
+{
+  "migration_id": "0921-azure-basic",
+  "last_updated": "2026-09-21T10:01:00Z",
+  "current_phase": "clarify",
+  "phases": {
+    "discover": "completed",
+    "clarify": "pending",
+    "design": "pending",
+    "estimate": "pending",
+    "generate": "pending",
+    "feedback": "pending"
+  }
+}
