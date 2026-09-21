@@ -8,6 +8,7 @@
     "design": "completed",
     "estimate": "in_progress",
     "workshop": "pending",
+    "preflight": "pending",
     "generate": "pending",
     "feedback": "pending"
   }

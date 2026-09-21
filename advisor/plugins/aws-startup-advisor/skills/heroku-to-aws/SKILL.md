@@ -133,6 +133,10 @@ heroku-to-aws/
 │   │   │   ├── workshop-refresh.md             # Patch prefs → Design → Estimate → snapshot
 │   │   │   ├── workshop-compare.md             # Side-by-side scenarios
 │   │   │   └── workshop-assemble.md            # Resolve sidebar → return to Generate
+│   │   ├── preflight/
+│   │   │   ├── preflight.md                    # Sidebar: optional post-Workshop readiness check
+│   │   │   ├── preflight-check.md              # Check region availability + default quotas via docs
+│   │   │   └── preflight-assemble.md           # Write preflight-report.json → resolve sidebar
 │   │   ├── generate/
 │   │   │   ├── generate.md                     # Phase 5: Generate orchestrator
 │   │   │   ├── generate-terraform.md           # Terraform configurations
@@ -198,7 +202,11 @@ contract). Both are `_kind: sidebar` — off-backbone, trigger-entered, never
   `estimate-assemble.md` (Enter workshop / Proceed toward Generate). Outer
   Estimate keeps `current_phase: estimate` until workshop is resolved (entered
   then exited via `workshop-assemble.md`, or declined). If the user enters
-  workshop, follow `references/phases/workshop/workshop.md`. Then, if
+  workshop, follow `references/phases/workshop/workshop.md`. After workshop
+  resolves, offer the preflight readiness check sidebar per
+  `estimate-assemble.md` (Run preflight / Skip). If the user enters preflight,
+  follow `references/phases/preflight/preflight.md`. After preflight resolves
+  or is declined, `current_phase` advances to `"generate"`. Then, if
   `phases.feedback` is `"pending"`:
 
   ```
@@ -217,8 +225,21 @@ contract). Both are `_kind: sidebar` — off-backbone, trigger-entered, never
   `phases.estimate == "completed"` AND `phases.workshop` is `"pending"` or
   `"in_progress"`, **do not recompute Estimate**. If `"pending"`, re-present the
   post-Estimate workshop offer from `estimate-assemble.md`. If `"in_progress"`,
-  load `references/phases/workshop/workshop.md`. Generate must wait until
-  `phases.workshop == "completed"` (entered+exited or declined).
+  load `references/phases/workshop/workshop.md`. After workshop is resolved,
+  check `phases.preflight`:
+
+- **Preflight resume (mandatory):** If `current_phase == "estimate"` AND
+  `phases.estimate == "completed"` AND `phases.workshop == "completed"` AND
+  `phases.preflight` is `"pending"` or `"in_progress"`, **do not recompute
+  Estimate or workshop**. If `"pending"`, re-present the post-workshop preflight
+  offer from `estimate-assemble.md`. If `"in_progress"`, load
+  `references/phases/preflight/preflight.md`. Generate must wait until
+  `phases.preflight == "completed"` (entered+exited or declined).
+
+- **Backward compatibility:** If `current_phase` is already `"generate"` but
+  `phases.preflight` is absent from `.phase-status.json` (a run created before
+  this phase was added), do not block or re-offer the preflight sidebar.
+  Proceed to Generate normally.
 
 - **Warm start / explicit what-if**: If the user says "what if", "reprice",
   "workshop mode", or "compare scenarios" and Estimate artifacts already exist,
