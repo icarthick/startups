@@ -27,10 +27,11 @@
 
 ## Storage Services
 
-| GCP Service         | Resource Type               | Reference File | Typical AWS target |
-| ------------------- | --------------------------- | -------------- | ------------------ |
-| Cloud Storage (GCS) | `google_storage_bucket`     | `storage.md`   | S3                 |
-| Filestore           | `google_filestore_instance` | `storage.md`   | EFS                |
+| GCP Service         | Resource Type                         | Reference File | Typical AWS target |
+| ------------------- | ------------------------------------- | -------------- | ------------------ |
+| Cloud Storage (GCS) | `google_storage_bucket`               | `storage.md`   | S3                 |
+| Filestore           | `google_filestore_instance`           | `storage.md`   | EFS                |
+| Artifact Registry   | `google_artifact_registry_repository` | `storage.md`   | ECR                |
 
 ## Networking Services
 
