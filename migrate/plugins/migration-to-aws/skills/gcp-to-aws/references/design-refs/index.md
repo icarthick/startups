@@ -46,10 +46,11 @@
 
 ## Messaging Services
 
-| GCP Service | Resource Type              | Reference File | Typical AWS target |
-| ----------- | -------------------------- | -------------- | ------------------ |
-| Pub/Sub     | `google_pubsub_topic`      | `messaging.md` | SNS or SQS         |
-| Cloud Tasks | `google_cloud_tasks_queue` | `messaging.md` | SQS or EventBridge |
+| GCP Service     | Resource Type                | Reference File | Typical AWS target    |
+| --------------- | ---------------------------- | -------------- | --------------------- |
+| Pub/Sub         | `google_pubsub_topic`        | `messaging.md` | SNS or SQS            |
+| Cloud Tasks     | `google_cloud_tasks_queue`   | `messaging.md` | SQS or EventBridge    |
+| Cloud Scheduler | `google_cloud_scheduler_job` | `messaging.md` | EventBridge Scheduler |
 
 ## AI/ML Services
 

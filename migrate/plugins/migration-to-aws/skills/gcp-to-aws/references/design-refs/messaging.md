@@ -1,16 +1,17 @@
 # Messaging Services Design Rubric
 
-**Applies to:** Pub/Sub, Cloud Tasks
+**Applies to:** Pub/Sub, Cloud Tasks, Cloud Scheduler
 
 **Quick lookup (no rubric):** Check `fast-path.md` first (Pub/Sub → SNS/SQS, etc.)
 
 ## Eliminators (Hard Blockers)
 
-| GCP Service | AWS | Blocker                                                                                                 |
-| ----------- | --- | ------------------------------------------------------------------------------------------------------- |
-| Pub/Sub     | SNS | Exactly-once delivery required → SNS FIFO + SQS FIFO (SNS FIFO supports exactly-once via deduplication) |
-| Pub/Sub     | SQS | Multiple subscribers per topic → SNS (not SQS)                                                          |
-| Cloud Tasks | SQS | Scheduled/delayed task execution → EventBridge + SNS/SQS                                                |
+| GCP Service     | AWS                   | Blocker                                                                                                 |
+| --------------- | --------------------- | ------------------------------------------------------------------------------------------------------- |
+| Pub/Sub         | SNS                   | Exactly-once delivery required → SNS FIFO + SQS FIFO (SNS FIFO supports exactly-once via deduplication) |
+| Pub/Sub         | SQS                   | Multiple subscribers per topic → SNS (not SQS)                                                          |
+| Cloud Tasks     | SQS                   | Scheduled/delayed task execution → EventBridge + SNS/SQS                                                |
+| Cloud Scheduler | EventBridge Scheduler | HTTP target to a non-AWS endpoint with no Lambda wrapper → requires Lambda shim                         |
 
 ## Signals (Decision Criteria)
 
@@ -26,6 +27,14 @@
 - **HTTP callback execution** → EventBridge + SNS/SQS (route to Lambda/Fargate)
 - **Delayed/scheduled queue** → SQS + Lambda (ScheduledEvents)
 
+### Cloud Scheduler
+
+- **Recurring cron-based invocation** → EventBridge Scheduler (cron expression)
+- **One-time scheduled invocation** → EventBridge Scheduler (at expression)
+- **Rate-based invocation** → EventBridge Scheduler (rate expression)
+- **HTTP target** → EventBridge Scheduler → Lambda (to proxy the HTTP call)
+- **Pub/Sub target** → EventBridge Scheduler → SNS or SQS
+
 ## 6-Criteria Rubric
 
 Apply in order:
@@ -40,6 +49,20 @@ Apply in order:
    - Example: Pub/Sub ordering guarantee → SQS FIFO (has ordering)
 5. **Cluster Context**: Are other resources using SNS/SQS? Match if possible
 6. **Simplicity**: SNS + SQS (coupled) vs separate services
+
+## Cloud Scheduler → EventBridge Scheduler: Key Differences
+
+| Dimension            | GCP Cloud Scheduler                              | Amazon EventBridge Scheduler                                                        |
+| -------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| Schedule syntax      | 5-field unix cron (`min hr dom mon dow`)         | 6-field cron (`min hr dom mon dow year`), `rate(…)`, or `at(…)` for one-time        |
+| One-time schedules   | Supported (single future execution)              | Supported via `at(yyyy-mm-ddThh:mm:ss)` expression                                  |
+| Recurring schedules  | Supported (cron)                                 | Supported (cron and rate expressions)                                               |
+| Target types         | HTTP endpoints, Pub/Sub topics, App Engine HTTP  | 270+ AWS services via universal target (Lambda, SQS, SNS, Step Functions, and more) |
+| External HTTP target | Native (direct HTTP/HTTPS call)                  | Requires a Lambda function to proxy outbound HTTP calls                             |
+| Retry policy         | Configurable max retry count and min/max backoff | Configurable retry window and max event age                                         |
+| Time zone            | Configurable per job                             | Configurable per schedule                                                           |
+
+**Migration note:** Convert 5-field GCP cron expressions to 6-field AWS cron by appending a year field (use `*` for any year). Example: GCP `0 9 * * MON-FRI` → AWS `cron(0 9 ? * MON-FRI *)`. AWS cron does not allow both `day-of-month` and `day-of-week` to be specified simultaneously — use `?` for the one not being constrained.
 
 ## Examples
 
@@ -67,6 +90,24 @@ Apply in order:
 - Signals: Task scheduling, retry configuration
 - Criterion 1 (Eliminators): PASS
 - → **AWS: SQS (standard) + Lambda ScheduledEvents (for scheduling)**
+- Confidence: `inferred`
+
+### Example 4: Cloud Scheduler Job (recurring cron)
+
+- GCP: `google_cloud_scheduler_job` (schedule="0 9 * * MON-FRI", target=http_target)
+- Signals: Recurring weekday invocation, HTTP target
+- Criterion 1 (Eliminators): HTTP target to external endpoint → requires Lambda proxy shim
+- Criterion 2 (Operational Model): EventBridge Scheduler (managed, fully serverless)
+- → **AWS: EventBridge Scheduler** (`cron(0 9 ? * MON-FRI *)`) → **Lambda** (HTTP proxy)
+- Note: Convert 5-field GCP cron to 6-field AWS cron — append `*` year field; use `?` for unconstrained day field.
+- Confidence: `inferred`
+
+### Example 5: Cloud Scheduler Job (one-time)
+
+- GCP: `google_cloud_scheduler_job` (schedule="one-time", pubsub_target)
+- Signals: Single future invocation, Pub/Sub target
+- Criterion 1 (Eliminators): PASS
+- → **AWS: EventBridge Scheduler** (`at(yyyy-mm-ddThh:mm:ss)`) → **SNS topic**
 - Confidence: `inferred`
 
 ## Output Schema
