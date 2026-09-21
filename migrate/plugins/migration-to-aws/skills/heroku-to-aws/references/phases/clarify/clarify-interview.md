@@ -408,6 +408,23 @@ Re-prompt Q9b until valid input is provided.
    - If any row is system-forced to Fargate while others remain EB → `recommendation.value: "mixed"`, `confidence: "high"`
    - If the user explicitly chooses all-Fargate or EKS below → record that user choice as the default with no system recommendation override, except scaled non-web EB downgrades remain forbidden.
 
+**Before presenting the recommendation and choice options, present this decision rubric for web dynos.** It helps the user understand the trade-off space before committing to a compute target:
+
+> **Web-dyno compute target comparison**
+>
+> | Trait                   | Elastic Beanstalk                                                                                          | ECS Fargate                                                                                           | EKS                                                                                                               |
+> | ----------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+> | Scale to zero           | No — minimum 1 instance always running; cost floor even at zero traffic                                    | Yes — tasks can scale to 0; no cost at zero traffic                                                   | Yes, with Karpenter or KEDA; requires extra cluster configuration                                                 |
+> | Custom VPC / networking | Supported; simplest setup of the three                                                                     | Supported; task-level security groups available                                                       | Full Kubernetes VPC CNI; most flexible and most complex                                                           |
+> | Worker dyno coupling    | Web and workers share the same EB environment type by default; easiest to co-locate                        | Web and workers are independent ECS services; naturally decoupled                                     | Independent Deployments; most flexible, highest operational surface                                               |
+> | Operational ownership   | Lowest — platform manages OS patches, load balancer, and autoscaling; closest to Heroku's PaaS model       | Medium — manage task definitions, service sizing, and ECS cluster                                     | Highest — manage control-plane upgrades, node groups, and ingress controllers                                     |
+> | Cost profile            | Most cost-effective at low-to-medium scale; pay for EC2 instance-hours; minimum floor even at zero traffic | Pay-per-vCPU/memory-second; efficient for variable or bursty loads; small idle floor when scaled down | Per-cluster management fee plus node costs; efficient at large scale; significant fixed overhead for small fleets |
+>
+> **Services outside this skill's automated migration path (noted for completeness):**
+>
+> - **AWS App Runner** — closed to new customers as of April 2026; not available for new migrations via this skill.
+> - **Lightsail Containers** — a lighter-weight option outside this skill's automated path; suitable for very simple single-container workloads but requires manual setup beyond this tool's generated artifacts.
+
 **Present the computed recommendation before the choices. Example wording:**
 
 > Based on your Heroku formations, I recommend:
