@@ -49,6 +49,12 @@
 - **Bot management** → AWS WAF Bot Control
 - **IP allowlist/denylist** → AWS WAF IP set rules
 
+### Cloud NAT
+
+- **Outbound internet for private instances** → AWS NAT Gateway (managed; deploy a public NAT gateway in a public subnet with an Elastic IP, then route each private subnet's `0.0.0.0/0` to it via the internet gateway)
+- **Private-only egress to other VPCs / on-premises** → private NAT gateway (routes through a transit gateway or virtual private gateway; no Elastic IP)
+- **High availability** → one NAT gateway per AZ (or a regional NAT gateway) to avoid a single-AZ egress chokepoint; production egress should not depend on a single AZ
+
 ## 6-Criteria Rubric
 
 Apply in order:
