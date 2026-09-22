@@ -358,8 +358,8 @@ inclusion: always
       "disabled": false,
       "autoApprove": []
     },
-    "awslabs.aws-knowledge-mcp-server": {
-      "url": "https://knowledge-mcp.global.api.aws",
+    "aws-mcp": {
+      "url": "https://aws-mcp.us-east-1.api.aws/mcp",
       "type": "http",
       "disabled": false
     },

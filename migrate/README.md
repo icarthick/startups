@@ -139,11 +139,14 @@ GCP/Heroku migrations write a `.migration/<session>/` directory; agent-advisor w
 
 ## MCP Servers
 
-| Server            | Purpose                                                                                                                                                                                                               |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **awsknowledge**  | AWS documentation, regional availability, architecture guidance                                                                                                                                                       |
-| **awspricing**    | Real-time AWS service pricing for cost estimates                                                                                                                                                                      |
-| **temporal-docs** | Temporal Knowledge Base, operated by kapa.ai (queries are sent to that third-party service). Used only by the agent-advisor Temporal branch; one-time login via `/mcp`, falls back to a public-web lookup if declined |
+| Server      | Purpose                                                                                                                                                                                                                        |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **aws-mcp** | AWS documentation, regional availability, and service information via the [unified AWS MCP Server](https://docs.aws.amazon.com/agent-toolkit/latest/userguide/mcp-server.html) (HTTP, `https://aws-mcp.us-east-1.api.aws/mcp`) |
+
+> **Note:** The previous `awsknowledge`, `awspricing`, `aws-pricing-calculator`, and `temporal-docs`
+> MCP servers have been replaced by `aws-mcp`. Direct pricing API calls and shareable AWS Pricing
+> Calculator estimate generation are not available in the unified server; estimates fall back to the
+> bundled cache. Temporal feature statuses are verified via WebFetch to `docs.temporal.io`.
 
 ## Requirements
 

@@ -6,7 +6,7 @@ freshness lookups carry ONLY public service, feature, model, or region names (e.
 file contents, prompts, architecture details, or anything else from the workspace
 or the run directory in an outbound request — the answer never depends on it.
 
-## Fields to verify at runtime via the awsknowledge MCP
+## Fields to verify at runtime via the aws-mcp MCP
 
 - AgentCore microVMs session cap (currently 8h) and Instances session cap (currently 14d)
 - AgentCore microVMs compute cap (2 vCPU / 8 GB; Instances lifts it via EC2 choice)
@@ -16,41 +16,18 @@ or the run directory in an outbound request — the answer never depends on it.
   (`registry_regions` in `references/runtimes/agentcore.json`; see the procedure below)
 - Lambda MicroVMs launch TPS (5, not adjustable)
 - FedRAMP certification status for AgentCore and Lambda MicroVMs
-- Any Bedrock model price (defer to migration-to-aws pricing cache; never hardcode here)
+- Any Bedrock model price (defer to the `llm-to-bedrock` skill's pricing cache; never hardcode here)
 
 ## Temporal (design.md — Freshness, temporal units only)
 
-Volatile facts to re-verify when the Temporal branch generates a plan. The awsknowledge
-MCP does not cover Temporal-side facts; each fact below names its actual verification
+Volatile facts to re-verify when the Temporal branch generates a plan. The aws-mcp
+server does not cover Temporal-side facts; each fact below names its actual verification
 channel. Whatever cannot be verified this run stays cached and the footer must say so.
 
-**Temporal Knowledge Base MCP (preferred channel for Temporal-side facts):**
-Temporal's hosted knowledge-base MCP server (`temporal-docs` →
-`https://temporal.mcp.kapa.ai`, real-time answers compiled from Temporal docs, forum,
-and Slack) **ships in this plugin's `.mcp.json`** — it is already registered for every
-install. It is the preferred source for the **Feature statuses** fact below. It needs a
-one-time OAuth login to actually connect. **Auth-gate procedure (run BEFORE any Temporal
-feature-status lookup):**
-
-1. Check whether the `temporal-docs` MCP is connected AND authenticated this session.
-2. **If authenticated** → query it first for feature statuses.
-3. **If registered but NOT authenticated** → STOP and ask with AskUserQuestion (do not
-   silently fall through): "The Temporal docs MCP (`temporal-docs`) gives the freshest
-   feature-status answers but needs a one-time Google/GitHub login. Authenticate now?"
-   with options:
-   - **"Yes — I'll authenticate"** → tell the user to run `/mcp` → `temporal-docs` →
-     Authenticate, and **wait** for them to confirm it's done; then re-check and query
-     the MCP. (Step 4 is a read-only freshness check — pausing here is safe and resumes
-     cleanly.)
-   - **"No — use public web instead"** → fall back to the WebFetch channel named on the
-     fact for this run.
-4. Only ask once per run; if the user declined this run, do not re-prompt.
-
-- The anti-fabrication rule applies to the MCP identically: a fact counts as verified
-  only if the MCP (or the WebFetch) actually returned it this run.
-- Scope note: the MCP covers Temporal **platform** knowledge only. The Marketplace
-  listing / commercial-terms fact below is AWS buyer-side and stays WebFetch-only — do
-  not route it through the Temporal KB MCP.
+**WebFetch (channel for Temporal-side facts):**
+Use WebFetch to retrieve the relevant `docs.temporal.io` pages for Temporal feature
+statuses. There is no MCP-based Temporal knowledge server — fetch the public docs
+directly.
 
 **Verifiable this run (attempt these):**
 
@@ -88,7 +65,7 @@ observed this run may be listed as verified.
    Check Registry facts only when `registry` is selected. In the main skill, include
    `registry_regions` from `references/runtimes/agentcore.json` even if the winning runtime is
    ECS, EKS, Lambda, or another runtime. In add-capabilities, use the Registry Hard limits entry.
-2. Attempt an awsknowledge MCP lookup for each.
+2. Attempt an aws-mcp MCP lookup for each.
 3. On success (the MCP call returned a value THIS run), use the fresh value and list the field as
    verified.
 4. On failure OR if you did not call the MCP at all (unavailable, skipped), use the cached
@@ -106,7 +83,7 @@ Apply this check whenever Registry is selected, regardless of the agent's runtim
 
 1. Identify the intended Registry deployment Region. Use the user's stated Region; ask if it
    is missing, unknown, `multi`, or `global`. Do not silently choose a Region.
-2. Refresh Registry availability via awsknowledge MCP using the procedure above. A Runtime
+2. Refresh Registry availability via aws-mcp MCP using the procedure above. A Runtime
    availability result cannot verify Registry. Keep the observed source and verification date
    with the result; on failure retain the cached snapshot date and mark availability unconfirmed.
 3. If this run confirms availability in the intended Region, proceed. If unavailable, ask the
