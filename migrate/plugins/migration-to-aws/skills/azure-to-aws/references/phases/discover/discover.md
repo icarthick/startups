@@ -10,6 +10,9 @@ _fragments:
   - _id: app-code
     _trigger: { _when: "source code or a dependency manifest is present in the workspace (.py/.js/.ts/.go/.java/.cs, requirements.txt, package.json, go.mod, pom.xml, *.csproj)" }
     _file: phases/discover/discover-app-code.md
+  - _id: live-parse
+    _trigger: { _when: "$MIGRATION_DIR/live-capture/manifest.json exists (Part A of live discovery ran in the main window per the _preconditions live-capture pre-work). Its absence — user declined, az missing, or the offer was not shown — leaves this fragment inert" }
+    _file: phases/discover/discover-live.md
 _assemble:
   _file: phases/discover/discover-assemble.md
 _produces:
@@ -28,14 +31,14 @@ _re_entry_guard:
 _preconditions:
   - _check_single_active_phase: true
     _on_failure: _halt_and_inform
-  - _assert: "at least one migratable source is available: an IaC source (a .tf file containing an azurerm_* resource, a .bicep file, or an ARM template whose $schema contains 'deploymentTemplate'), OR application source code / a dependency manifest that the app-code fragment can scan for an AI signal. A workspace with NEITHER any IaC NOR any source code is the only unrecoverable case — matching gcp's 'stop only when nothing will produce any artifact'"
+  - _assert: "at least one migratable source is available: an IaC source (a .tf file containing an azurerm_* resource, a .bicep file, or an ARM template whose $schema contains 'deploymentTemplate'), OR application source code / a dependency manifest that the app-code fragment can scan for an AI signal, OR a live-capture directory produced by the main-window live-capture pre-work (see the body's 'Run the phase' Step 2 — the interactive Part A of discover-live.md). A workspace with NONE of these is the only unrecoverable case — matching gcp's 'stop only when nothing will produce any artifact'"
     _on_failure: _unrecoverable
 _postconditions:
-  - _assert: "at least one discovery artifact was produced: azure-resource-inventory.json (when an IaC source was found) OR ai-workload-profile.json (when application code had an AI signal). This is the completion anchor — an app-code-only run that produced only the AI profile satisfies discover, matching gcp's 'stop only when nothing will produce any artifact'"
+  - _assert: "at least one discovery artifact was produced: azure-resource-inventory.json (when an IaC source was found OR live capture produced resources) OR ai-workload-profile.json (when application code — or a live Cognitive Services signal — had an AI signal). This is the completion anchor — an app-code-only run that produced only the AI profile satisfies discover, matching gcp's 'stop only when nothing will produce any artifact'"
     _on_failure: _halt_and_inform
-  - _assert: "WHEN an IaC source (.tf/.bicep/ARM) was found: azure-resource-inventory.json and azure-resource-clusters.json exist, validate as JSON, and the inventory has at least one resources[] entry with metadata carrying discovery_timestamp, discovery_sources, and subscriptions_discovered. WHEN the run is app-code-only (no IaC source found): the inventory and clusters artifacts are ABSENT (not written empty — see discover-assemble.md) and this is vacuously satisfied"
+  - _assert: "WHEN an IaC source (.tf/.bicep/ARM) was found OR live capture produced at least one resource: azure-resource-inventory.json and azure-resource-clusters.json exist, validate as JSON, and the inventory has at least one resources[] entry with metadata carrying discovery_timestamp, discovery_sources, and subscriptions_discovered. WHEN the run is app-code-only (no IaC source found and no live capture): the inventory and clusters artifacts are ABSENT (not written empty — see discover-assemble.md) and this is vacuously satisfied"
     _on_failure: _halt_and_inform
-  - _assert: "WHEN azure-resource-inventory.json exists, every resources[] entry has azure_id (a full ARM resource ID), azure_type (a canonical Microsoft.* type string), azure_type_provenance from {table, derived, user_confirmed}, resource_group, subscription_id, and config — no entry carries a raw azurerm_* type in azure_type"
+  - _assert: "WHEN azure-resource-inventory.json exists, every resources[] entry has azure_id (a full ARM resource ID), azure_type (a canonical Microsoft.* type string), azure_type_provenance from {table, derived, derived_uncorroborated, user_confirmed} (see schema-discover-azure.md § azure_type_provenance), resource_group, subscription_id, source (terraform | bicep | arm | live | rdfa | billing, or a '+'-joined set), and config — no entry carries a raw azurerm_* type in azure_type"
   - _assert: "WHEN azure-resource-inventory.json exists, iac_metadata carries derived_types and untranslated_types as separate collections: derived_types lists Terraform types resolved by derivation with a namespace that namespace_routing recognises, and untranslated_types lists ONLY those whose derived namespace was NOT recognised. A type absent from the canonicalization table is DERIVED and retained, never silently dropped — see arm-type-canonicalization.md § Deriving a type that is not listed"
     _on_failure: _halt_and_inform
   - _assert: "WHEN azure-resource-inventory.json exists, metadata.discovery_sources reflects which sources actually produced data; the iac fragment always runs and may exit empty, so a source appears only when it contributed at least one resource"
@@ -47,7 +50,9 @@ _postconditions:
   - _assert: "WHEN azure-resource-inventory.json exists, warnings[] is present on the inventory (empty is fine), and every entry carries a code from the closed vocabulary in schema-discover-azure.md § Warnings, a detail, and an azure_id or identifier"
   - _assert: "WHEN application code with an AI signal at >= 70% confidence was found: ai-workload-profile.json exists, validates against schema-discover-ai.md, and carries summary.ai_source from {azure_openai, openai, anthropic, both, other} (never gemini), a workloads[] array, and — only when an agentic framework was detected — an agentic_profile. WHEN no AI signal reached 70% (or no source code was found), ai-workload-profile.json is absent and this is vacuously satisfied — its absence is not a failure"
     _on_failure: _halt_and_inform
-  - _assert: "PRODUCER AGREEMENT: WHEN azure-resource-inventory.json contains a case-insensitive azure_type in {Microsoft.CognitiveServices/accounts, Microsoft.CognitiveServices/accounts/deployments, Microsoft.MachineLearningServices/workspaces}, the iac fragment has qualifying evidence and ai-workload-profile.json MUST exist and validate against schema-discover-ai.md; metadata.profile_source is iac_cognitive when IaC was the only qualifying producer and merged when app-code also qualified; metadata.sources_analyzed.terraform is true; summary.inferred_from_iac is true; and infrastructure[] contains every qualifying IaC resource by config.tf_address. WHEN a Cognitive Services deployment declares a literal config.model.name, models[] contains that model with detected_via including terraform. This check is not vacuously satisfied merely because app-code found no AI signal"
+  - _assert: "PRODUCER AGREEMENT (IaC): WHEN azure-resource-inventory.json contains a case-insensitive azure_type in {Microsoft.CognitiveServices/accounts, Microsoft.CognitiveServices/accounts/deployments, Microsoft.MachineLearningServices/workspaces} WHOSE source includes terraform, the iac fragment has qualifying evidence and ai-workload-profile.json MUST exist and validate against schema-discover-ai.md; metadata.profile_source is iac_cognitive when IaC was the only qualifying producer and merged when app-code also qualified; metadata.sources_analyzed.terraform is true; summary.inferred_from_iac is true; and infrastructure[] contains every qualifying IaC resource by config.tf_address. WHEN such a Cognitive Services deployment declares a literal config.model.name, models[] contains that model with detected_via including terraform. This check is not vacuously satisfied merely because app-code found no AI signal"
+    _on_failure: _halt_and_inform
+  - _assert: "PRODUCER AGREEMENT (live): WHEN azure-resource-inventory.json contains a case-insensitive azure_type in {Microsoft.CognitiveServices/accounts, Microsoft.CognitiveServices/accounts/deployments, Microsoft.MachineLearningServices/workspaces} WHOSE source is live-only (no terraform), ai-workload-profile.json MUST exist and validate against schema-discover-ai.md, carry a detection_signals[] entry with method 'live_az', and — when a captured deployment declares a literal config.model.name — list that model in models[]. profile_source is iac_cognitive (the schema reserves no separate live value). This clause governs live-only Cognitive resources so the IaC clause's terraform/tf_address requirements do not false-fail a run with no IaC"
     _on_failure: _halt_and_inform
   - _assert: "WHEN azure-resource-inventory.json exists, every edges[] entry's type appears in schema-discover-azure.md § Typed edges — a per-dialect ref may map new syntax onto an existing type but may not invent one"
     _on_failure: _halt_and_inform
@@ -91,27 +96,42 @@ Two facts the frontmatter cannot express:
 
 ## Status — build steps 2 and 4 (partial)
 
-Terraform discovery is real and clustering is real. One fragment (`discover-iac.md`,
-Terraform only) plus an assembler that writes both artifacts.
+Terraform discovery is real, live `az` discovery is real, and clustering is real.
+Two producers now write the inventory: `discover-iac.md` (Terraform) and
+`discover-live.md` (live `az`), plus an assembler that writes both artifacts.
 
 | Lands in | What                                                                                                                                                                                                                   |
 | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | step 2   | Bicep + ARM inside `discover-iac.md`; the `billing` and `app-code` fragments                                                                                                                                           |
-| step 2   | The `rdfa` fragment, then the live `az` path — security contract, capture pre-work, parsing fragment, in that order                                                                                                    |
+| step 2   | The `rdfa` fragment                                                                                                                                                                                                    |
 | step 4   | `patterns.md` — pattern RECOGNITION only. Seed / split / merge / tier / primary / roles are implemented in `references/clustering/`; every cluster carries `pattern_status: "catalog_absent"` until the catalog exists |
 
-The live `az` path will NOT be a plain fragment. This phase runs under
-`_exec: { _agent: rw }` with `_interactive: false`, and a dispatched worker is
-file-only — it cannot prompt for consent. Live capture therefore becomes
-main-window pre-work invoked from this phase's `_preconditions` prose, writing to
-`$MIGRATION_DIR/live-capture/`, with the dispatched fragment merely parsing that
-directory. RDfA needs no such split: reading an archive the customer already handed
-over is not interactive.
+**The live `az` path (landed).** This phase runs under `_exec: { _agent: rw }` with
+`_interactive: false`, and a dispatched worker is file-only — it cannot prompt for
+consent. Live discovery is therefore split: **Part A** (consent gate + `az` capture)
+runs as main-window pre-work in the "Run the phase" Step 2 below, writing raw JSON to
+`$MIGRATION_DIR/live-capture/`; the dispatched **`live-parse`** fragment
+(`discover-live.md` Part B) then merely parses that directory into the inventory. RDfA
+needs no such split: reading an archive the customer already handed over is not
+interactive. If Part A is declined or `az` is missing, no `live-capture/` is written
+and the `live-parse` fragment's trigger stays false — the run proceeds on IaC/app-code
+alone.
 
 ## Step: Run the phase
 
 1. Perform `_init` state setup per `INTERPRETER.md` § `_init: true`.
-2. Run each fragment whose `_trigger` holds.
-3. Run `discover-assemble.md`.
-4. Evaluate `_postconditions`. On all-pass emit `HANDOFF_OK`; on any failure emit
+2. **Live-capture pre-work (interactive main window, Part A of `discover-live.md`).**
+   BEFORE dispatching any fragment — because this phase is `_interactive: false` and a
+   dispatched worker cannot prompt for consent — offer live `az` discovery WHEN no IaC
+   source (`.tf`/`.bicep`/ARM) is present in the workspace, OR the user asked to augment
+   IaC with live state. Run `discover-live.md` Steps 0–2 (preflight, consent gate,
+   capture) here in the main window. On consent, the read-only capture writes
+   `$MIGRATION_DIR/live-capture/` + `manifest.json`; on decline, missing `az`, or no
+   offer, write nothing. This step is read-only and never a hard-stop — if it produces
+   nothing, the run continues on IaC/app-code alone (the `live-parse` fragment simply
+   stays inert).
+3. Run each fragment whose `_trigger` holds (the `live-parse` fragment fires only when
+   Step 2 wrote `live-capture/manifest.json`).
+4. Run `discover-assemble.md`.
+5. Evaluate `_postconditions`. On all-pass emit `HANDOFF_OK`; on any failure emit
    `GATE_FAIL` and stop. Do not patch an artifact to force a gate to pass.

@@ -4,13 +4,14 @@ _of_phase: discover
 _reads:
   - iac (fragment contribution)
   - app-code (fragment contribution, when source code with an AI signal is present)
+  - live-parse (fragment contribution, when Part A live capture ran)
 _produces:
   - azure-resource-inventory.json
   - azure-resource-clusters.json
   - ai-workload-profile.json
 _knowledge:
   - { file: references/shared/schema-discover-azure.md }
-  - { file: references/shared/schema-discover-ai.md, _when: "application code with an AI signal is present OR the IaC contribution contains a Cognitive Services account/deployment or Machine Learning workspace" }
+  - { file: references/shared/schema-discover-ai.md, _when: "application code with an AI signal is present OR the IaC or live-parse contribution contains a Cognitive Services account/deployment or Machine Learning workspace" }
   - { file: references/clustering/clustering-algorithm.md }
   - { file: references/clustering/typed-edges-strategy.md }
   - { file: references/clustering/classification-rules.md }
