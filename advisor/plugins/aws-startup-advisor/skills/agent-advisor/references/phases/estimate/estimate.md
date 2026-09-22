@@ -49,16 +49,16 @@ and the `units[]` array from design.json. Each unit has `id`, `workload_class`, 
 
 1. Primary: a small cached rate table (inline below — AgentCore vCPU/GB-hour, Fargate, Lambda,
    plus the model default's token rates as order-of-magnitude). Carry a "last updated" date.
-2. Fallback for anything missing: the `awspricing` MCP if available.
+2. Fallback for anything missing: the `aws-mcp` server if available.
 3. Record `pricing_source`: `cached` | `cached_stale` (if >30 days old) | `mcp`.
 
-Cached anchors (order-of-magnitude, us-east-1, verify; last updated 2025-07-14 — refresh via awspricing MCP when >30 days old):
+Cached anchors (order-of-magnitude, us-east-1, verify; last updated 2025-07-14 — refresh via aws-mcp server when >30 days old):
 
 - AgentCore (microVMs compute type): ~$0.0895/vCPU-hour (active CPU only), ~$0.00945/GB-hour
 - AgentCore (Instances compute type, `agentcore_compute_type: "instances"` in design.json):
   EC2 On-Demand rate for the chosen instance type (user's Savings Plans / ODCRs apply) PLUS
   an AgentCore management fee — NOT consumption-based and NOT $0 during I/O wait. No cached
-  anchor here: pull the EC2 rate via the awspricing MCP (instance type comes from the user's
+  anchor here: pull the EC2 rate via the aws-mcp server (instance type comes from the user's
   instance_type_requirement answer, else assume a mid-size general-purpose type and say so).
 - Lambda MicroVMs: ~$0.0997/vCPU-hour, ~$0.0132/GB-hour
 - Fargate: ~$0.04048/vCPU-hour, ~$0.004445/GB-hour
@@ -82,7 +82,7 @@ stated); reusing an existing cluster → near-zero marginal cost ONLY when the u
 spare capacity to absorb the workload — otherwise Karpenter/ASG adds nodes and the full
 incremental node cost applies, so price the added EC2/Fargate capacity the workload needs. State
 the capacity-type assumption (and whether spare capacity was assumed). When the capacity type or
-instance is unknown, fall through to the awspricing MCP rather than assuming Fargate. A W1
+instance is unknown, fall through to the aws-mcp server rather than assuming Fargate. A W1
 "existing cluster reuse" verdict or a consolidation onto EKS can land a service/batch unit here —
 this rule governs it, NOT the class default below.
 
@@ -91,7 +91,7 @@ this rule governs it, NOT the class default below.
   %). Apply the cached anchors from Step 2 (AgentCore vCPU/GB, Lambda MicroVMs, Fargate) plus
   Bedrock model token rates. For a `lambda` runtime use Lambda request pricing (invocations ×
   duration × memory). For `eks`, apply the EKS pricing rule above. Any runtime missing a cached
-  anchor falls through to the awspricing MCP.
+  anchor falls through to the aws-mcp server.
   For answers, read `answers.json.units[<unit_id>]` (which is already fully resolved — system +
   unit dims merged).
 
@@ -124,7 +124,7 @@ this rule governs it, NOT the class default below.
     can run into hundreds–thousands of $/month, not "tens". State the node-capacity assumption.
   - `effective_runtime == "serverless_workers"` → Temporal Serverless Workers is **Public
     Preview, not GA** (labeled so regardless of any docs claim — the label has moved before
-    without a GA announcement). Do NOT invent a cached anchor: try the awspricing MCP for its
+    without a GA announcement). Do NOT invent a cached anchor: try the aws-mcp server for its
     published rate; if unavailable or unverified, give a **qualitative fallback** (state
     "Serverless Workers pricing is Public Preview / unverified — treated as a scale-to-zero
     execution-billed tier; confirm the published rate before committing") rather than a
@@ -175,7 +175,7 @@ them into the total: `compute` (runtime/request pricing: AgentCore or Lambda Mic
 Fargate, Lambda requests), `model_tokens` (Bedrock token costs — `null` for units that call no
 models), and `other` (everything else: ALB, storage). Every component is a band, never precise —
 EXCEPT when a component's rate is genuinely unverifiable (a Serverless Workers Public Preview
-polling tier whose rate the awspricing MCP could not confirm): set that component to the string
+polling tier whose rate the aws-mcp server could not confirm): set that component to the string
 `"unverified"` instead of a fabricated band, and reflect it in `monthly_magnitude_usd` — if the
 unverified component is the only compute line, the unit's `monthly_magnitude_usd` is the band of
 its remaining priced components plus a `"+ unverified SW polling"` suffix (e.g. `"40-120 +

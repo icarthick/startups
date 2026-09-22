@@ -176,7 +176,7 @@ A workload above 272K context must be priced at the long-context tier.
 > **The Luna "blog discrepancy" resolved differently than first recorded.** The AWS News Blog's 0.20 / 1.20 is not
 > an error — it is the **Global CRIS** rate, now published on the Luna card. An earlier revision of this file said
 > global pricing was unpublished and treated the blog figure as wrong; both statements are corrected here.
-> Separately, the **AWS Price List API still carries no GPT-5.x rows** (checked 2026-08-04): the `awspricing` MCP
+> Separately, the **AWS Price List API still carries no GPT-5.x rows** (checked 2026-08-04): the `aws-mcp` server
 > cannot price these models, and an empty result must not be read as "model unavailable."
 
 ### Prompt caching — GPT-5.6 only

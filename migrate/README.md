@@ -139,11 +139,11 @@ GCP/Heroku migrations write a `.migration/<session>/` directory; agent-advisor w
 
 ## MCP Servers
 
-| Server            | Purpose                                                                                                                                                                                                               |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **awsknowledge**  | AWS documentation, regional availability, architecture guidance                                                                                                                                                       |
-| **awspricing**    | Real-time AWS service pricing for cost estimates                                                                                                                                                                      |
-| **temporal-docs** | Temporal Knowledge Base, operated by kapa.ai (queries are sent to that third-party service). Used only by the agent-advisor Temporal branch; one-time login via `/mcp`, falls back to a public-web lookup if declined |
+| Server      | Purpose                                                                                                                                    |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| **aws-mcp** | Unified AWS MCP Server: documentation lookups, regional availability, knowledge search. Endpoint: `https://aws-mcp.us-east-1.api.aws/mcp`. |
+
+> **Known capability gaps:** The `aws-pricing-calculator` MCP server (shareable estimate links) and direct pricing API tools are not available in the unified server. The `calculator_url` field in workshop scenarios will be `null` until an alternative is available. The `temporal-docs` MCP server has been removed; `agent-advisor` uses web-fetch to `https://docs.temporal.io` for Temporal documentation.
 
 ## Requirements
 

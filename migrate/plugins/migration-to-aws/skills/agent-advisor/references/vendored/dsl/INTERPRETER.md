@@ -289,12 +289,12 @@ tier, whose only baked-in trait is its tool allow-list. The PHASE it runs is pas
 in at dispatch time, so a single shell serves every phase at that tier. The plugin
 ships these workers under `agents/`; the tier maps to the worker name:
 
-| `_agent` | Worker to dispatch                          | Allow-list (the tier)               |
-| -------- | ------------------------------------------- | ----------------------------------- |
-| `ro`     | `migration-to-aws:generic-phase-worker-ro`  | Read, Grep, Glob                    |
-| `rw`     | `migration-to-aws:generic-phase-worker-rw`  | Read, Grep, Glob, Write, Edit       |
-| `rwx`    | `migration-to-aws:generic-phase-worker-rwx` | Read, Grep, Glob, Write, Edit, Bash |
-| `git`    | `migration-to-aws:generic-phase-worker-git` | rw + git                            |
+| `_agent` | Worker to dispatch                             | Allow-list (the tier)               |
+| -------- | ---------------------------------------------- | ----------------------------------- |
+| `ro`     | `aws-startup-advisor:generic-phase-worker-ro`  | Read, Grep, Glob                    |
+| `rw`     | `aws-startup-advisor:generic-phase-worker-rw`  | Read, Grep, Glob, Write, Edit       |
+| `rwx`    | `aws-startup-advisor:generic-phase-worker-rwx` | Read, Grep, Glob, Write, Edit, Bash |
+| `git`    | `aws-startup-advisor:generic-phase-worker-git` | rw + git                            |
 
 (Only the workers a skill actually needs are shipped. A phase may only name a tier
 whose worker file is present on disk — CI rejects an `_exec._agent` that names a tier
@@ -490,7 +490,6 @@ opts in), and it returns control to the flow rather than advancing `current_phas
 — so it has no `_advances_to`, and it never appears as a `current_phase` value.
 WHERE a sidebar is offered is orchestration prose (see SKILL.md), not part of
 the phase contract.
-
 A sidebar MAY declare `_gates: <backbone-phase>`: while the sidebar is
 UNRESOLVED (its `phases.<sidebar>` status is not `"completed"`), the interpreter
 must not start the named phase. Resolution — including a decline — lifts the

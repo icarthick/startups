@@ -23,13 +23,19 @@ Each service object carries its rates and (where relevant) a
 
 ## Step 0b: MCP availability check (only if cache stale or service not listed)
 
-Attempt the awspricing MCP with **up to 2 retries** (3 total attempts,
-10-second timeout per attempt):
+Attempt the `aws-mcp` MCP server (unified AWS MCP Server) with **up to 2 retries** (3 total
+attempts, 10-second timeout per attempt):
 
-1. Attempt 1: `get_pricing_service_codes()`
+1. Attempt 1: `aws___search_documentation` with a service pricing query
 2. Timeout/error → wait 1s, attempt 2
 3. Timeout/error → wait 2s, attempt 3
 4. All 3 fail → cached prices, `pricing_source: "cached_fallback"`
+
+> **Note:** The `aws-mcp` server provides AWS documentation and regional availability lookups
+> (`aws___search_documentation`, `aws___read_documentation`, `aws___get_regional_availability`)
+> but does not expose direct pricing API tools. Use cached pricing rates as the primary source;
+> for current pricing not in the cache, use `aws___read_documentation` to fetch the relevant
+> AWS pricing page, or fall back to cached rates with a staleness note.
 
 ## Step 0c: Display the pricing mode
 
@@ -37,10 +43,10 @@ Before any calculation, surface the status:
 
 - Cache fresh + all services covered: "Pricing source: cached (updated
   [date], ±5-10% accuracy). Live pricing API not required."
-- Cache stale + MCP available: "Pricing source: live API (awspricing MCP).
-  Cache is stale ([date]) — using real-time pricing."
+- Cache stale + MCP available: "Pricing source: cached with MCP doc fallback (aws-mcp).
+  Cache is stale ([date]) — using documentation lookups for missing services."
 - Cache stale + MCP unavailable: "Pricing source: stale cache only (updated
-  [date]). The awspricing MCP server is unreachable. Proceeding with cached
+  [date]). The aws-mcp server is unreachable. Proceeding with cached
   pricing; accuracy ±5-10% for infrastructure."
 - Service not in cache + MCP unavailable: "Some services not in pricing cache
   and MCP unreachable. Those services will show `pricing_source: unavailable`
@@ -51,7 +57,7 @@ Before any calculation, surface the status:
 | Priority | Source                                               | Condition                                                                                      | `pricing_source` value |
 | -------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------- |
 | 1        | `references/vendored/pricing/aws-infra-pricing.json` | Service found in the pricing file                                                              | `"cached"`             |
-| 2        | MCP API (`get_pricing`)                              | Service NOT in the file, MCP available                                                         | `"live"`               |
+| 2        | MCP doc lookup (`aws___read_documentation`)          | Service NOT in the file, aws-mcp available                                                     | `"live"`               |
 | 3        | Pricing file after MCP failure                       | MCP attempted but failed, service IS in file                                                   | `"cached_fallback"`    |
 | 4        | Formula constants / well-known published rate        | NOT in file, MCP failed, but the cost engine's own formulas carry the rate (state it verbatim) | `"estimated"`          |
 | 5        | Unavailable                                          | NOT in file, MCP failed, no formula constant either                                            | `"unavailable"`        |
