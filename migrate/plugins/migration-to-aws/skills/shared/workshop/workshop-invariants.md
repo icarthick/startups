@@ -72,28 +72,21 @@ reprice:
 
 ## 5. Region honesty
 
-The sheet always shows: region repricing needs live pricing access (awspricing
-MCP) for true regional rates; without it, numbers stay on the us-east-1 cache
+The sheet always shows: region repricing needs live pricing access (aws-mcp
+documentation lookup) for true regional rates; without it, numbers stay on the us-east-1 cache
 basis and every affected estimate carries a `region_note`. Never present
 cache-based numbers as regional.
 
 ## 6. Shareable calculator link (best-effort, never blocks)
 
-After each scenario snapshot, if the `aws-pricing-calculator` MCP server is
-available (probe `get_server_info` once; no retry on failure):
+> **Note:** The `aws-pricing-calculator` MCP server (`sample-aws-pricing-calculator-mcp`) has
+> been removed. The shareable calculator URL feature is not currently supported via the unified
+> `aws-mcp` server. This is a known capability gap — `calculator_url` is always `null` until
+> an alternative is available.
 
-1. Prefer one-shot `build_estimate`: name
-   `"{SKILL_LABEL} migration — {scenario label} ({target_region})"`, services
-   from the scenario's Balanced-tier estimate breakdown (the PRIMARY outcome's
-   set where outcomes exist), each with the scenario's target region — the
-   calculator computes REGIONAL prices server-side, which the cache cannot.
-   On a structured needs-field-discovery response, resolve via
-   `get_service_fields` and retry ONCE; else fall back to
-   `create_estimate` → `add_service` → `export_estimate`.
-2. Store the URL as the manifest's `estimation_summary.calculator_url`.
-3. Any failure or unmappable service → `calculator_url: null`, one chat note,
-   continue. Workshop numbers stay authoritative; the link is a complementary
-   stakeholder artifact. Unconfigured server → silent null.
+After each scenario snapshot, set the manifest's `estimation_summary.calculator_url` to `null`.
+One chat note is sufficient: "Shareable pricing calculator link is not available (capability
+gap — see open question in setup.md)." Workshop numbers stay authoritative.
 
 Compare tables and stakeholder reports render one link line per non-null
 `calculator_url`.

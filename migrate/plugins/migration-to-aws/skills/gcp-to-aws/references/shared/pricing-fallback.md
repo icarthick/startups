@@ -1,14 +1,14 @@
 # Pricing Fallback
 
 > Loaded by `ai-migration-guardrails.md` as the tertiary pricing source when both
-> `pricing-cache.md` (primary) and the `awspricing` MCP server (secondary) are unavailable.
+> `pricing-cache.md` (primary) and the `aws-mcp` server server (secondary) are unavailable.
 
 ## When This File Is Used
 
 Use this fallback **only** when:
 
 1. `pricing-cache.md` is stale (>30 days since `Last updated`) **and**
-2. The `awspricing` MCP `get_pricing` call fails or times out
+2. The `aws-mcp` server `get_pricing` call fails or times out
 
 ## Fallback Behavior
 

@@ -36,18 +36,17 @@ The skills are designed to be cross-aware — `start-building-for-startups` cons
 
 ## MCP servers
 
-The migration skills (`gcp-to-aws`, `heroku-to-aws`, `llm-to-bedrock`, `agent-advisor`) use MCP servers, declared in `advisor/plugins/aws-startup-advisor/.mcp.json`, for live data. The skills run without them — pricing falls back to a bundled cache (±5-25% accuracy) and documentation lookups are skipped — but live pricing and current AWS docs need them configured:
+The migration skills (`gcp-to-aws`, `heroku-to-aws`, `llm-to-bedrock`, `agent-advisor`) use MCP servers, declared in `advisor/plugins/aws-startup-advisor/.mcp.json`, for live data. The skills run without them — pricing falls back to a bundled cache (±5-25% accuracy) and documentation lookups are skipped — but current AWS docs and regional availability need them configured:
 
-- **AWS Knowledge** (`awsknowledge`, HTTP) — current AWS documentation lookups.
-- **AWS Pricing** (`awspricing`, stdio via `uvx awslabs.aws-pricing-mcp-server`) — live pricing data for cost estimates. Requires [`uv`/`uvx`](https://docs.astral.sh/uv/) on the user's machine. Migration skills probe this **once on cold start** and continue with cached pricing if missing (they do not hard-stop Discover/Clarify).
-- **AWS Pricing Calculator** (`aws-pricing-calculator`, stdio via `npx sample-aws-pricing-calculator-mcp`) — builds shareable AWS Pricing Calculator estimates.
-- **Temporal Docs** (`temporal-docs`, HTTP) — Temporal documentation lookups for `agent-advisor`'s Temporal-worker flow.
+- **AWS MCP Server** (`aws-mcp`, HTTP) — unified server for AWS documentation lookups, regional availability checks, and knowledge search. Endpoint: `https://aws-mcp.us-east-1.api.aws/mcp`. See [AWS Agent Toolkit documentation](https://docs.aws.amazon.com/agent-toolkit/latest/userguide/getting-started-aws-mcp-server.html) for setup details.
 
 The knowledge-base, prompt-library, architect, and start-building skills do not require MCP servers.
 
+> **Known capability gaps:** The `aws-pricing-calculator` MCP server (shareable estimate links) and direct pricing API tools (`get_pricing`, `get_pricing_service_codes`, etc.) are not available in the unified AWS MCP Server. The `calculator_url` field in workshop scenarios will be `null` until an alternative is available. The `temporal-docs` MCP server has been removed; `agent-advisor` fetches Temporal documentation via web-fetch to `https://docs.temporal.io` instead.
+
 **These are provisioned automatically only via the Claude Code plugin path** (`/plugin install aws-startup-advisor@claude-plugins-official`), which reads `.mcp.json` at install time.
 
-**The `npx skills add` path below does not configure MCP servers.** The `npx skills` CLI only copies skill files into your agent's skills folder — it has no concept of `.mcp.json` and never touches MCP configuration. If you install this way (Kiro, Cursor, Codex, GitHub Copilot, and everything else in the supported-agent list below), the skills still work per the fallback behavior above, but you'll get live pricing and current AWS docs only after adding the servers yourself:
+**The `npx skills add` path below does not configure MCP servers.** The `npx skills` CLI only copies skill files into your agent's skills folder — it has no concept of `.mcp.json` and never touches MCP configuration. If you install this way (Kiro, Cursor, Codex, GitHub Copilot, and everything else in the supported-agent list below), the skills still work per the fallback behavior above, but you'll get current AWS docs and regional availability data only after adding the unified server yourself:
 
 <details>
 <summary>Kiro — add to `.kiro/settings/mcp.json` (workspace) or `~/.kiro/settings/mcp.json` (user)</summary>
@@ -55,12 +54,7 @@ The knowledge-base, prompt-library, architect, and start-building skills do not 
 ```json
 {
   "mcpServers": {
-    "awsknowledge": { "type": "http", "url": "https://knowledge-mcp.global.api.aws" },
-    "awspricing": {
-      "command": "uvx",
-      "args": ["awslabs.aws-pricing-mcp-server@latest"],
-      "env": { "FASTMCP_LOG_LEVEL": "ERROR", "AWS_REGION": "us-east-1" }
-    }
+    "aws-mcp": { "type": "http", "url": "https://aws-mcp.us-east-1.api.aws/mcp" }
   }
 }
 ```
@@ -78,8 +72,7 @@ Same `mcpServers` block as above.
 <summary>Codex — run `codex mcp add`, or edit `~/.codex/config.toml`</summary>
 
 ```bash
-codex mcp add awsknowledge --url https://knowledge-mcp.global.api.aws
-codex mcp add awspricing -- uvx awslabs.aws-pricing-mcp-server@latest
+codex mcp add aws-mcp --url https://aws-mcp.us-east-1.api.aws/mcp
 ```
 
 </details>
@@ -88,8 +81,13 @@ codex mcp add awspricing -- uvx awslabs.aws-pricing-mcp-server@latest
 <summary>Claude Code — if you installed via `npx skills add` instead of the plugin path</summary>
 
 ```bash
-claude mcp add --transport http awsknowledge https://knowledge-mcp.global.api.aws
-claude mcp add awspricing -- uvx awslabs.aws-pricing-mcp-server@latest
+claude mcp add --transport http aws-mcp https://aws-mcp.us-east-1.api.aws/mcp
+```
+
+For full API access via SigV4 (requires AWS credentials and `uvx`):
+
+```bash
+claude mcp add-json aws-mcp '{"type":"stdio","command":"uvx","args":["mcp-proxy-for-aws-cli@latest","https://aws-mcp.us-east-1.api.aws/mcp","--metadata","AWS_REGION=us-east-1"],"env":{}}'
 ```
 
 </details>

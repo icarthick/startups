@@ -6,7 +6,7 @@ Shared warnings and constraints for all agentic migration paths. Loaded once by 
 
 ## AgentCore Regional Availability
 
-AgentCore services have different regional footprints. Always validate via `get_regional_availability` from the `awsknowledge` MCP server before recommending.
+AgentCore services have different regional footprints. Always validate via `aws___get_regional_availability` from the `aws-mcp` server before recommending.
 
 **As of July 2026:**
 
@@ -111,7 +111,7 @@ Before recommending any Bedrock model in an agentic design:
 For agentic workload cost estimation:
 
 1. **Primary:** `references/shared/pricing-cache.md` (±5-10% accuracy)
-2. **Secondary:** `awspricing` MCP server (±5-10%, real-time)
+2. **Secondary:** `aws-mcp` server documentation lookup via `aws___read_documentation` (±5-10%, real-time)
 3. **Tertiary:** `references/shared/pricing-fallback.md` (±15-25%, broad coverage)
 
 AgentCore Runtime and Harness pricing: consumption-based, no upfront cost. Include in estimate only if the user selects Harness or Strands path.

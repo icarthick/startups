@@ -87,8 +87,8 @@ uv --version 2>/dev/null || echo "UV_MISSING"
 uvx --version 2>/dev/null || echo "UVX_MISSING"
 ```
 
-- If `UV_MISSING` or `UVX_MISSING`: warn the user **once** that live `awspricing` MCP estimates need [`uv` / `uvx`](https://docs.astral.sh/uv/). Continue Discover → Clarify → Design. At Estimate, price from the cache and set `pricing_source.status` to a value the schema defines (`references/shared/schema-estimate-infra.md`: `cached | live | cached_fallback | unavailable`): use `"cached"` for services the cache covers, and `"unavailable"` for services it doesn't — the MCP cannot be reached to fill the gap. Do not use `"cached_fallback"` (that value is reserved for "MCP attempted and failed"; on this path the MCP was never attempted). **Do not hard-stop** an infrastructure migration for missing `uv`.
-- If both are present: note silently (no user nag) and proceed. Live pricing still depends on the `awspricing` MCP being configured.
+- If `UV_MISSING` or `UVX_MISSING`: warn the user **once** that live `aws-mcp` server pricing lookups need [`uv` / `uvx`](https://docs.astral.sh/uv/). Continue Discover → Clarify → Design. At Estimate, price from the cache and set `pricing_source.status` to a value the schema defines (`references/shared/schema-estimate-infra.md`: `cached | live | cached_fallback | unavailable`): use `"cached"` for services the cache covers, and `"unavailable"` for services it doesn't — the MCP cannot be reached to fill the gap. Do not use `"cached_fallback"` (that value is reserved for "MCP attempted and failed"; on this path the MCP was never attempted). **Do not hard-stop** an infrastructure migration for missing `uv`.
+- If both are present: note silently (no user nag) and proceed. Live pricing still depends on the `aws-mcp` server being configured.
 - **Python 3** is required at Generate for `$PLUGIN_ROOT/skills/tf-best-practices/scripts/validate-terraform-policy.py` (gcp infra policy gate — a hard completion gate) and `$PLUGIN_ROOT/scripts/validate-migration-report.py` (report validator). If `python3` is missing, say so once at cold start. Infrastructure Generate cannot reach `POLICY_OK` without python3 — install it before Generate rather than completing Discover → Estimate first. The report validator must still be attempted and its exit code handled per `references/shared/validate-migration-report.md` — if it does not run, tell the user validation did not occur. Never report an unvalidated report as passing.
 
 ### Input Security
@@ -251,7 +251,7 @@ Replace `MMDD-HHMM` with the actual migration ID, generate the `last_updated` IS
 
 ## MCP Servers
 
-**awspricing** (for cost estimation):
+**aws-mcp** (for cost estimation and documentation):
 
 - Provides `get_pricing`, `get_pricing_service_codes`, `get_pricing_service_attributes` tools
 - Only needed during Estimate phase. Discover and Design do not require it.
@@ -350,7 +350,7 @@ gcp-to-aws/
 | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | No GCP sources found (no `.tf`, no app code, no billing data) | Offer live gcloud discovery per `discover.md` Step 1d. Only if declined or unavailable: Stop. Output: "No GCP sources detected. Provide at least one source type (Terraform files, application code, or billing exports), or re-run and accept live discovery." |
 | `.phase-status.json` missing phase gate                       | Stop. Output: "Cannot enter Phase X: Phase Y-1 not completed. Start from Phase Y or resume Phase Y-1."                                                                                                                                                          |
-| awspricing unavailable after 3 attempts                       | Display user warning about ±5-25% accuracy. Use `pricing-cache.md`. Add `pricing_source: "cached_fallback"` to the applicable `estimation-*.json` file.                                                                                                         |
+| aws-mcp server unavailable after 3 attempts                   | Display user warning about ±5-25% accuracy. Use `pricing-cache.md`. Add `pricing_source: "cached_fallback"` to the applicable `estimation-*.json` file.                                                                                                         |
 | User skips questions or says "use defaults for the rest"      | Apply documented defaults for all remaining questions (essential questions and any unconfirmed sheet rows in wizard mode; current and subsequent batches in full mode). Q2/Q3 defaults add a report caveat. Phase 2 completes either way.                       |
 | `aws-design.json` missing required clusters                   | Stop Phase 4. Output: "Re-run Phase 3 to generate missing cluster designs."                                                                                                                                                                                     |
 

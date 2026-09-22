@@ -64,6 +64,5 @@ monthly tiers, `complexity_tier`, `pricing_source`, optional
 fields, else omit/null — feeds the compare view's Outcome column and flip
 callout), and `calculator_url` — a shareable
 calculator.aws estimate URL produced by `workshop-refresh.md` § 6b via the
-`aws-pricing-calculator` MCP when available, else `null`. AWS computes
-regional prices server-side when the link is opened, which is the honest
-answer to region repricing without live pricing access.
+the `aws-pricing-calculator` MCP (removed — capability gap), always `null` for now.
+See open question in `setup.md`. AWS regional prices should be verified directly at calculator.aws.
