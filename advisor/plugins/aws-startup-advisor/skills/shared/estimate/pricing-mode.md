@@ -23,13 +23,23 @@ Each service object carries its rates and (where relevant) a
 
 ## Step 0b: MCP availability check (only if cache stale or service not listed)
 
-Attempt the awspricing MCP with **up to 2 retries** (3 total attempts,
+Attempt the aws-mcp server with **up to 2 retries** (3 total attempts,
 10-second timeout per attempt):
 
-1. Attempt 1: `get_pricing_service_codes()`
+1. Attempt 1: `aws___search_documentation` for the service's pricing page
 2. Timeout/error → wait 1s, attempt 2
 3. Timeout/error → wait 2s, attempt 3
 4. All 3 fail → cached prices, `pricing_source: "cached_fallback"`
+
+> **Note:** The `awspricing` MCP server (`awslabs.aws-pricing-mcp-server`) and the
+> `aws-pricing-calculator` MCP server (`sample-aws-pricing-calculator-mcp`) have been
+> replaced by the unified `aws-mcp` server. The unified server's knowledge tools
+> (`aws___search_documentation`, `aws___read_documentation`, `aws___get_regional_availability`)
+> cover AWS documentation and service information. **Direct pricing API calls
+> (`get_pricing`, `get_pricing_service_codes`, etc.) and shareable AWS Pricing
+> Calculator estimate generation are not available in the unified server** — live
+> pricing lookups fall back to the cache and calculator URLs will be `null` until
+> this capability gap is resolved (tracked as an open question for the maintainer).
 
 ## Step 0c: Display the pricing mode
 
@@ -37,10 +47,11 @@ Before any calculation, surface the status:
 
 - Cache fresh + all services covered: "Pricing source: cached (updated
   [date], ±5-10% accuracy). Live pricing API not required."
-- Cache stale + MCP available: "Pricing source: live API (awspricing MCP).
-  Cache is stale ([date]) — using real-time pricing."
-- Cache stale + MCP unavailable: "Pricing source: stale cache only (updated
-  [date]). The awspricing MCP server is unreachable. Proceeding with cached
+- Cache stale + aws-mcp available: "Pricing source: stale cache (updated
+  [date]). Live pricing API not available via the unified aws-mcp server —
+  proceeding with cached pricing; accuracy ±5-10% for infrastructure."
+- Cache stale + aws-mcp unavailable: "Pricing source: stale cache only (updated
+  [date]). The aws-mcp server is unreachable. Proceeding with cached
   pricing; accuracy ±5-10% for infrastructure."
 - Service not in cache + MCP unavailable: "Some services not in pricing cache
   and MCP unreachable. Those services will show `pricing_source: unavailable`

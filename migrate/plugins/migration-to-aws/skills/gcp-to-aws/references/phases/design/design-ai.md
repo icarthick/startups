@@ -39,7 +39,7 @@ Read `$MIGRATION_DIR/preferences.json` → `ai_constraints` (if present). If abs
 
 Read target region from `preferences.json` → `design_constraints.target_region` (default: `us-east-1`).
 
-Call `get_regional_availability` from the `awsknowledge` MCP server for:
+Call `aws___get_regional_availability` from the `aws-mcp` server for:
 
 1. Each Bedrock model ID being considered (from the loaded model mapping tables)
 2. If `agentic_profile.is_agentic == true`: check `bedrock-agentcore` (Runtime)

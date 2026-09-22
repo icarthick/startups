@@ -50,5 +50,5 @@ demo alone is not enough for the house bar.
 
 Partner one-liner: _SAs can run a what-if workshop after Estimate: change region,
 HA, compute target, or Graviton preference and compare up to 5 priced scenarios
-without re-discovery. (Region dollar deltas need awspricing MCP; otherwise rates
+without re-discovery. (Region dollar deltas need live pricing access; without it, rates
 stay us-east-1-cache-based.)_

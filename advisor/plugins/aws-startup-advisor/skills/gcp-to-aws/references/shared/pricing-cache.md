@@ -77,7 +77,7 @@ Worker nodes billed separately as EC2 or Fargate.
 
 ### EC2 (On-Demand, Linux, Graviton/ARM64)
 
-~15–20% below the x86 equivalent at the same vCPU/memory. Dev-tier rows cached below; query the `awspricing` MCP for any family or size not listed.
+~15–20% below the x86 equivalent at the same vCPU/memory. Dev-tier rows cached below; use the pricing cache for any family or size not listed (live pricing API not available via aws-mcp).
 
 | Instance   | $/hour | $/month | x86 equivalent |
 | ---------- | ------ | ------- | -------------- |
@@ -591,8 +591,8 @@ see `openai-on-bedrock.md`). GovCloud GPT-5.4 is 3.30 / 19.80.
 
 > **One source conflict.** These models are absent
 > from the AWS Price List API entirely: querying `AmazonBedrock` returns only `gpt-oss` and GPT OSS Safeguard, and
-> filtering on `GPT-5` or a `gpt-5` usage type returns zero rows (price-list publication 2026-08-04). The `awspricing`
-> MCP cannot price them, and an empty result is **not** evidence the model is unavailable. (An earlier revision also
+> filtering on `GPT-5` or a `gpt-5` usage type returns zero rows (price-list publication 2026-08-04). The `aws-mcp`
+> cannot price them, and an empty result is **not** evidence the model is unavailable. (An earlier revision also
 > flagged the AWS News Blog's Luna 0.20 / 1.20 as conflicting; it is the Global CRIS rate, not an error.)
 
 **Prompt caching (GPT-5.6 only):** cached input read at a 90% discount, cache write at 1.25x uncached input, minimum
