@@ -8,23 +8,23 @@ Present questions with a conversational tone and brief context explaining why ea
 
 ## Q1 — Where are your users located?
 
-**Auto-extract signal:** When `gcp-resource-inventory.json` shows a **single** GCP region among PRIMARY compute/database resources, map to the closest AWS region and **skip Q1** with `target_region` `chosen_by: "extracted"`. When multiple regions are present, suggest the closest AWS region as default but still ask Q1.
+**Auto-extract signal:** When `gcp-resource-inventory.json` shows a **single** GCP region among PRIMARY compute/database resources, **skip Q1** with `target_region` set to the closest AWS region (`chosen_by: "extracted"`). When multiple regions are present, default to the closest AWS region but still ask Q1.
 
 **Rationale:** Geography drives AWS region selection and CDN strategy.
 
-> I need to understand your user base to recommend the right AWS region and CDN strategy.
-> (This question is about where your **users** are — latency and placement. If you have **data residency** obligations, GDPR or similar, that's handled by the compliance question, not this one.)
+> Where are your users located? This drives your primary AWS region choice and CDN strategy.
+> (Data residency obligations — GDPR and similar — are handled by the compliance question, not this one.)
 >
 > 1. Single region (e.g., US-only, EU-only)
 > 2. Multi-region (2–3 regions, e.g., US + EU)
 > 3. Global (users worldwide, latency critical)
 > 4. I don't know
 
-| Answer        | Recommendation Impact                                                                                                                                                                                                                     |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Single region | Deploy in closest AWS region to users; standard Route 53 routing                                                                                                                                                                          |
-| Multi-region  | Primary region closest to majority; CloudFront for static assets and API caching; Route 53 latency-based routing — multi-region infrastructure deferred to Q6                                                                             |
-| Global        | Primary region by largest user concentration; CloudFront globally distributed; Route 53 geolocation routing — Aurora Global Database and multi-region compute only if Q6 = Catastrophic AND write latency is a confirmed hard requirement |
+| Answer        | Recommendation Impact                                                                                                                                                                                                                      |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Single region | Deploy in closest AWS region to users; standard Route 53 routing                                                                                                                                                                           |
+| Multi-region  | Primary region closest to majority; CloudFront for static assets and API caching; Route 53 latency-based routing — multi-region infrastructure deferred to Q6                                                                              |
+| Global        | Primary region for largest user concentration; CloudFront globally distributed; Route 53 geolocation routing — Aurora Global Database and multi-region compute only if Q6 = Catastrophic AND write latency is a confirmed hard requirement |
 
 Interpret:
 
