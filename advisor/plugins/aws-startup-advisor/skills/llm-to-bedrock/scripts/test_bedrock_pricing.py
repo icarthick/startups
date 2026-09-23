@@ -87,6 +87,19 @@ def test_static_fallback_unknown_returns_none():
     assert out is None
 
 
+def test_opus_5_and_5_5_not_in_static_table_until_rates_confirmed():
+    # Opus 5 (Jul 2026) and Opus 5.5 (Sep 2026) rates could not be confirmed from
+    # the Bedrock pricing page (JS-rendered tab) or Price List API in the 2026-09-23 refresh.
+    # These entries are intentionally absent — the test documents that absence so that
+    # when rates ARE confirmed and added, the entry is explicit (not inherited by partial match).
+    for mid in ("anthropic.claude-opus-5", "us.anthropic.claude-opus-5",
+                "anthropic.claude-opus-5-5", "us.anthropic.claude-opus-5-5"):
+        assert bp.STATIC_FALLBACK.get(mid) is None, (
+            f"{mid} is in STATIC_FALLBACK but its rate was UNVERIFIED as of 2026-09-23 — "
+            "update this test once the rate is confirmed from the Bedrock pricing page"
+        )
+
+
 def test_display_name_guess_derives_pricing_api_display_names():
     # The Pricing API's 'model' attribute holds display names, not model ids.
     assert bp.display_name_guess("us.anthropic.claude-haiku-4-5-20251001-v1:0") == "Claude Haiku 4.5"

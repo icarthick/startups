@@ -37,8 +37,10 @@ def parse_price_dimensions(price_item: dict) -> dict:
 # Used when the PriceList API doesn't return data (e.g. new cross-region inference profile IDs).
 # Source: https://aws.amazon.com/bedrock/pricing/, cross-checked row-by-row against
 # skills/gcp-to-aws/references/shared/pricing-cache.md (its per-1M rates / 1000).
-# Every row below was re-verified against that cache on 2026-08-04; the Opus 4.8 row
+# Every row below was re-verified against that cache on 2026-09-23; the Opus 4.8 row
 # had been copied from Opus 4.1's legacy $15/$75 and was corrected to $5/$25.
+# Opus 5 and Opus 5.5 rates are UNVERIFIED — the Bedrock pricing page Anthropic tab
+# is JavaScript-rendered and not accessible in this run; entries are excluded until confirmed.
 # `mise run pricing:staleness` re-checks this table against the cache.
 STATIC_FALLBACK = {
     "anthropic.claude-haiku-4-5-20251001-v1:0":     {"input_per_1k_usd": 0.001, "output_per_1k_usd": 0.005},
@@ -53,6 +55,13 @@ STATIC_FALLBACK = {
     # Opus 4.8 has no dated foundation-model ID on the model card — suffix-less only.
     "anthropic.claude-opus-4-8":                    {"input_per_1k_usd": 0.005, "output_per_1k_usd": 0.025},
     "us.anthropic.claude-opus-4-8":                 {"input_per_1k_usd": 0.005, "output_per_1k_usd": 0.025},
+    # Opus 5 (launched Jul 24, 2026) and Opus 5.5 (launched Sep 22, 2026) — rates UNVERIFIED.
+    # The Bedrock pricing page Anthropic tab is JavaScript-rendered; on-demand rates could not
+    # be confirmed via Price List API or ML blog in this run. These entries are intentionally
+    # absent from the table — lookups will fall through to the PriceList API (which likely also
+    # has no entry) and return unavailable, directing callers to verify from the pricing page.
+    # When confirmed, add: "anthropic.claude-opus-5" / "us.anthropic.claude-opus-5"
+    # and "anthropic.claude-opus-5-5" / "us.anthropic.claude-opus-5-5"
     "amazon.nova-micro-v1:0":                       {"input_per_1k_usd": 0.000035, "output_per_1k_usd": 0.00014},
     "amazon.nova-lite-v1:0":                        {"input_per_1k_usd": 0.00006, "output_per_1k_usd": 0.00024},
     "amazon.nova-pro-v1:0":                         {"input_per_1k_usd": 0.0008, "output_per_1k_usd": 0.0032},
@@ -154,7 +163,7 @@ def lookup(region: str, model_id: str) -> dict:
     # by display name and frequently lacks entries for new inference profiles.
     fb = _static_fallback(model_id)
     if fb:
-        fb["note"] = ("static pricing table (verified 2026-08-04 against "
+        fb["note"] = ("static pricing table (verified 2026-09-23 against "
                       "aws.amazon.com/bedrock/pricing and the vendored pricing cache)")
         return fb
     if is_mantle_gpt(model_id):
