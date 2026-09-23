@@ -5,10 +5,11 @@ Fails when a known-bad Bedrock model ID appears in the plugin outside the
 files whose JOB is to catalog it. Two classes today:
 
 1. EOL-as-target: models that are past EOL or inside the 90-day exclusion
-   zone per ai-model-lifecycle.md — Claude Sonnet 4, Claude 3 Haiku, Nova
-   Premier v1, Nova Sonic v1. Each may appear in the model catalog / pricing
-   rate card (that's what a lifecycle table is for), but nowhere else: an
-   example or script carrying one becomes a rewrite target.
+   zone per ai-model-lifecycle.md — Claude Sonnet 4.5 (EOL Sep 30, 2026),
+   Claude Sonnet 4 (EOL Oct 14, 2026), Claude 3 Haiku, Nova Premier v1,
+   Nova Sonic v1. Each may appear in the model catalog / pricing rate card
+   (that's what a lifecycle table is for), but nowhere else: an example or
+   script carrying one becomes a rewrite target.
 
 2. Fabricated hybrids: `claude-sonnet-4-6-<date>` / `claude-opus-4-8-<date>`
    — Sonnet 4.6 and Opus 4.8 IDs are UNDATED; the dated forms graft a newer
@@ -28,6 +29,14 @@ PLUGIN = Path(__file__).resolve().parent.parent
 EXTS = {".md", ".py", ".json", ".ts", ".tf", ".sh", ".template"}
 
 BAD_PATTERNS = [
+    (
+        re.compile(r"claude-sonnet-4-5-20250929"),
+        "Claude Sonnet 4.5 (EOL 2026-09-30, excluded) used outside the model catalog",
+        {  # allowlist: catalog files whose job is recording the model + its EOL status
+            "skills/gcp-to-aws/references/shared/pricing-cache.md",
+            "skills/gcp-to-aws/references/shared/ai-model-lifecycle.md",
+        },
+    ),
     (
         re.compile(r"claude-sonnet-4-20250514"),
         "Claude Sonnet 4 (EOL 2026-10-14, excluded) used outside the model catalog",
