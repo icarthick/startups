@@ -10,16 +10,17 @@
 
 | Anthropic SDK model | Bedrock model ID                           | Tier     | Input/Output per 1M |
 | ------------------- | ------------------------------------------ | -------- | ------------------- |
+| `claude-opus-5-*`   | `anthropic.claude-opus-5-5`                | Premium  | $4 / $20            |
 | `claude-opus-4-*`   | `anthropic.claude-opus-4-8`                | Premium  | $5 / $25            |
 | `claude-sonnet-5-*` | `anthropic.claude-sonnet-5`                | Flagship | $2 / $10            |
 | `claude-sonnet-4-*` | `anthropic.claude-sonnet-5`                | Flagship | $2 / $10            |
 | `claude-haiku-4-*`  | `anthropic.claude-haiku-4-5-20251001-v1:0` | Fast     | $1 / $5             |
 
-Claude Sonnet 5's $2 / $10 launch rate became the standard price on Sep 1, 2026 (the scheduled step-up to $3 / $15 was cancelled), so it now undercuts Sonnet 4.6. Prefer the `us.` inference-profile prefix for on-demand invoke. Sonnet 4.6 (`anthropic.claude-sonnet-4-6`) remains Active if the customer must stay on the 4.6 SKU.
+Claude Opus 5.5 (`anthropic.claude-opus-5-5`) is the current recommended premium model at $4/$20 per 1M tokens (CONFIRMED: platform.claude.com/docs, 2026-09-23); prefer it over Opus 4.8 for new migrations needing premium reasoning. Claude Sonnet 5's $2 / $10 launch rate became the standard price on Sep 1, 2026 (the scheduled step-up to $3 / $15 was cancelled), so it now undercuts Sonnet 4.6. Prefer the `us.` inference-profile prefix for on-demand invoke. Sonnet 4.6 (`anthropic.claude-sonnet-4-6`) remains Active if the customer must stay on the 4.6 SKU.
 
 Older Claude models — Claude 3.5 Haiku, Claude 3 Sonnet, Claude 3.5 Sonnet (v1/v2), Claude 3 Haiku, and Claude 3.7 Sonnet — are past EOL or within the 90-day exclusion window. Do **not** recommend them as migration targets. See `shared/ai-model-lifecycle.md` for authoritative status (recomputed each run).
 
-**Recommendation:** Default new Bedrock targets to **Claude Sonnet 5** (flagship) / **Claude Opus 4.8** (hardest reasoning) / **Claude Haiku 4.5** (cost/speed). Converse API call shape is identical across generations. Do **not** default to any Claude Fable / Mythos frontier model — Fable 5, Fable 5.1, or a later 5.x (frontier / Mythos-class pricing; opt-in Covered Models requiring an account-level data-retention mode).
+**Recommendation:** Default new Bedrock targets to **Claude Sonnet 5** (flagship) / **Claude Opus 5.5** (hardest reasoning) / **Claude Haiku 4.5** (cost/speed). Converse API call shape is identical across generations. Do **not** default to any Claude Fable / Mythos frontier model — Fable 5, Fable 5.1, or a later 5.x (frontier / Mythos-class pricing; opt-in Covered Models requiring an account-level data-retention mode).
 
 ---
 

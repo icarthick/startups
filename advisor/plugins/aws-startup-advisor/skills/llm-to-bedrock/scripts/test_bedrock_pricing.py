@@ -26,6 +26,20 @@ def test_static_fallback_returns_known_model():
     assert out["input_per_1k_usd"] == 0.001
     assert out["output_per_1k_usd"] == 0.005
 
+def test_static_fallback_opus_5_5_rate_is_4_and_20_per_1m():
+    """Opus 5.5 is $4/$20 per 1M tokens (0.004/0.020 per 1K).
+    CONFIRMED: platform.claude.com/docs/en/about-claude/models/overview, 2026-09-23."""
+    for key in ("anthropic.claude-opus-5-5", "us.anthropic.claude-opus-5-5"):
+        entry = bp.STATIC_FALLBACK[key]
+        assert entry["input_per_1k_usd"] == 0.004, key
+        assert entry["output_per_1k_usd"] == 0.020, key
+    for model_id in ("anthropic.claude-opus-5-5", "us.anthropic.claude-opus-5-5"):
+        out = bp.lookup("us-east-1", model_id)
+        assert out["available"] is True
+        assert out["input_per_1k_usd"] == 0.004, model_id
+        assert out["output_per_1k_usd"] == 0.020, model_id
+
+
 def test_static_fallback_opus_4_8_rate_is_5_and_25_per_1m():
     """Opus 4.8 is $5/$25 per 1M tokens (0.005/0.025 per 1K), NOT Opus 4.1's legacy
     $15/$75 — see references/shared/pricing-cache.md for the source rates. The table
