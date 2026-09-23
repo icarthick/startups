@@ -37,15 +37,20 @@ def parse_price_dimensions(price_item: dict) -> dict:
 # Used when the PriceList API doesn't return data (e.g. new cross-region inference profile IDs).
 # Source: https://aws.amazon.com/bedrock/pricing/, cross-checked row-by-row against
 # skills/gcp-to-aws/references/shared/pricing-cache.md (its per-1M rates / 1000).
-# Every row below was re-verified against that cache on 2026-08-04; the Opus 4.8 row
-# had been copied from Opus 4.1's legacy $15/$75 and was corrected to $5/$25.
+# Re-verified 2026-09-23 against platform.claude.com/docs (Anthropic model overview) and
+# aws.amazon.com/bedrock/pricing (Anthropic section). All existing Anthropic rows confirmed
+# unchanged. Added Opus 5.5 ($4/$20 per 1M = $0.004/$0.020 per 1K).
 # `mise run pricing:staleness` re-checks this table against the cache.
 STATIC_FALLBACK = {
     "anthropic.claude-haiku-4-5-20251001-v1:0":     {"input_per_1k_usd": 0.001, "output_per_1k_usd": 0.005},
     "us.anthropic.claude-haiku-4-5-20251001-v1:0":  {"input_per_1k_usd": 0.001, "output_per_1k_usd": 0.005},
-    # Recommend default
+    # Recommend defaults
     "anthropic.claude-sonnet-5":                    {"input_per_1k_usd": 0.002, "output_per_1k_usd": 0.010},
     "us.anthropic.claude-sonnet-5":                 {"input_per_1k_usd": 0.002, "output_per_1k_usd": 0.010},
+    # Opus 5.5: $4/$20 per 1M. CONFIRMED: platform.claude.com/docs/en/about-claude/models/overview, 2026-09-23.
+    # Opus 5.5 has no dated foundation-model ID (suffix-less only, same pattern as Opus 4.8).
+    "anthropic.claude-opus-5-5":                    {"input_per_1k_usd": 0.004, "output_per_1k_usd": 0.020},
+    "us.anthropic.claude-opus-5-5":                 {"input_per_1k_usd": 0.004, "output_per_1k_usd": 0.020},
     # Still Active — existing workloads / fallbacks
     "anthropic.claude-sonnet-4-6":                  {"input_per_1k_usd": 0.003, "output_per_1k_usd": 0.015},
     "us.anthropic.claude-sonnet-4-6":               {"input_per_1k_usd": 0.003, "output_per_1k_usd": 0.015},
@@ -154,7 +159,7 @@ def lookup(region: str, model_id: str) -> dict:
     # by display name and frequently lacks entries for new inference profiles.
     fb = _static_fallback(model_id)
     if fb:
-        fb["note"] = ("static pricing table (verified 2026-08-04 against "
+        fb["note"] = ("static pricing table (verified 2026-09-23 against "
                       "aws.amazon.com/bedrock/pricing and the vendored pricing cache)")
         return fb
     if is_mantle_gpt(model_id):
