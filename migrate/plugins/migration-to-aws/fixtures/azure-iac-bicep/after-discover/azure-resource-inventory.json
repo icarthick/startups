@@ -1,0 +1,204 @@
+{
+  "phase": "discover",
+  "metadata": {
+    "discovery_timestamp": "2026-09-24T00:00:00Z",
+    "discovery_sources": [
+      "bicep"
+    ],
+    "subscriptions_discovered": [
+      "<subscription-unknown>"
+    ],
+    "total_resources": 7,
+    "confidence": "inferred"
+  },
+  "resources": [
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-bicep-app/providers/Microsoft.Storage/storageAccounts/sa-bicep-fixture",
+      "azure_type": "Microsoft.Storage/storageAccounts",
+      "azure_type_provenance": "table",
+      "name": "sa-bicep-fixture",
+      "resource_group": "rg-bicep-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "bicep",
+      "config": {
+        "bicep_file": "main.bicep",
+        "bicep_symbol": "storageAccount",
+        "bicep_address": "storageAccount",
+        "bicep_api_version": "2021-06-01",
+        "account_kind": "StorageV2",
+        "sku_name": "Standard_LRS"
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-bicep-app/providers/Microsoft.Web/serverfarms/asp-bicep-fix",
+      "azure_type": "Microsoft.Web/serverfarms",
+      "azure_type_provenance": "table",
+      "name": "asp-bicep-fix",
+      "resource_group": "rg-bicep-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "bicep",
+      "config": {
+        "bicep_file": "main.bicep",
+        "bicep_symbol": "appServicePlan",
+        "bicep_address": "appServicePlan",
+        "bicep_api_version": "2022-09-01",
+        "sku_name": "P1v3",
+        "capacity": 2,
+        "os_type": "Linux"
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-bicep-app/providers/Microsoft.Web/sites/app-bicep-fix",
+      "azure_type": "Microsoft.Web/sites",
+      "azure_type_provenance": "table",
+      "name": "app-bicep-fix",
+      "resource_group": "rg-bicep-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "bicep",
+      "config": {
+        "bicep_file": "main.bicep",
+        "bicep_symbol": "webApp",
+        "bicep_address": "webApp",
+        "bicep_api_version": "2022-09-01",
+        "kind": "app,linux",
+        "https_only": true,
+        "app_setting_names": [
+          "API_SECRET",
+          "KV_URI",
+          "STORAGE_URL"
+        ]
+      },
+      "tags": {},
+      "edges": [
+        {
+          "type": "hosted_on",
+          "to": "/subscriptions/<subscription-unknown>/resourceGroups/rg-bicep-app/providers/Microsoft.Web/serverfarms/asp-bicep-fix",
+          "via": "properties.serverFarmId"
+        },
+        {
+          "type": "data_ref",
+          "to": "/subscriptions/<subscription-unknown>/resourceGroups/rg-bicep-app/providers/Microsoft.Storage/storageAccounts/sa-bicep-fixture",
+          "via": "appSettings[STORAGE_URL]"
+        },
+        {
+          "type": "secret_ref",
+          "to": "/subscriptions/<subscription-unknown>/resourceGroups/rg-bicep-app/providers/Microsoft.KeyVault/vaults/kv-existing-fix",
+          "via": "appSettings[KV_URI]"
+        }
+      ],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-bicep-app/providers/Microsoft.KeyVault/vaults/kv-existing-fix",
+      "azure_type": "Microsoft.KeyVault/vaults",
+      "azure_type_provenance": "table",
+      "name": "kv-existing-fix",
+      "resource_group": "rg-bicep-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "bicep",
+      "config": {
+        "bicep_file": "main.bicep",
+        "bicep_symbol": "existingKeyVault",
+        "bicep_address": "existingKeyVault",
+        "bicep_api_version": "2023-07-01",
+        "bicep_existing": true
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-bicep-app/providers/Microsoft.OperationalInsights/workspaces/bicep:logWorkspace",
+      "azure_type": "Microsoft.OperationalInsights/workspaces",
+      "azure_type_provenance": "table",
+      "name": "bicep:logWorkspace",
+      "resource_group": "rg-bicep-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "bicep",
+      "config": {
+        "bicep_file": "main.bicep",
+        "bicep_symbol": "logWorkspace",
+        "bicep_address": "logWorkspace",
+        "bicep_api_version": "2022-10-01",
+        "bicep_name_expression": "'log-ws-${i}'",
+        "multiplicity_expression": "range(0, 3)",
+        "multiplicity_unresolved": true,
+        "sku": "PerGB2018",
+        "retention_in_days": 30
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
+    },
+    {
+      "azure_id": "/subscriptions/<subscription-unknown>/resourceGroups/rg-bicep-app/providers/Microsoft.Web/staticSites/static-bicep-fix",
+      "azure_type": "Microsoft.Web/staticSites",
+      "azure_type_provenance": "table",
+      "name": "static-bicep-fix",
+      "resource_group": "rg-bicep-app",
+      "subscription_id": "<subscription-unknown>",
+      "location": "westeurope",
+      "source": "bicep",
+      "config": {
+        "bicep_file": "modules/web.bicep",
+        "bicep_symbol": "staticSite",
+        "bicep_address": "module.webMod.staticSite",
+        "bicep_module": "module.webMod",
+        "bicep_api_version": "2022-09-01",
+        "sku_name": "Free",
+        "tier": "Free"
+      },
+      "tags": {},
+      "edges": [],
+      "drift": []
+    }
+  ],
+  "iac_metadata": {
+    "dialects_found": [
+      "bicep"
+    ],
+    "dialects_extracted": [
+      "bicep"
+    ],
+    "files_scanned": 2,
+    "modules_unresolved": [
+      "sharedNet"
+    ],
+    "untranslated_types": [],
+    "subscription_id_source": "unresolved"
+  },
+  "warnings": [
+    {
+      "code": "subscription_id_unresolved",
+      "detail": "No subscription ID found in the Bicep workspace. Using placeholder <subscription-unknown>.",
+      "identifier": "iac_metadata"
+    },
+    {
+      "code": "module_not_resolved",
+      "detail": "Module 'sharedNet' (source: br/public:network/virtual-network:6.0.0) is not on disk. Its resources were not discovered.",
+      "identifier": "sharedNet"
+    },
+    {
+      "code": "multiplicity_unresolved",
+      "detail": "Resource 'logWorkspace' uses a for expression (range(0, 3)). A single inventory entry is recorded; the actual count is unresolved.",
+      "identifier": "logWorkspace"
+    },
+    {
+      "code": "name_expression_unresolved",
+      "detail": "Resource 'logWorkspace' name is an expression ('log-ws-${i}'). The azure_id carries a 'bicep:' segment and cannot be matched against a live capture.",
+      "identifier": "logWorkspace"
+    }
+  ],
+  "unclustered": []
+}

@@ -200,12 +200,17 @@ producing a nearly empty inventory. See `extract-terraform.md` Step 3.
 and its asserter. The minimal `iac_cognitive` AI-profile producer is implemented for
 Terraform-discovered Cognitive Services and Azure Machine Learning resources.
 
+**Bicep is implemented**, via `extract-bicep.md`. It is exercised by the
+`azure-iac-bicep` fixture and its asserter.
+
 | Lands in | What                                                            |
 | -------- | --------------------------------------------------------------- |
-| step 2   | `extract-bicep.md` and `extract-arm.md`                         |
+| done     | `extract-terraform.md`                                          |
+| done     | `extract-bicep.md`                                              |
+| step 3   | `extract-arm.md`                                                |
 | done     | Minimal `iac_cognitive` producer for `ai-workload-profile.json` |
 
-Until those two refs exist, a workspace containing `.bicep` or ARM templates **halts**
+Until `extract-arm.md` exists, a workspace containing ARM JSON templates **halts**
 per Step 2 rather than partially discovering. That is deliberate: a partial inventory
 presented as complete is worse than a stop, because the estimate that follows is
 confidently wrong about the size of the estate.
