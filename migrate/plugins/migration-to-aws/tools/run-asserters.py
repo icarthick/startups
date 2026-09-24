@@ -66,6 +66,11 @@ ASSERTERS = {
     # right-sizing delta is legitimately $0 — the two states an implementation is most
     # likely to fake into something tidier.
     "azure-iac-terraform/check_expected_estimate.py": "azure-iac-terraform/after-estimate",
+    # Bicep discovery oracle. `workspace-bicep/` is the committed INPUT; `after-discover/` is
+    # the golden Discover output — 6 resources covering the Bicep-specific divergences:
+    # api-version stripping, source:bicep, existing keyword, loop resource, local module,
+    # registry module warning, symbolic-ref edges, and the secret boundary.
+    "azure-iac-bicep/check_expected_iac_bicep.py": "azure-iac-bicep/after-discover",
 }
 
 

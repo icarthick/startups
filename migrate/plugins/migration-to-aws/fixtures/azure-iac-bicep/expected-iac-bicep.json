@@ -1,0 +1,115 @@
+{
+  "_comment": "Pinned facts for the azure-iac-bicep fixture. Every entry is a decision where a Bicep-specific divergence and the correct answer differ. Facts a model gets right by accident are not asserted. The fixture covers: api-version stripping from azure_type, source:bicep on every entry, symbolic-ref edges resolving to correct azure_id targets, existing resource with config.bicep_existing:true, loop resource with config.multiplicity_unresolved:true, local module resource with bicep_module provenance, registry module producing module_not_resolved warning, and the secret boundary.",
+  "inventory_file": "azure-resource-inventory.json",
+  "discovery_sources": [
+    "bicep"
+  ],
+  "resource_counts": {
+    "declared_in_corpus": 6,
+    "expected_in_inventory": 6,
+    "_comment": "6 resources: storageAccount, appServicePlan, webApp, existingKeyVault (existing), logWorkspace (loop: one entry), staticSite (from local module). The sharedNet registry module is NOT on disk so its resources are NOT counted."
+  },
+  "canonical_types": {
+    "_comment": "Keyed by bicep_address. The api-version must be stripped: azure_type must NOT contain '@'.",
+    "storageAccount": "Microsoft.Storage/storageAccounts",
+    "appServicePlan": "Microsoft.Web/serverfarms",
+    "webApp": "Microsoft.Web/sites",
+    "existingKeyVault": "Microsoft.KeyVault/vaults",
+    "logWorkspace": "Microsoft.OperationalInsights/workspaces",
+    "module.webMod.staticSite": "Microsoft.Web/staticSites"
+  },
+  "api_version_stripped": {
+    "_comment": "The api-version suffix (@YYYY-MM-DD) must be absent from azure_type and present in config.bicep_api_version. This is the primary Bicep-specific divergence from Terraform extraction.",
+    "storageAccount": {
+      "bicep_address": "storageAccount",
+      "expected_bicep_api_version": "2021-06-01",
+      "azure_type_must_not_contain_at": true
+    }
+  },
+  "source_field": {
+    "_comment": "Every Bicep-sourced resource must carry source:bicep. This is what dialects_extracted in iac_metadata asserts at the schema level.",
+    "expected_source": "bicep"
+  },
+  "existing_keyword": {
+    "_comment": "existingKeyVault is declared with the 'existing' keyword. It must appear in the inventory (a resource absent from the inventory cannot be reported as a dependency) and carry config.bicep_existing:true.",
+    "bicep_address": "existingKeyVault",
+    "expected_config_key": "bicep_existing",
+    "expected_config_value": true
+  },
+  "loop_resource": {
+    "_comment": "logWorkspace is declared with a for expression. One inventory entry must be produced with config.multiplicity_unresolved:true. Fanning out into 3 separate entries invents resources.",
+    "bicep_address": "logWorkspace",
+    "expected_single_entry": true,
+    "expected_multiplicity_unresolved": true
+  },
+  "local_module": {
+    "_comment": "staticSite lives in ./modules/web.bicep, loaded as module webMod. It must be discovered and carry config.bicep_module set to its module address.",
+    "bicep_address": "module.webMod.staticSite",
+    "expected_bicep_module": "module.webMod",
+    "expected_bicep_file": "modules/web.bicep"
+  },
+  "symbolic_ref_edges": {
+    "_comment": "Symbolic references in Bicep are the edge vocabulary. These three edges are the load-bearing ones: hosted_on prevents the plan cost multiplication, data_ref preserves the app-to-storage relationship, secret_ref preserves the Key Vault dependency.",
+    "hosted_on": {
+      "from_bicep_address": "webApp",
+      "expected_edge_type": "hosted_on",
+      "via_contains": "serverFarmId",
+      "to_bicep_address": "appServicePlan"
+    },
+    "data_ref": {
+      "from_bicep_address": "webApp",
+      "expected_edge_type": "data_ref",
+      "via_contains": "STORAGE_URL",
+      "to_bicep_address": "storageAccount"
+    },
+    "secret_ref": {
+      "from_bicep_address": "webApp",
+      "expected_edge_type": "secret_ref",
+      "via_contains": "KV_URI",
+      "to_bicep_address": "existingKeyVault"
+    }
+  },
+  "secrets": {
+    "_comment": "Hard boundary. The corpus carries FIXTURE_SENTINEL_MUST_NOT_APPEAR as an app-setting value. The sentinel must not appear anywhere in the artifact. The key 'API_SECRET' must appear in app_setting_names; its value is discarded.",
+    "sentinel": "FIXTURE_SENTINEL_MUST_NOT_APPEAR",
+    "app_setting_names_owner_bicep_address": "webApp",
+    "app_setting_names_expected": [
+      "API_SECRET",
+      "KV_URI",
+      "STORAGE_URL"
+    ]
+  },
+  "registry_module_warning": {
+    "_comment": "The sharedNet module references br/public:network/virtual-network:6.0.0 which is not on disk. A module_not_resolved warning naming this module must be emitted.",
+    "expected_warning_code": "module_not_resolved",
+    "expected_identifier_substring": "sharedNet"
+  },
+  "azure_id": {
+    "subscription_placeholder": "<subscription-unknown>",
+    "subscription_id_source": "unresolved",
+    "standard_form_regex": "^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft\\.[A-Za-z]+/.+$"
+  },
+  "contract_vocabulary": {
+    "_why": "Bicep extraction must use the same closed warning-code and edge-type vocabulary as Terraform extraction. An invented code makes fixture assertions on codes unreliable.",
+    "warning_codes": [
+      "untranslated_terraform_type",
+      "module_not_resolved",
+      "private_endpoint_consumed",
+      "resource_group_unresolved",
+      "name_expression_unresolved",
+      "subscription_id_unresolved",
+      "multiplicity_unresolved",
+      "type_derived_uncorroborated"
+    ],
+    "edge_types": [
+      "hosted_on",
+      "network",
+      "private_link",
+      "secret_ref",
+      "data_ref",
+      "identity_grant",
+      "declared_affinity"
+    ],
+    "forbid_null_config_values": true
+  }
+}

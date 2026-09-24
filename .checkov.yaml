@@ -28,3 +28,8 @@ skip-path:
   # satisfy Checkov would change the source estate the fixture exists to model.
   - migrate/plugins/migration-to-aws/fixtures/azure-iac-terraform/workspace-terraform
   - advisor/plugins/aws-startup-advisor/fixtures/azure-iac-terraform/workspace-terraform
+  # Bicep discovery fixture: the input Bicep for the azure-to-aws skill's Bicep
+  # extraction tests. Models a startup's Azure estate (the migration SOURCE, never
+  # deployed). The extraction oracle tests correctness, not production compliance.
+  - migrate/plugins/migration-to-aws/fixtures/azure-iac-bicep/workspace-bicep
+  - advisor/plugins/aws-startup-advisor/fixtures/azure-iac-bicep/workspace-bicep
