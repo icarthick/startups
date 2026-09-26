@@ -17,6 +17,7 @@
     "canadacentral": { "aws": "ca-central-1", "same_country": true, "geo": "Toronto, Canada" },
     "canadaeast": { "aws": "ca-central-1", "same_country": true, "geo": "Quebec, Canada" },
     "brazilsouth": { "aws": "sa-east-1", "same_country": true, "geo": "Sao Paulo, Brazil" },
+    "mexicocentral": { "aws": "mx-central-1", "same_country": true, "geo": "Querétaro, Mexico" },
     "northeurope": { "aws": "eu-west-1", "same_country": true, "geo": "Ireland" },
     "westeurope": {
       "aws": "eu-west-1",
