@@ -1,15 +1,15 @@
 {
-  "_comment": "Shared AWS infrastructure pricing rates (us-east-1, USD) for the estimate phase. Rates evolve on AWS's cadence, independent of the cost algorithm, so they live here as DATA and the estimate procedure does a lookup, not a guess. Each service carries its rates + a multi_az_handling key; the cost FORMULAS live in the estimate phase's prose (the algorithm is not data). Consumed by the heroku-to-aws and azure-to-aws skills; intended to be shared with gcp-to-aws, which still has its own markdown cache. AI-model / DynamoDB / Redshift / Athena / SageMaker rates are NOT here (they remain in the gcp-to-aws pricing cache). Lambda WAS on that exclusion list and no longer is \u2014 azure-to-aws maps consumption-plan Function Apps to Lambda, so the rates were harvested here from gcp's cache.",
-  "_region_warning": "EVERY rate in this file is _meta.region (us-east-1) and there is no multiplier. A design targeting another region is being priced with us-east-1 numbers: eu-west-1 and eu-central-1 run roughly 5-12% higher for compute and RDS, and some services differ more. This file cannot fix that on its own \u2014 the consuming estimate MUST compare the design's target region against _meta.region and, when they differ, either reprice via the awspricing MCP (which takes a region parameter; note .mcp.json pins AWS_REGION=us-east-1 as the SERVER default, so the region must be passed per call) or state the mismatch next to every total and widen the accuracy band. Silently presenting us-east-1 figures as a eu-west-1 estimate is the failure this key exists to prevent.",
+  "_comment": "Shared AWS infrastructure pricing rates (us-east-1, USD) for the estimate phase. Rates evolve on AWS's cadence, independent of the cost algorithm, so they live here as DATA and the estimate procedure does a lookup, not a guess. Each service carries its rates + a multi_az_handling key; the cost FORMULAS live in the estimate phase's prose (the algorithm is not data). Consumed by the heroku-to-aws and azure-to-aws skills; intended to be shared with gcp-to-aws, which still has its own markdown cache. AI-model / DynamoDB / Redshift / Athena / SageMaker rates are NOT here (they remain in the gcp-to-aws pricing cache). Lambda WAS on that exclusion list and no longer is — azure-to-aws maps consumption-plan Function Apps to Lambda, so the rates were harvested here from gcp's cache.",
+  "_region_warning": "EVERY rate in this file is _meta.region (us-east-1) and there is no multiplier. A design targeting another region is being priced with us-east-1 numbers: eu-west-1 and eu-central-1 run roughly 5-12% higher for compute and RDS, and some services differ more. This file cannot fix that on its own — the consuming estimate MUST compare the design's target region against _meta.region and, when they differ, either reprice via the awspricing MCP (which takes a region parameter; note .mcp.json pins AWS_REGION=us-east-1 as the SERVER default, so the region must be passed per call) or state the mismatch next to every total and widen the accuracy band. Silently presenting us-east-1 figures as a eu-west-1 estimate is the failure this key exists to prevent.",
   "_meta": {
-    "last_updated": "2026-07-19",
+    "last_updated": "2026-09-29",
     "region": "us-east-1",
     "currency": "USD",
-    "accuracy": "\u00b15-10% infrastructure",
+    "accuracy": "±5-10% infrastructure",
     "hours_per_month": 730,
     "staleness_days": 30,
     "staleness_note": "If more than staleness_days past last_updated, infrastructure rates remain reliable; set pricing_source=cached_stale and note it. AI-model rates (not used for heroku->aws) may have drifted.",
-    "last_verification": "2026-07-19 spot-check against published pricing pages: Fargate Linux/x86 us-east-1 ($0.000011244/vCPU-s = $0.04048/hr; $0.000001235/GB-s = the published $0.004445/hr GB rate) matches, and Heroku dyno flat rates match devcenter; no rate changes applied this refresh."
+    "last_verification": "2026-09-29 wholesale re-sourcing sweep via awspricing MCP (us-east-1). Fargate, EKS control plane, EBS gp3, ALB/NLB fixed charges, MSK brokers, Lambda per_request, RDS Proxy, CloudWatch alarms/custom metrics, SNS, Secrets Manager per_secret confirmed via direct API query. RDS PostgreSQL Multi-AZ: all t4g/t3/m6g/r6g/m6i/r6i/x2g families re-verified; m6g and r6g decreased significantly; t3 small-xlarge and r6i increased; db.m6g.12xlarge, db.t3.micro, db.t3.2xlarge added as new rows. Aurora PostgreSQL: r6g family re-verified (rates decreased); db.r6g.12xlarge added; db.r6g.16xlarge now directly confirmed. ElastiCache: m6g family all sizes directly confirmed from API (major decreases replacing prior extrapolations). EC2: r6i family corrected (was ~20% too high); t4g and m6g slightly updated. EKS r6i node_rates_monthly recomputed from confirmed EC2 r6i rates. UNVERIFIED (all query combinations returned empty — existing rates preserved): NAT Gateway (AmazonVPC NatGateway-Hours), SQS (AmazonSQS), ALB/NLB per_lcu_hour (USE1-LCUUsage), CloudWatch xray_per_million_traces (XRay Spans Indexed API returns a different granularity)."
   },
   "_multi_az_convention": {
     "_comment": "THE TRAP: a design's multi_az:true means different things per service. Each service rate below carries multi_az_handling so the formula applies the RIGHT adjustment, never a blanket multiplier.",
@@ -22,20 +22,21 @@
     "per_gb_mem_hour": 0.004445,
     "multi_az_handling": "n/a (Fargate cost is task-size driven, not AZ-driven)",
     "per_vcpu_hour_arm64": 0.03238,
-    "per_gb_mem_hour_arm64": 0.003556
+    "per_gb_mem_hour_arm64": 0.00356
   },
   "alb": {
     "monthly_fixed": 16.43,
-    "per_lcu_hour": 0.008
+    "per_lcu_hour": 0.008,
+    "_note": "monthly_fixed confirmed 2026-09-29: $0.0225/ALB-hr × 730 hrs = $16.425 ≈ 16.43 (AmazonEC2 LoadBalancerUsage). per_lcu_hour UNVERIFIED — USE1-LCUUsage query returned empty; existing cached rate preserved."
   },
   "nlb": {
     "monthly_fixed": 16.43,
     "per_lcu_hour": 0.006,
-    "_note": "Network Load Balancer: $0.0225/NLB-hr (= monthly_fixed 16.43 over 730 hrs, the same fixed charge as ALB) + $0.006/LCU-hr. Harvested from gcp-to-aws references/shared/pricing-cache.md (Networking > Network Load Balancer). Priced by the same formula shape as alb."
+    "_note": "Network Load Balancer: monthly_fixed confirmed 2026-09-29 ($0.0225/NLB-hr × 730 = 16.43, same fixed charge as ALB, AmazonEC2 LoadBalancerUsage). per_lcu_hour UNVERIFIED — USE1-LCUUsage query returned empty; existing cached rate preserved. Priced by the same formula shape as alb."
   },
   "rds_postgresql": {
     "multi_az_handling": "baked_in",
-    "_note": "pricing-cache RDS PostgreSQL table is labeled (On-Demand, Multi-AZ) \u2014 the rate ALREADY includes multi-AZ. Do NOT double for multi_az.",
+    "_note": "RDS PostgreSQL Multi-AZ on-demand hourly, us-east-1. Rate ALREADY includes multi-AZ — do NOT double for multi_az. All rows re-verified 2026-09-29 via AWS Pricing API (AmazonRDS, deploymentOption=Multi-AZ, databaseEngine=PostgreSQL). m6g family decreased ~11%; r6g family slightly decreased; t3 small-xlarge increased ~6%; r6i family increased ~4%; x2g.16xlarge increased significantly. db.m6g.12xlarge, db.t3.micro, db.t3.2xlarge added as new confirmed rows.",
     "instances": {
       "db.t4g.micro": 0.032,
       "db.t4g.small": 0.065,
@@ -43,57 +44,61 @@
       "db.t4g.large": 0.258,
       "db.t4g.xlarge": 0.517,
       "db.t4g.2xlarge": 1.034,
-      "db.m6g.large": 0.356,
-      "db.m6g.xlarge": 0.712,
-      "db.m6g.2xlarge": 1.424,
-      "db.m6g.4xlarge": 2.848,
-      "db.m6g.8xlarge": 5.696,
-      "db.m6g.16xlarge": 11.392,
-      "db.r6g.16xlarge": 14.5,
-      "db.x2g.16xlarge": 18.05,
-      "db.t3.small": 0.068,
-      "db.t3.medium": 0.136,
-      "db.t3.large": 0.272,
-      "db.t3.xlarge": 0.544,
-      "db.m6i.large": 0.382,
-      "db.m6i.xlarge": 0.764,
-      "db.m6i.2xlarge": 1.528,
-      "db.m6i.4xlarge": 3.056,
-      "db.m6i.8xlarge": 6.112,
-      "db.r6i.large": 0.48,
-      "db.r6i.xlarge": 0.96,
-      "db.r6i.2xlarge": 1.92,
-      "db.r6i.4xlarge": 3.84,
-      "db.r6i.8xlarge": 7.68,
-      "db.r6g.large": 0.454,
-      "db.r6g.xlarge": 0.908,
-      "db.r6g.2xlarge": 1.816,
-      "db.r6g.4xlarge": 3.632,
-      "db.r6g.8xlarge": 7.264
+      "db.m6g.large": 0.318,
+      "db.m6g.xlarge": 0.636,
+      "db.m6g.2xlarge": 1.272,
+      "db.m6g.4xlarge": 2.544,
+      "db.m6g.8xlarge": 5.088,
+      "db.m6g.12xlarge": 7.632,
+      "db.m6g.16xlarge": 10.176,
+      "db.r6g.large": 0.45,
+      "db.r6g.xlarge": 0.899,
+      "db.r6g.2xlarge": 1.798,
+      "db.r6g.4xlarge": 3.597,
+      "db.r6g.8xlarge": 7.194,
+      "db.r6g.16xlarge": 14.387,
+      "db.x2g.16xlarge": 20.864,
+      "db.t3.micro": 0.036,
+      "db.t3.small": 0.072,
+      "db.t3.medium": 0.145,
+      "db.t3.large": 0.29,
+      "db.t3.xlarge": 0.579,
+      "db.t3.2xlarge": 1.158,
+      "db.m6i.large": 0.356,
+      "db.m6i.xlarge": 0.712,
+      "db.m6i.2xlarge": 1.424,
+      "db.m6i.4xlarge": 2.848,
+      "db.m6i.8xlarge": 5.696,
+      "db.r6i.large": 0.5,
+      "db.r6i.xlarge": 1.0,
+      "db.r6i.2xlarge": 2.0,
+      "db.r6i.4xlarge": 4.0,
+      "db.r6i.8xlarge": 8.0
     },
     "storage_per_gb_month": 0.23,
-    "_instances_note": "Multi-AZ on-demand hourly, us-east-1. t4g.* verified from the pricing cache; m6g/r6g/x2g (Graviton) and t3/m6i/r6i (x86) families added to MATCH the instance classes the postgres design table (flexible-server-rds-sizing.json) can emit \u2014 x86 rows are the azure default (Windows/.NET fleets, non-Graviton), ~5-7% above their Graviton counterparts; approximate (~2x single-AZ), verify against the public AWS pricing pages for a large estimate. Every rds_instance_class the design can emit MUST have a rate here (no unpriced production DBs)."
+    "_instances_note": "Multi-AZ on-demand hourly, us-east-1. All families re-verified 2026-09-29 via AWS Pricing API. t4g.* for dev/small workloads; m6g/r6g (Graviton) and m6i/r6i (x86) for production; x2g.16xlarge for very large memory workloads. x86 rows are the azure default for Windows/.NET fleets; Graviton is lower cost for equivalent sizes. Every rds_instance_class the design can emit MUST have a rate here (no unpriced production DBs)."
   },
   "aurora_postgresql": {
     "multi_az_handling": "intrinsic",
-    "_note": "Aurora replicates across 3 AZs by default; rate is as-listed, no multi-AZ adjustment.",
+    "_note": "Aurora replicates across 3 AZs by default; rate is as-listed, no multi-AZ adjustment. All rows re-verified 2026-09-29 via AWS Pricing API (AmazonRDS, deploymentOption=Single-AZ, databaseEngine=Aurora PostgreSQL). r6g family decreased ~6-7% vs prior cache. db.r6g.12xlarge added; db.r6g.16xlarge now directly confirmed from API (was previously extrapolated).",
     "instances": {
       "db.t4g.medium": 0.073,
       "db.t4g.large": 0.146,
       "db.r6g.large": 0.26,
-      "db.r6g.xlarge": 0.553,
-      "db.r6g.2xlarge": 1.104,
-      "db.r6g.4xlarge": 2.208,
-      "db.r6g.8xlarge": 4.416,
-      "db.r6g.16xlarge": 8.832
+      "db.r6g.xlarge": 0.519,
+      "db.r6g.2xlarge": 1.038,
+      "db.r6g.4xlarge": 2.076,
+      "db.r6g.8xlarge": 4.153,
+      "db.r6g.12xlarge": 6.229,
+      "db.r6g.16xlarge": 8.306
     },
-    "_instances_note": "r6g.16xlarge extrapolated 2x from 8xlarge; verify via MCP if it drives a large estimate.",
+    "_instances_note": "Single-AZ on-demand hourly per instance (reader nodes priced separately), us-east-1. All rows confirmed 2026-09-29 via AWS Pricing API.",
     "storage_per_gb_month": 0.1,
     "io_per_million": 0.2
   },
   "elasticache": {
     "multi_az_handling": "multiplier_x2",
-    "_note": "pricing-cache ElastiCache is Single-AZ; apply x2 when design multi_az == true.",
+    "_note": "ElastiCache Redis Single-AZ on-demand; apply x2 when design multi_az == true. All rows re-verified 2026-09-29 via AWS Pricing API. m6g family decreased ~28% vs prior cache (all sizes now directly confirmed from API, replacing prior extrapolations).",
     "nodes": {
       "cache.t4g.micro": 0.016,
       "cache.t4g.small": 0.032,
@@ -101,19 +106,19 @@
       "cache.t3.micro": 0.017,
       "cache.t3.small": 0.034,
       "cache.t3.medium": 0.068,
-      "cache.m6g.large": 0.206,
-      "cache.m6g.xlarge": 0.412,
-      "cache.m6g.2xlarge": 0.824,
-      "cache.m6g.4xlarge": 1.648,
-      "cache.m6g.8xlarge": 3.296,
-      "cache.m6g.12xlarge": 4.944,
-      "cache.m6g.16xlarge": 6.592
+      "cache.m6g.large": 0.149,
+      "cache.m6g.xlarge": 0.297,
+      "cache.m6g.2xlarge": 0.593,
+      "cache.m6g.4xlarge": 1.186,
+      "cache.m6g.8xlarge": 2.372,
+      "cache.m6g.12xlarge": 3.557,
+      "cache.m6g.16xlarge": 4.743
     },
-    "_nodes_note": "m6g sizes above large extrapolated by doubling; verify via MCP if large."
+    "_nodes_note": "Redis (OSS) on-demand rates, us-east-1. t4g/t3 for dev/small workloads; m6g for production. All m6g sizes confirmed directly from AWS Pricing API 2026-09-29."
   },
   "msk": {
     "multi_az_handling": "intrinsic",
-    "_note": "broker_count already spans AZs (2 or 3 per design); cost is per-broker, no extra multi-AZ multiplier.",
+    "_note": "broker_count already spans AZs (2 or 3 per design); cost is per-broker, no extra multi-AZ multiplier. Rates confirmed unchanged 2026-09-29 via AWS Pricing API (AmazonMSK).",
     "brokers": {
       "kafka.t3.small": 0.0456,
       "kafka.m5.large": 0.21,
@@ -123,11 +128,11 @@
       "kafka.m5.8xlarge": 3.36,
       "kafka.m5.12xlarge": 5.04
     },
-    "_brokers_note": "MSK broker rates approximate; verify via MCP for a kafka-heavy estimate.",
+    "_brokers_note": "MSK broker rates, us-east-1. t3.small, m5.large, m5.2xlarge, m5.12xlarge confirmed via AWS Pricing API 2026-09-29; m5.xlarge/4xlarge/8xlarge scale linearly and match expected ladder.",
     "storage_per_gb_month": 0.1
   },
   "eks": {
-    "_comment": "EKS cost = control plane (once) + EC2 nodes; PODS COST $0 (compute billed via nodes \u2014 charging pods double-counts). Added per EKS cluster in the design. ALB (web) and NAT are added by their own lines, NOT re-added here.",
+    "_comment": "EKS cost = control plane (once) + EC2 nodes; PODS COST $0 (compute billed via nodes — charging pods double-counts). Added per EKS cluster in the design. ALB (web) and NAT are added by their own lines, NOT re-added here.",
     "control_plane_monthly": 73,
     "node_rates_monthly": {
       "t3.medium": 30.37,
@@ -143,11 +148,11 @@
       "c6i.xlarge": 124.1,
       "c6i.2xlarge": 248.2,
       "c6i.4xlarge": 496.4,
-      "r6i.large": 110.38,
-      "r6i.xlarge": 220.75,
-      "r6i.2xlarge": 441.5,
+      "r6i.large": 91.98,
+      "r6i.xlarge": 183.96,
+      "r6i.2xlarge": 367.92,
       "r6i.4xlarge": 735.84,
-      "r6i.8xlarge": 1766.02,
+      "r6i.8xlarge": 1471.68,
       "m7g.large": 59.57,
       "m7g.xlarge": 119.14,
       "m7g.2xlarge": 238.27,
@@ -160,7 +165,8 @@
   },
   "nat_gateway": {
     "monthly_fixed": 32.85,
-    "per_gb_processed": 0.045
+    "per_gb_processed": 0.045,
+    "_note": "UNVERIFIED — AmazonVPC NatGateway-Hours queries returned empty results across all filter combinations tried 2026-09-29 (USE1-NatGateway-Hours, CONTAINS NatGateway, no-region filter). Existing cached rates preserved. monthly_fixed = $0.045/hr × 730 = $32.85. Verify via AWS pricing pages for large estimates."
   },
   "ebs": {
     "_comment": "EBS volume pricing (us-east-1). Used to price EC2-backed compute root volumes (Elastic Beanstalk instances, EKS nodes) so EB estimates need no known-omission caveat.",
@@ -169,7 +175,8 @@
     "_default_note": "eb_root_volume_gb_default is the AL2023 EB default root size; use aws_config.root_volume_gb when the design specifies one."
   },
   "rds_proxy": {
-    "per_vcpu_hour": 0.015
+    "per_vcpu_hour": 0.015,
+    "_note": "Confirmed unchanged 2026-09-29 via AWS Pricing API (AmazonRDS, database proxy)."
   },
   "route53": {
     "hosted_zone_monthly": 0.5,
@@ -178,16 +185,16 @@
   "sqs": {
     "standard_per_million_requests": 0.4,
     "fifo_per_million_requests": 0.5,
-    "_note": "Azure Service Bus queues / Storage Queues map to SQS. Standard $0.40/M requests, FIFO $0.50/M; 1M requests/mo free tier (not subtracted). Harvested from gcp-to-aws references/shared/pricing-cache.md (Supporting Services > SQS)."
+    "_note": "UNVERIFIED — AmazonSQS API queries returned empty results across all filter combinations tried 2026-09-29 (with/without region, with/without usagetype filters). Existing cached rates preserved. Azure Service Bus queues / Storage Queues map to SQS. Standard $0.40/M requests, FIFO $0.50/M; 1M requests/mo free tier (not subtracted)."
   },
   "sns": {
     "per_million_publishes": 0.5,
     "sqs_delivery_per_million": 0.0,
     "http_delivery_per_million": 0.6,
-    "_note": "Azure Event Grid / Service Bus topics map to SNS. $0.50/M publishes; SQS delivery $0.00/M; HTTP delivery $0.60/M; 1M publishes/mo free tier. Harvested from gcp-to-aws references/shared/pricing-cache.md (Supporting Services > SNS)."
+    "_note": "per_million_publishes confirmed $0.50/M via AWS Pricing API 2026-09-29 (AmazonSNS). Azure Event Grid / Service Bus topics map to SNS. SQS delivery $0.00/M; HTTP delivery $0.60/M; 1M publishes/mo free tier."
   },
   "fast_path_services": {
-    "_comment": "Flat monthly_baseline_est per fast-path add-on \u2014 PINNED stated assumptions for the stopgap (these are estimates, not measured rates; an external pricing source will replace them). per-unit rates kept as documentation of the basis. Use monthly_baseline_est as the breakdown mid; mark the line as an estimate.",
+    "_comment": "Flat monthly_baseline_est per fast-path add-on — PINNED stated assumptions for the stopgap (these are estimates, not measured rates; an external pricing source will replace them). per-unit rates kept as documentation of the basis. Use monthly_baseline_est as the breakdown mid; mark the line as an estimate.",
     "s3": {
       "storage_per_gb_month": 0.023,
       "monthly_baseline_est": 5,
@@ -218,7 +225,7 @@
       "per_secret_month": 0.4,
       "per_10k_api_calls": 0.05,
       "monthly_baseline_est": 2,
-      "_basis": "assumes ~3 secrets @ per_secret_month + light API calls"
+      "_basis": "assumes ~3 secrets @ per_secret_month + light API calls; per_secret_month confirmed $0.40 via AWS Pricing API 2026-09-29"
     },
     "elasticache_memcached": {
       "_use": "same node rates as elasticache (Memcachier mapping)"
@@ -229,10 +236,11 @@
     "log_storage_per_gb_month": 0.03,
     "custom_metric_month": 0.3,
     "standard_alarm_month": 0.1,
-    "xray_per_million_traces": 5
+    "xray_per_million_traces": 5,
+    "_note": "standard_alarm_month ($0.10) and custom_metric_month ($0.30) confirmed unchanged via AWS Pricing API 2026-09-29 (AmazonCloudWatch). xray_per_million_traces UNVERIFIED — API returns XRay Spans Indexed at $0.00000075/span which does not map cleanly to the cached $5/million-traces rate; existing rate preserved pending clarification."
   },
   "ec2": {
-    "_comment": "EC2 On-Demand hourly rates (Linux/x86, us-east-1). Used by the Elastic Beanstalk cost formula to price underlying instances. Every instance_type the EB design can emit MUST have a rate here.",
+    "_comment": "EC2 On-Demand hourly rates (Linux/x86 unless noted as Graviton, us-east-1). Used by the Elastic Beanstalk cost formula to price underlying instances. Every instance_type the EB design can emit MUST have a rate here.",
     "instances": {
       "t3.micro": 0.0104,
       "t3.small": 0.0208,
@@ -245,16 +253,16 @@
       "m5.4xlarge": 0.768,
       "r5.xlarge": 0.252,
       "m5.8xlarge": 1.536,
-      "t4g.micro": 0.0083,
-      "t4g.small": 0.0166,
-      "t4g.medium": 0.0333,
-      "t4g.large": 0.0666,
-      "m6g.large": 0.0768,
-      "m6g.xlarge": 0.1536,
-      "m6g.2xlarge": 0.3072,
-      "m6g.4xlarge": 0.6144,
-      "m6g.8xlarge": 1.2288,
-      "m6g.16xlarge": 2.4576,
+      "t4g.micro": 0.0084,
+      "t4g.small": 0.0168,
+      "t4g.medium": 0.0336,
+      "t4g.large": 0.0672,
+      "m6g.large": 0.077,
+      "m6g.xlarge": 0.154,
+      "m6g.2xlarge": 0.308,
+      "m6g.4xlarge": 0.616,
+      "m6g.8xlarge": 1.232,
+      "m6g.16xlarge": 2.464,
       "r6g.xlarge": 0.2016,
       "r6g.4xlarge": 0.8064,
       "m6i.large": 0.096,
@@ -266,11 +274,11 @@
       "c6i.xlarge": 0.17,
       "c6i.2xlarge": 0.34,
       "c6i.4xlarge": 0.68,
-      "r6i.large": 0.1512,
-      "r6i.xlarge": 0.3024,
-      "r6i.2xlarge": 0.6048,
-      "r6i.4xlarge": 1.2096,
-      "r6i.8xlarge": 2.4192,
+      "r6i.large": 0.126,
+      "r6i.xlarge": 0.252,
+      "r6i.2xlarge": 0.504,
+      "r6i.4xlarge": 1.008,
+      "r6i.8xlarge": 2.016,
       "m7g.large": 0.0816,
       "m7g.xlarge": 0.1632,
       "m7g.2xlarge": 0.3264,
@@ -279,12 +287,12 @@
       "c7g.xlarge": 0.145,
       "c7g.2xlarge": 0.29
     },
-    "_instances_note": "x86 rates match dyno-eb-sizing ec2_instance_type; Graviton rates ~20% below x86 counterparts for workshop arm64 path \u2014 verify via MCP for large estimates.",
-    "_m6i_note": "m6i.large and m6i.xlarge were the first current-generation rates added; the full m6i/c6i/r6i/m7g/c7g size ladders the design's sizing tables (vm-ec2-sizing.json, appservice-eb-sizing.json) can emit are now all present, at published us-east-1 Linux on-demand rates scaled linearly within each family. The EB/EC2 formula looks up ec2.instances[instance_type]; a design emitting a current-generation type must find a row here or it silently prices from a floor. Graviton (m7g/c7g) rates are ~15-20% below the x86 counterpart. Verify via the awspricing MCP for large estimates.",
-    "_windows_note": "THESE RATES ARE LINUX. An instance whose design carries license_model 'License Included' (Windows Server, SQL Server) costs materially MORE than the row above \u2014 roughly 2x for a general-purpose size \u2014 and no Windows rate or per-vCPU license adder is in this file. Pricing a Windows instance from a Linux row understates it, in the direction that flatters AWS and can invert a migrate/stay recommendation. Look the Windows rate up via the awspricing MCP (AmazonEC2, operatingSystem=Windows, preInstalledSw=NA); when the MCP is unreachable, label the line per the estimate phase's partial-line rule rather than silently using the Linux number."
+    "_instances_note": "On-demand Linux rates, us-east-1. Re-verified 2026-09-29 via AWS Pricing API. t4g family updated (minor increases); m6g family updated (minor increases); r6i family corrected (was ~20% too high in prior cache — e.g. r6i.large was $0.1512, now confirmed $0.126). m6i, c6i, r6g, m7g, c7g confirmed unchanged. Graviton (t4g, m6g, r6g, m7g, c7g) rates ~15-20% below x86 counterparts.",
+    "_m6i_note": "m6i/c6i/r6i/m7g/c7g size ladders present to cover the instance types the design sizing tables (vm-ec2-sizing.json, appservice-eb-sizing.json) can emit, at published us-east-1 Linux on-demand rates. Verify via the awspricing MCP for large estimates.",
+    "_windows_note": "THESE RATES ARE LINUX. An instance whose design carries license_model 'License Included' (Windows Server, SQL Server) costs materially MORE than the row above — roughly 2x for a general-purpose size — and no Windows rate or per-vCPU license adder is in this file. Pricing a Windows instance from a Linux row understates it, in the direction that flatters AWS and can invert a migrate/stay recommendation. Look the Windows rate up via the awspricing MCP (AmazonEC2, operatingSystem=Windows, preInstalledSw=NA); when the MCP is unreachable, label the line per the estimate phase's partial-line rule rather than silently using the Linux number."
   },
   "lambda": {
-    "_comment": "AWS Lambda rates (us-east-1). HARVESTED VERBATIM from gcp-to-aws references/shared/pricing-cache.md (Last updated 2026-08-24), which is where these lived when this file's _comment still called Lambda 'gcp-specific'. Azure Function Apps on a consumption plan map to Lambda, so the exclusion no longer holds.",
+    "_comment": "AWS Lambda rates (us-east-1). per_request confirmed unchanged 2026-09-29 via AWS Pricing API. Azure Function Apps on a consumption plan map to Lambda.",
     "per_request": 2e-07,
     "per_gb_second_x86_first_6b": 1.66667e-05,
     "per_gb_second_x86_over_6b": 1.5e-05,
@@ -301,7 +309,7 @@
   },
   "_absent_services": {
     "_comment": "Services a consuming skill's design can emit that have NO rates here or in the gcp-to-aws pricing cache. Listed so the hole is visible in the data rather than discovered mid-estimate. Each needs an awspricing MCP lookup; until then the estimate marks the line unavailable and excludes it from totals. NEVER fabricate a rate for one of these.",
-    "documentdb": "Azure Cosmos DB (Mongo API) maps to DocumentDB. No documentdb section exists. db.t3.medium is a DOCUMENTDB instance class here \u2014 do not read it from rds_postgresql.instances: different service, and those rates are baked-in Multi-AZ. MCP: AmazonDocDB.",
+    "documentdb": "Azure Cosmos DB (Mongo API) maps to DocumentDB. No documentdb section exists. db.t3.medium is a DOCUMENTDB instance class here — do not read it from rds_postgresql.instances: different service, and those rates are baked-in Multi-AZ. MCP: AmazonDocDB.",
     "fsx_windows": "Azure Files (SMB) maps to FSx for Windows File Server. No fsx section exists. Needs per-GiB-month SSD/HDD, single-AZ vs multi-AZ, and throughput capacity. MCP: AmazonFSx.",
     "ec2_windows_license": "See ec2._windows_note. MCP: AmazonEC2 with operatingSystem=Windows.",
     "ecr": "Azure Container Registry maps to Amazon ECR. No ecr rates here or in the gcp-to-aws pricing cache. Needs per-GB-month storage + data-transfer rates. Surface it as a visible excluded line rather than pricing it silently. MCP: AmazonECR.",
@@ -315,7 +323,7 @@
     "appconfig": "Azure App Configuration maps to AWS AppConfig. No rates. Needs config-store + API-call pricing. Excluded line. MCP: AWSAppConfig."
   },
   "_no_cost_services": {
-    "_comment": "AWS services a consuming skill's design can emit that carry NO standalone charge (control-plane, IAM, or free-tier resources). Listed so the coverage oracle treats them as intentionally rate-free rather than a missing rate. A service here must be genuinely free of a direct hourly/GB/request charge \u2014 costs it INDUCES (e.g. NAT for a VPC, data transfer) are priced on their own lines.",
+    "_comment": "AWS services a consuming skill's design can emit that carry NO standalone charge (control-plane, IAM, or free-tier resources). Listed so the coverage oracle treats them as intentionally rate-free rather than a missing rate. A service here must be genuinely free of a direct hourly/GB/request charge — costs it INDUCES (e.g. NAT for a VPC, data transfer) are priced on their own lines.",
     "vpc": "A VPC itself is free; NAT gateway, data transfer, endpoints are separate priced lines.",
     "vpc_subnet": "Free.",
     "vpc_route_table": "Free.",
@@ -325,7 +333,7 @@
     "kms_key": "A customer-managed KMS key is ~$1/mo but is bundled into the security baseline, not a per-design line; treated as no standalone design cost here.",
     "acm_certificate": "Public ACM certificates are free.",
     "route53_routing_policy": "A routing policy is a config of a hosted zone (route53 is priced); no separate charge.",
-    "session_manager": "Systems Manager Session Manager (Azure Bastion target) has no per-hour charge \u2014 the deliberate cost win over an EC2 bastion.",
+    "session_manager": "Systems Manager Session Manager (Azure Bastion target) has no per-hour charge — the deliberate cost win over an EC2 bastion.",
     "ami": "An AMI itself has no charge beyond the EBS snapshot backing it (ebs snapshot is a separate concern)."
   }
 }
