@@ -26,6 +26,14 @@
 - **HTTP callback execution** → EventBridge + SNS/SQS (route to Lambda/Fargate)
 - **Delayed/scheduled queue** → SQS + Lambda (ScheduledEvents)
 
+#### Migration notes
+
+- **Push vs pull**: Cloud Tasks pushes HTTP requests directly to a target URL (push model); SQS is pull-based — consumers poll with `ReceiveMessage`. Bridge the gap with an SQS→Lambda event-source mapping to restore push-invocation semantics for the worker.
+- **Per-task delay and scheduling**: Cloud Tasks supports an arbitrary future `schedule_time` (hours or days ahead); SQS delay queues cap at **15 minutes** (`DelaySeconds` 0–900 s). Use **EventBridge Scheduler** for delays beyond 15 minutes — it supports one-time and recurring schedules with no time ceiling and can target SQS `SendMessage` or Lambda directly.
+- **Delivery semantics**: Both Cloud Tasks and SQS Standard provide **at-least-once delivery** — workers must be idempotent on both sides. Use SQS FIFO if exactly-once processing is required.
+- **Rate and concurrency controls**: Cloud Tasks exposes `max_dispatches_per_second` and `max_concurrent_dispatches` at the queue level; SQS Standard offers nearly unlimited throughput with no built-in rate throttle. Replicate controls via Lambda reserved concurrency, SQS event-source mapping `MaximumConcurrency`, or application-level throttling on the consumer.
+- **Routing guidance**: prefer **EventBridge Scheduler** when the dominant requirement is timed or scheduled dispatch (especially >15 min, one-time, or cron-based); prefer a **direct Lambda invocation** for lightweight stateless HTTP workers that need no queue buffering; use **SQS** when the core need is durable async buffering, decoupled worker pools, or backpressure.
+
 ## 6-Criteria Rubric
 
 Apply in order:
