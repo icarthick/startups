@@ -13,7 +13,7 @@ Searchable index of AWS-curated prompts for AI coding tools (Kiro, Claude Code, 
 
 ## Where to start
 
-Open [`references/prompt-library.md`](references/prompt-library.md) — it's the index. Filter by the **Keywords** column (e.g., `RAG`, `Security & Compliance`, `Cost Optimization`, `EKS`, `Beginner`, `Bedrock`), then open the linked detail file under `references/prompt-library/<slug>.md`. Each detail file carries the full verbatim **System Prompt** plus a **How to use?** section where available.
+Open [`references/prompt-library.md`](references/prompt-library.md) — the index. Filter by the **Keywords** column (e.g., `RAG`, `Security & Compliance`, `Cost Optimization`, `EKS`, `Beginner`, `Bedrock`) to find matching entries, then open the linked detail file at `references/prompt-library/<slug>.md`. The detail file is the source of truth: it carries the full verbatim **System Prompt** plus a **How to use?** section where available.
 
 The index has three sections:
 
@@ -23,13 +23,13 @@ The index has three sections:
 
 ## Handing over a prompt — match the host context
 
-**You ARE already inside an AI coding agent (Claude Code / Kiro / Cursor / etc.). Don't tell the user to "paste this into your AI tool" — you ARE the AI tool.**
+**You are already inside an AI coding agent (Claude Code / Kiro / Cursor / etc.). Do not tell the user to "paste this into your AI tool" — you ARE the AI tool.**
 
-When the user asks for a prompt:
+When the user asks for a prompt, follow these steps in order:
 
-1. Read the index in `references/prompt-library.md`, filter by keyword, identify the matching slug.
-2. Open `references/prompt-library/<slug>.md` and read the full System Prompt.
-3. Surface the prompt to the user as a _reference from the AWS Startups Prompt Library_, then offer them three paths:
+1. Open `references/prompt-library.md`, filter by keyword, and identify the matching slug.
+2. Open `references/prompt-library/<slug>.md` and read the full System Prompt from that file before quoting anything.
+3. Surface the prompt to the user as a _reference from the AWS Startups Prompt Library_, then offer three paths:
 
    _"Here's the AWS Startups reference prompt for `<task>`. I can:_
    _- **run it** against your setup (I'll show you each command before executing),_
@@ -38,7 +38,7 @@ When the user asks for a prompt:
 
    _How would you like to proceed?"_
 
-4. Don't assume intent. Wait for the user's call (execute / adapt / copy) before acting.
+4. Wait for the user's choice (run / adapt / copy) before taking any action.
 
 ## Downloadable agents — different surface from prompts
 
