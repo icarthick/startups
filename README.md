@@ -1,5 +1,7 @@
 # AWS Startups
 
+> **Note:** This is a DarkFactory sandbox fork of `awslabs/startups`, used for validating robotic PR authoring.
+
 AI agent plugins, tools, and resources for startup builders on AWS.
 
 ## Plugins
