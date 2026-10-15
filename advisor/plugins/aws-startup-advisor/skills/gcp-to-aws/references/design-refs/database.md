@@ -41,6 +41,14 @@ Engine (PostgreSQL vs MySQL) comes from GCP `database_version`, not from Q12/Q13
 - **Strong consistency required** → DynamoDB supports strongly consistent reads via `ConsistentRead` parameter
 - **Real-time sync** + **offline support** → DynamoDB Streams + Amplify (app-level)
 
+#### Key differences for migrators
+
+| Dimension   | Firestore                                                          | DynamoDB                                                                                       |
+| ----------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| Data model  | Hierarchical document collections; sub-collections nest under docs | Flat items keyed by partition key + optional sort key; nested maps/lists stored as attributes  |
+| Querying    | Rich ad-hoc queries with multi-field filters, ordering, limiting   | Primary-key-first access; use GSIs for secondary access patterns; arbitrary-field scans costly |
+| Consistency | Strong consistency by default                                      | Eventual consistency by default; opt in to strong reads per-request via `ConsistentRead: true` |
+
 ### BigQuery
 
 **Do not use this rubric to pick an AWS product.** For any `google_bigquery_*` resource, follow **`design-infra.md` → BigQuery specialist gate** only: set `aws_service` to **`Deferred — specialist engagement`**, `human_expertise_required: true`, and direct the customer to **their AWS account team and/or a data analytics migration partner**. Do **not** output Athena, Redshift, Glue, EMR, or similar as the automated mapping in `aws-design.json`.
